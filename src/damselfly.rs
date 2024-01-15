@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 use std::sync::mpsc;
+use log::debug;
 use crate::memory::{MemorySnapshot, MemoryStatus, MemoryUpdate};
 use crate::damselfly::instruction::Instruction;
 
 pub mod instruction;
-mod damselfly_viewer;
+pub mod damselfly_viewer;
+mod graph_widget;
 
 const MAX_MEMORY: u64 = 65535;
-struct Damselfly {
+pub struct Damselfly {
     instruction_rx: mpsc::Receiver<Instruction>,
     snapshot_tx: mpsc::Sender<MemorySnapshot>,
     memory_map: HashMap<u64, MemoryStatus>,
@@ -45,7 +47,7 @@ impl Damselfly {
                     .or_insert(MemoryStatus::Free(callstack));
             }
             MemoryUpdate::Disconnect(reason) => {
-                println!("[Damselfly::execute_instruction]: Memory disconnected ({reason})");
+                debug!("[Damselfly::execute_instruction]: Memory disconnected ({reason})");
             }
         }
         self.send_snapshot();

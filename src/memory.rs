@@ -48,19 +48,16 @@ impl MemoryStub {
                 0 => {
                     self.map.insert(address, MemoryStatus::Allocated(String::from("generate_event_Allocation")));
                     let instruction = Instruction::new(self.time, MemoryUpdate::Allocation(address, String::from("generate_event_Allocation")));
-                    dbg!(&instruction);
                     self.instruction_tx.send(instruction).unwrap();
                 },
                 1 => {
                     self.map.insert(address, MemoryStatus::PartiallyAllocated(String::from("generate_event_PartialAllocation")));
                     let instruction = Instruction::new(self.time, MemoryUpdate::PartialAllocation(address, String::from("generate_event_PartialAllocation")));
-                    dbg!(&instruction);
                     self.instruction_tx.send(instruction).unwrap();
                 },
                 2 => {
                     self.map.insert(address, MemoryStatus::Free(String::from("generate_event_Free")));
                     let instruction = Instruction::new(self.time, MemoryUpdate::Free(address, String::from("generate_event_Free")));
-                    dbg!(&instruction);
                     self.instruction_tx.send(instruction).unwrap();
                 },
                 _ => { panic!("[MemoryStub::generate_event]: Thread RNG out of scope") }
@@ -98,6 +95,7 @@ impl MemoryStub {
 
 #[cfg(test)]
 mod tests {
+    use log::debug;
     use crate::memory::{MemoryStatus, MemoryStub, MemoryUpdate};
 
     #[test]
@@ -135,16 +133,16 @@ mod tests {
             let event = rx.recv().unwrap().get_operation();
             match event {
                 MemoryUpdate::Allocation(address, callstack) => {
-                    eprintln!("[EVENT #{i}: SUCCESS]: Allocation({address} {callstack})");
+                    debug!("[EVENT #{i}: SUCCESS]: Allocation({address} {callstack})");
                 }
                 MemoryUpdate::PartialAllocation(address, callstack) => {
-                    eprintln!("[EVENT #{i}: SUCCESS]: PartialAllocation({address} {callstack})");
+                    debug!("[EVENT #{i}: SUCCESS]: PartialAllocation({address} {callstack})");
                 }
                 MemoryUpdate::Free(address, callstack) => {
-                    eprintln!("[EVENT #{i}: SUCCESS]: Free({address} {callstack})");
+                    debug!("[EVENT #{i}: SUCCESS]: Free({address} {callstack})");
                 }
                 MemoryUpdate::Disconnect(reason) => {
-                    eprintln!("[EVENT #{i}: SUCCESS]: Disconnect({reason})");
+                    debug!("[EVENT #{i}: SUCCESS]: Disconnect({reason})");
                 }
             }
         }

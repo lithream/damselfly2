@@ -19,7 +19,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
                 Press `Esc`, `Ctrl-C` or `q` to stop running.\n\
                 Press left and right to increment and decrement the counter respectively.\n\
                 Counter: {}",
-            app.counter
+            app.damselfly_viewer.get_memory_usage().memory_used_absolute
         ))
         .block(
             Block::default()

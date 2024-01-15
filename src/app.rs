@@ -1,4 +1,7 @@
-use std::error;
+use std::{error, thread};
+use crate::damselfly::damselfly_viewer::DamselflyViewer;
+use crate::damselfly::Damselfly;
+use crate::memory::MemoryStub;
 
 /// Application result type.
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
@@ -8,42 +11,34 @@ pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
 pub struct App {
     /// Is the application running?
     pub running: bool,
-    /// counter
-    pub counter: u8,
-}
-
-impl Default for App {
-    fn default() -> Self {
-        Self {
-            running: true,
-            counter: 0,
-        }
-    }
+    /// Damselfly
+    pub damselfly_viewer: DamselflyViewer
 }
 
 impl App {
     /// Constructs a new instance of [`App`].
     pub fn new() -> Self {
-        Self::default()
+        let (mut memory_stub, instruction_rx) = MemoryStub::new();
+        thread::spawn(move ||{
+            loop {
+                memory_stub.generate_event();
+            }
+        });
+        let (damselfly, snapshot_rx) = Damselfly::new(instruction_rx);
+        let damselfly_viewer = DamselflyViewer::new(damselfly, snapshot_rx);
+        App {
+            running: true,
+            damselfly_viewer,
+        }
     }
 
     /// Handles the tick event of the terminal.
-    pub fn tick(&self) {}
+    pub fn tick(&mut self) {
+        self.damselfly_viewer.update();
+    }
 
     /// Set running to false to quit the application.
     pub fn quit(&mut self) {
         self.running = false;
-    }
-
-    pub fn increment_counter(&mut self) {
-        if let Some(res) = self.counter.checked_add(1) {
-            self.counter = res;
-        }
-    }
-
-    pub fn decrement_counter(&mut self) {
-        if let Some(res) = self.counter.checked_sub(1) {
-            self.counter = res;
-        }
     }
 }

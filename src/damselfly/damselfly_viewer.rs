@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::mpsc;
 use std::thread;
+use log::debug;
 use crate::damselfly::Damselfly;
 use crate::memory::{MemorySnapshot, MemoryStatus};
 
@@ -8,13 +9,15 @@ use crate::memory::{MemorySnapshot, MemoryStatus};
 const DEFAULT_TIMESPAN: u64 = 25;
 const DEFAULT_MEMORYSPAN: u64 = 1024;
 
-struct MemoryUsage {
-    memory_used_percentage: f64,
-    memory_used_absolute: f64,
-    total_memory: u64
+#[derive(Debug, Default, Clone)]
+pub struct MemoryUsage {
+    pub memory_used_percentage: f64,
+    pub memory_used_absolute: f64,
+    pub total_memory: u64
 }
 
-struct DamselflyViewer {
+#[derive(Debug)]
+pub struct DamselflyViewer {
     snapshot_rx: mpsc::Receiver<MemorySnapshot>,
     timespan: (u64, u64),
     timespan_is_unlocked: bool,
@@ -42,7 +45,7 @@ impl DamselflyViewer {
         }
     }
 
-    fn shift_span(&mut self, mut left: u64, mut right: u64, units: i64) -> (u64, u64) {
+    pub fn shift_span(&mut self, mut left: u64, mut right: u64, units: i64) -> (u64, u64) {
         debug_assert!(right > left);
         let span = right - left;
         let absolute_shift = units * span as i64;
@@ -77,7 +80,7 @@ impl DamselflyViewer {
         let update = self.snapshot_rx.recv();
         match update {
             Ok(snapshot) => self.parse_snapshot(snapshot),
-            Err(_) => eprintln!("[DamselflyViewer::update]: Snapshot channel hung up.")
+            Err(_) => debug!("[DamselflyViewer::update]: Snapshot channel hung up.")
         }
 
         if !self.timespan_is_unlocked {
@@ -91,7 +94,7 @@ impl DamselflyViewer {
     }
 
     pub fn parse_snapshot(&mut self, snapshot: MemorySnapshot) {
-        let memory_usage = MemoryUsage{
+        let memory_usage = MemoryUsage {
             memory_used_percentage: snapshot.memory_usage.0 / snapshot.memory_usage.1 as f64,
             memory_used_absolute: snapshot.memory_usage.0,
             total_memory: snapshot.memory_usage.1
@@ -99,10 +102,21 @@ impl DamselflyViewer {
         self.memory_usage_snapshots.push(memory_usage);
         self.memory_map_snapshots.push(snapshot.memory_map);
     }
+
+    pub fn get_memory_usage(&self) -> MemoryUsage {
+        let memory_usage = self.memory_usage_snapshots.last();
+        match memory_usage {
+            None => {
+                MemoryUsage::default()
+            }
+            Some(memory_usage) => (*memory_usage).clone()
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use log::debug;
     use crate::damselfly::Damselfly;
     use crate::damselfly::damselfly_viewer::DamselflyViewer;
     use crate::memory::{MemoryStatus, MemoryStub, MemoryUpdate};
@@ -274,7 +288,7 @@ mod tests {
             memory_stub.force_generate_event(MemoryUpdate::Free(i - 4, String::from("force_generate_event_Free")));
         }
         for i in 0..9 {
-            eprintln!("iteration: {i}");
+            debug!("iteration: {i}");
             damselfly_viewer.update();
         }
         for usage in &damselfly_viewer.memory_usage_snapshots {
