@@ -1,6 +1,6 @@
 use crate::memory::MemoryUpdate;
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct Instruction {
     timestamp: i64,
     operation: MemoryUpdate
@@ -12,7 +12,7 @@ impl Instruction {
     }
 
     pub fn get_operation(&self) -> MemoryUpdate {
-        self.operation
+        self.operation.clone()
     }
 
     pub fn get_timestamp(&self) -> i64 {

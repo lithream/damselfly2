@@ -4,11 +4,11 @@ use std::sync::mpsc::{Receiver, Sender};
 use rand::{Rng};
 use crate::damselfly::instruction::Instruction;
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum MemoryUpdate {
-    Allocation(i64),
-    PartialAllocation(i64),
-    Free(i64),
+    Allocation(i64, String),
+    PartialAllocation(i64, String),
+    Free(i64, String),
 }
 
 #[derive(PartialEq, Debug)]
@@ -38,18 +38,18 @@ impl MemoryStub {
         let address = rand::thread_rng().gen_range(0..65536);
             match rand::thread_rng().gen_range(0..3) {
                 0 => {
-                    self.map.insert(address, MemoryStatus::Allocated(String::from("generate_event_0")));
-                    let instruction = Instruction::new(self.time, MemoryUpdate::Allocation(address));
+                    self.map.insert(address, MemoryStatus::Allocated(String::from("generate_event_Allocation")));
+                    let instruction = Instruction::new(self.time, MemoryUpdate::Allocation(address, String::from("generate_event_Allocation")));
                     self.tx.send(instruction).unwrap();
                 },
                 1 => {
-                    self.map.insert(address, MemoryStatus::PartiallyAllocated(String::from("generate_event_1")));
-                    let instruction = Instruction::new(self.time, MemoryUpdate::PartialAllocation(address));
+                    self.map.insert(address, MemoryStatus::PartiallyAllocated(String::from("generate_event_PartialAllocation")));
+                    let instruction = Instruction::new(self.time, MemoryUpdate::PartialAllocation(address, String::from("generate_event_PartialAllocation")));
                     self.tx.send(instruction).unwrap();
                 },
                 2 => {
-                    self.map.insert(address, MemoryStatus::Free(String::from("generate_event_1")));
-                    let instruction = Instruction::new(self.time, MemoryUpdate::Free(address));
+                    self.map.insert(address, MemoryStatus::Free(String::from("generate_event_Free")));
+                    let instruction = Instruction::new(self.time, MemoryUpdate::Free(address, String::from("generate_event_Free")));
                     self.tx.send(instruction).unwrap();
                 },
                 _ => { panic!("[MemoryStub::generate_event]: Thread RNG out of scope") }
@@ -59,19 +59,19 @@ impl MemoryStub {
     pub fn force_generate_event(&mut self, event: MemoryUpdate) {
         self.time += 1;
         match event {
-            MemoryUpdate::Allocation(address) => {
-                self.map.insert(address, MemoryStatus::Allocated);
+            MemoryUpdate::Allocation(address, ref callstack) => {
+                self.map.insert(address, MemoryStatus::Allocated(callstack.clone()));
                 let instruction = Instruction::new(self.time, event);
                 self.tx.send(instruction).unwrap();
             }
-            MemoryUpdate::PartialAllocation(address) => {
-                self.map.insert(address, MemoryStatus::PartiallyAllocated);
+            MemoryUpdate::PartialAllocation(address, ref callstack) => {
+                self.map.insert(address, MemoryStatus::PartiallyAllocated(callstack.clone()));
                 let instruction = Instruction::new(self.time, event);
                 self.tx.send(instruction).unwrap();
 
             }
-            MemoryUpdate::Free(address) => {
-                self.map.insert(address, MemoryStatus::Free);
+            MemoryUpdate::Free(address, ref callstack) => {
+                self.map.insert(address, MemoryStatus::Free(callstack.clone()));
                 let instruction = Instruction::new(self.time, event);
                 self.tx.send(instruction).unwrap();
 
@@ -87,28 +87,28 @@ mod tests {
     #[test]
     fn allocate() {
         let (mut memory_stub, rx) = MemoryStub::new();
-        memory_stub.force_generate_event(MemoryUpdate::Allocation(0));
-        assert_eq!(*memory_stub.map.get(&0).unwrap(), MemoryStatus::Allocated);
-        assert_eq!(rx.recv().unwrap().get_operation(), MemoryUpdate::Allocation(0));
+        memory_stub.force_generate_event(MemoryUpdate::Allocation(0, String::from("force_generate_event_Allocation")));
+        assert_eq!(*memory_stub.map.get(&0).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
+        assert_eq!(rx.recv().unwrap().get_operation(), MemoryUpdate::Allocation(0, String::from("force_generate_event_Allocation")));
     }
 
     #[test]
     fn partially_allocate() {
         let (mut memory_stub, rx) = MemoryStub::new();
-        memory_stub.force_generate_event(MemoryUpdate::PartialAllocation(0));
-        assert_eq!(*memory_stub.map.get(&0).unwrap(), MemoryStatus::PartiallyAllocated);
-        assert_eq!(rx.recv().unwrap().get_operation(), MemoryUpdate::PartialAllocation(0));
+        memory_stub.force_generate_event(MemoryUpdate::PartialAllocation(0, String::from("force_generate_event_PartialAllocation")));
+        assert_eq!(*memory_stub.map.get(&0).unwrap(), MemoryStatus::PartiallyAllocated(String::from("force_generate_event_PartialAllocation")));
+        assert_eq!(rx.recv().unwrap().get_operation(), MemoryUpdate::PartialAllocation(0, String::from("force_generate_event_PartialAllocation")));
     }
 
     #[test]
     fn free() {
         let (mut memory_stub, rx) = MemoryStub::new();
-        memory_stub.force_generate_event(MemoryUpdate::Allocation(0));
-        assert_eq!(*memory_stub.map.get(&0).unwrap(), MemoryStatus::Allocated);
-        memory_stub.force_generate_event(MemoryUpdate::Free(0));
-        assert_eq!(*memory_stub.map.get(&0).unwrap(), MemoryStatus::Free);
-        assert_eq!(rx.recv().unwrap().get_operation(), MemoryUpdate::Allocation(0));
-        assert_eq!(rx.recv().unwrap().get_operation(), MemoryUpdate::Free(0));
+        memory_stub.force_generate_event(MemoryUpdate::Allocation(0, String::from("force_generate_event_Free")));
+        assert_eq!(*memory_stub.map.get(&0).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Free")));
+        memory_stub.force_generate_event(MemoryUpdate::Free(0, String::from("force_generate_event_Free")));
+        assert_eq!(*memory_stub.map.get(&0).unwrap(), MemoryStatus::Free(String::from("force_generate_event_Free")));
+        assert_eq!(rx.recv().unwrap().get_operation(), MemoryUpdate::Allocation(0, String::from("force_generate_event_Free")));
+        assert_eq!(rx.recv().unwrap().get_operation(), MemoryUpdate::Free(0, String::from("force_generate_event_Free")));
     }
 
     #[test]
@@ -118,14 +118,14 @@ mod tests {
             memory_stub.generate_event();
             let event = rx.recv().unwrap().get_operation();
             match event {
-                MemoryUpdate::Allocation(addr) => {
-                    eprintln!("[EVENT #{i}: SUCCESS]: Allocation({addr})");
+                MemoryUpdate::Allocation(address, callstack) => {
+                    eprintln!("[EVENT #{i}: SUCCESS]: Allocation({address} {callstack})");
                 }
-                MemoryUpdate::PartialAllocation(addr) => {
-                    eprintln!("[EVENT #{i}: SUCCESS]: PartialAllocation({addr})");
+                MemoryUpdate::PartialAllocation(address, callstack) => {
+                    eprintln!("[EVENT #{i}: SUCCESS]: PartialAllocation({address} {callstack})");
                 }
-                MemoryUpdate::Free(addr) => {
-                    eprintln!("[EVENT #{i}: SUCCESS]: Free({addr})");
+                MemoryUpdate::Free(address, callstack) => {
+                    eprintln!("[EVENT #{i}: SUCCESS]: Free({address} {callstack})");
                 }
             }
         }

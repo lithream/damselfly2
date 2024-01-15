@@ -55,9 +55,9 @@ impl DamselflyViewer {
     pub fn lock_memoryspan(&mut self) {
         self.memoryspan_is_unlocked = false;
     }
-    
+
     pub fn update_view(&mut self) {
-        
+
     }
 }
 
@@ -168,7 +168,7 @@ mod tests {
         damselfly_viewer.timespan.0 = 25;
         damselfly_viewer.timespan.1 = 50;
         for i in 0..50 {
-            damselfly_viewer.damselfly.instruction_history.push(Instruction::new(i, Allocation(i)));
+            damselfly_viewer.damselfly.instruction_history.push(Instruction::new(i, Allocation(i, String::from("lock_timespan"))));
         }
         damselfly_viewer.shift_timespan(-1);
         assert_eq!(damselfly_viewer.timespan.0, 0);

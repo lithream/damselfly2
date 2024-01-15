@@ -24,20 +24,20 @@ impl Damselfly {
     pub fn execute_instruction(&mut self) {
         let instruction = self.rx.recv().expect("[Damselfly::execute_instruction]: Error receiving from channel");
         match instruction.get_operation() {
-            MemoryUpdate::Allocation(address) => {
+            MemoryUpdate::Allocation(address, callstack) => {
                 self.memory_map.entry(address)
-                    .and_modify(|memory_state| *memory_state = MemoryStatus::Allocated)
-                    .or_insert(MemoryStatus::Allocated);
+                    .and_modify(|memory_state| *memory_state = MemoryStatus::Allocated(callstack.clone()))
+                    .or_insert(MemoryStatus::Allocated(callstack));
             }
-            MemoryUpdate::PartialAllocation(address) => {
+            MemoryUpdate::PartialAllocation(address, callstack) => {
                 self.memory_map.entry(address)
-                    .and_modify(|memory_state| *memory_state = MemoryStatus::PartiallyAllocated)
-                    .or_insert(MemoryStatus::PartiallyAllocated);
+                    .and_modify(|memory_state| *memory_state = MemoryStatus::PartiallyAllocated(callstack.clone()))
+                    .or_insert(MemoryStatus::PartiallyAllocated(callstack));
             }
-            MemoryUpdate::Free(address) => {
+            MemoryUpdate::Free(address, callstack) => {
                 self.memory_map.entry(address)
-                    .and_modify(|memory_state| *memory_state = MemoryStatus::Free)
-                    .or_insert(MemoryStatus::Free);
+                    .and_modify(|memory_state| *memory_state = MemoryStatus::Free(callstack.clone()))
+                    .or_insert(MemoryStatus::Free(callstack));
             }
         }
         self.instruction_history.push(instruction);
@@ -63,24 +63,24 @@ mod tests {
         let (mut memory_stub, rx) = MemoryStub::new();
         thread::spawn(move || {
             for i in 0..3 {
-                memory_stub.force_generate_event(MemoryUpdate::Allocation(i))
+                memory_stub.force_generate_event(MemoryUpdate::Allocation(i, String::from("force_generate_event_Allocation")))
             }
             for i in 3..6 {
-                memory_stub.force_generate_event(MemoryUpdate::PartialAllocation(i));
+                memory_stub.force_generate_event(MemoryUpdate::PartialAllocation(i, String::from("force_generate_event_PartialAllocation")));
             }
             for i in 1..4 {
-                memory_stub.force_generate_event(MemoryUpdate::Free(i));
+                memory_stub.force_generate_event(MemoryUpdate::Free(i, String::from("force_generate_event_Free")));
             }
         });
         let mut damselfly = Damselfly::new(rx);
         for _ in 0..9 {
             damselfly.execute_instruction()
         }
-        assert_eq!(*damselfly.memory_map.get(&0).unwrap(), MemoryStatus::Allocated);
-        assert_eq!(*damselfly.memory_map.get(&1).unwrap(), MemoryStatus::Free);
-        assert_eq!(*damselfly.memory_map.get(&2).unwrap(), MemoryStatus::Free);
-        assert_eq!(*damselfly.memory_map.get(&3).unwrap(), MemoryStatus::Free);
-        assert_eq!(*damselfly.memory_map.get(&4).unwrap(), MemoryStatus::PartiallyAllocated);
-        assert_eq!(*damselfly.memory_map.get(&5).unwrap(), MemoryStatus::PartiallyAllocated);
+        assert_eq!(*damselfly.memory_map.get(&0).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
+        assert_eq!(*damselfly.memory_map.get(&1).unwrap(), MemoryStatus::Free(String::from("force_generate_event_Free")));
+        assert_eq!(*damselfly.memory_map.get(&2).unwrap(), MemoryStatus::Free(String::from("force_generate_event_Free")));
+        assert_eq!(*damselfly.memory_map.get(&3).unwrap(), MemoryStatus::Free(String::from("force_generate_event_Free")));
+        assert_eq!(*damselfly.memory_map.get(&4).unwrap(), MemoryStatus::PartiallyAllocated(String::from("force_generate_event_PartialAllocation")));
+        assert_eq!(*damselfly.memory_map.get(&5).unwrap(), MemoryStatus::PartiallyAllocated(String::from("force_generate_event_PartialAllocation")));
     }
 }
