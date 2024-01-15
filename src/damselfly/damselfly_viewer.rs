@@ -1,24 +1,41 @@
+use std::collections::HashMap;
+use std::sync::mpsc;
+use std::sync::mpsc::RecvError;
 use crate::damselfly::Damselfly;
+use crate::memory::{MemorySnapshot, MemoryStatus};
 
 
 const DEFAULT_TIMESPAN: u64 = 25;
 const DEFAULT_MEMORYSPAN: u64 = 1024;
+
+struct MemoryUsage {
+    memory_used_percentage: f64,
+    memory_used_absolute: f64,
+    total_memory: u64
+}
+
 struct DamselflyViewer {
     damselfly: Damselfly,
+    snapshot_rx: mpsc::Receiver<MemorySnapshot>,
     timespan: (u64, u64),
     timespan_is_unlocked: bool,
     memoryspan: (u64, u64),
-    memoryspan_is_unlocked: bool
+    memoryspan_is_unlocked: bool,
+    memory_usage_snapshots: Vec<MemoryUsage>,
+    memory_map_snapshots: Vec<HashMap<u64, MemoryStatus>>
 }
 
 impl DamselflyViewer {
-    pub fn new(damselfly: Damselfly) -> DamselflyViewer {
+    pub fn new(damselfly: Damselfly, snapshot_rx: mpsc::Receiver<MemorySnapshot>) -> DamselflyViewer {
         DamselflyViewer{
             damselfly,
+            snapshot_rx,
             timespan: (0, DEFAULT_TIMESPAN),
             timespan_is_unlocked: false,
             memoryspan: (0, DEFAULT_MEMORYSPAN),
             memoryspan_is_unlocked: false,
+            memory_usage_snapshots: Vec::new(),
+            memory_map_snapshots: Vec::new(),
         }
     }
 
@@ -56,8 +73,22 @@ impl DamselflyViewer {
         self.memoryspan_is_unlocked = false;
     }
 
-    pub fn update_view(&mut self) {
+    pub fn update(&mut self) {
+        let update = self.snapshot_rx.recv();
+        match update {
+            Ok(snapshot) => self.parse_snapshot(snapshot),
+            Err(_) => { eprintln!("[DamselflyViewer::update]: Error receiving from snapshot channel")}
+        }
+    }
 
+    pub fn parse_snapshot(&mut self, snapshot: MemorySnapshot) {
+        let memory_usage = MemoryUsage{
+            memory_used_percentage: snapshot.memory_usage.0 / snapshot.memory_usage.1 as f64,
+            memory_used_absolute: snapshot.memory_usage.0,
+            total_memory: snapshot.memory_usage.1
+        };
+        self.memory_usage_snapshots.push(memory_usage);
+        self.memory_map_snapshots.push(snapshot.memory_map);
     }
 }
 
@@ -71,8 +102,8 @@ mod tests {
 
     fn initialise_viewer() -> (DamselflyViewer, MemoryStub) {
         let (memory_stub, rx) = MemoryStub::new();
-        let damselfly = Damselfly::new(rx);
-        let damselfly_viewer = DamselflyViewer::new(damselfly);
+        let (damselfly, snapshot_rx) = Damselfly::new(rx);
+        let damselfly_viewer = DamselflyViewer::new(damselfly, snapshot_rx);
         (damselfly_viewer, memory_stub)
     }
 

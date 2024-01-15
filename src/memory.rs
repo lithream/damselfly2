@@ -17,8 +17,14 @@ pub enum MemoryStatus {
     PartiallyAllocated(String),
     Free(String),
 }
+
 pub trait MemoryTracker {
     fn get_recv(&self) -> Receiver<Instruction>;
+}
+
+pub struct MemorySnapshot {
+    pub memory_usage: (f64, u64),
+    pub memory_map: HashMap<u64, MemoryStatus>
 }
 
 pub struct MemoryStub {
@@ -113,7 +119,7 @@ mod tests {
 
     #[test]
     fn generate_random_events() {
-        let (mut memory_stub, mut rx) = MemoryStub::new();
+        let (mut memory_stub, rx) = MemoryStub::new();
         for i in 0..10 {
             memory_stub.generate_event();
             let event = rx.recv().unwrap().get_operation();

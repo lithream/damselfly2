@@ -1,28 +1,35 @@
 use std::collections::HashMap;
-use std::sync::mpsc::Receiver;
-use crate::memory::{MemoryStatus, MemoryUpdate};
+use std::sync::mpsc;
+use crate::memory::{MemorySnapshot, MemoryStatus, MemoryUpdate};
 use crate::damselfly::instruction::Instruction;
 
 pub mod instruction;
 mod damselfly_viewer;
 
+const MAX_MEMORY: u64 = 65535;
 struct Damselfly {
-    rx: Receiver<Instruction>,
+    instruction_rx: mpsc::Receiver<Instruction>,
+    snapshot_tx: mpsc::Sender<MemorySnapshot>,
     memory_map: HashMap<i64, MemoryStatus>,
     instruction_history: Vec<Instruction>,
 }
 
 impl Damselfly {
-    pub fn new(rx: Receiver<Instruction>) -> Damselfly {
-        Damselfly {
-            rx,
+    pub fn new(instruction_rx: mpsc::Receiver<Instruction>) -> (Damselfly, mpsc::Receiver<MemorySnapshot>) {
+        let (snapshot_tx, snapshot_rx) = mpsc::channel::<MemorySnapshot>();
+        (
+            Damselfly {
+            instruction_rx,
+            snapshot_tx,
             memory_map: HashMap::new(),
             instruction_history: Vec::new(),
-        }
+        },
+            snapshot_rx
+        )
     }
 
     pub fn execute_instruction(&mut self) {
-        let instruction = self.rx.recv().expect("[Damselfly::execute_instruction]: Error receiving from channel");
+        let instruction = self.instruction_rx.recv().expect("[Damselfly::execute_instruction]: Error receiving from channel");
         match instruction.get_operation() {
             MemoryUpdate::Allocation(address, callstack) => {
                 self.memory_map.entry(address)
@@ -50,6 +57,18 @@ impl Damselfly {
     pub fn get_latest_instruction(&self) -> Option<&Instruction> {
         self.instruction_history.last()
     }
+
+    pub fn get_memory_usage(&self) -> (f64, u64) {
+        let mut memory_usage: f64 = 0.0;
+        for address in self.memory_map.keys() {
+            match self.memory_map.get(address).unwrap() {
+                MemoryStatus::Allocated(_) => memory_usage += 1.0,
+                MemoryStatus::PartiallyAllocated(_) => memory_usage += 0.5,
+                MemoryStatus::Free(_) => {}
+            }
+        }
+        (memory_usage, MAX_MEMORY)
+    }
 }
 
 #[cfg(test)]
@@ -72,7 +91,7 @@ mod tests {
                 memory_stub.force_generate_event(MemoryUpdate::Free(i, String::from("force_generate_event_Free")));
             }
         });
-        let mut damselfly = Damselfly::new(rx);
+        let (mut damselfly, _snapshot_rx) = Damselfly::new(rx);
         for _ in 0..9 {
             damselfly.execute_instruction()
         }
