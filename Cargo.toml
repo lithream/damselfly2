@@ -1,0 +1,12 @@
+[package]
+name = "map"
+version = "0.1.0"
+authors = ["pseudograph <sauravvm237@gmail.com>"]
+license = "MIT"
+edition = "2021"
+
+[dependencies]
+crossterm = "0.27.0"
+ratatui = "0.24.0"
+rand = "0.8.5"
+log = "0.4.20"
