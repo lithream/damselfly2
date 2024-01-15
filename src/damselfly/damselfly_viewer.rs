@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 use std::sync::mpsc;
-use std::sync::mpsc::RecvError;
 use std::thread;
-use std::thread::current;
-use std::time::Duration;
 use crate::damselfly::Damselfly;
 use crate::memory::{MemorySnapshot, MemoryStatus};
 
@@ -81,6 +78,15 @@ impl DamselflyViewer {
         match update {
             Ok(snapshot) => self.parse_snapshot(snapshot),
             Err(_) => eprintln!("[DamselflyViewer::update]: Snapshot channel hung up.")
+        }
+
+        if !self.timespan_is_unlocked {
+            self.timespan.1 += 1;
+            self.timespan.0 += 1;
+        }
+
+        if !self.memoryspan_is_unlocked {
+            // do nothing, no memoryspan locking for now
         }
     }
 
