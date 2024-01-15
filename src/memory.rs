@@ -1,17 +1,19 @@
 use std::collections::HashMap;
 use std::sync::{mpsc};
 use std::sync::mpsc::{Receiver, Sender};
+use log::debug;
 use rand::{Rng};
 use crate::damselfly::instruction::Instruction;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum MemoryUpdate {
-    Allocation(i64, String),
-    PartialAllocation(i64, String),
-    Free(i64, String),
+    Allocation(u64, String),
+    PartialAllocation(u64, String),
+    Free(u64, String),
+    Disconnect(String)
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum MemoryStatus {
     Allocated(String),
     PartiallyAllocated(String),
@@ -22,67 +24,75 @@ pub trait MemoryTracker {
     fn get_recv(&self) -> Receiver<Instruction>;
 }
 
+#[derive(Debug)]
 pub struct MemorySnapshot {
     pub memory_usage: (f64, u64),
     pub memory_map: HashMap<u64, MemoryStatus>
 }
 
 pub struct MemoryStub {
-    tx: Sender<Instruction>,
-    map: HashMap<i64, MemoryStatus>,
-    time: i64
+    instruction_tx: Sender<Instruction>,
+    map: HashMap<u64, MemoryStatus>,
+    time: u64
 }
 
 impl MemoryStub {
     pub fn new() -> (MemoryStub, Receiver<Instruction>) {
         let (tx, rx) = mpsc::channel();
-        (MemoryStub { tx, map: HashMap::new(), time: -1 }, rx)
+        (MemoryStub { instruction_tx: tx, map: HashMap::new(), time: 0 }, rx)
     }
 
     pub fn generate_event(&mut self) {
-        self.time += 1;
-        let address = rand::thread_rng().gen_range(0..65536);
+        let address: u64 = rand::thread_rng().gen_range(0..65536);
             match rand::thread_rng().gen_range(0..3) {
                 0 => {
                     self.map.insert(address, MemoryStatus::Allocated(String::from("generate_event_Allocation")));
                     let instruction = Instruction::new(self.time, MemoryUpdate::Allocation(address, String::from("generate_event_Allocation")));
-                    self.tx.send(instruction).unwrap();
+                    dbg!(&instruction);
+                    self.instruction_tx.send(instruction).unwrap();
                 },
                 1 => {
                     self.map.insert(address, MemoryStatus::PartiallyAllocated(String::from("generate_event_PartialAllocation")));
                     let instruction = Instruction::new(self.time, MemoryUpdate::PartialAllocation(address, String::from("generate_event_PartialAllocation")));
-                    self.tx.send(instruction).unwrap();
+                    dbg!(&instruction);
+                    self.instruction_tx.send(instruction).unwrap();
                 },
                 2 => {
                     self.map.insert(address, MemoryStatus::Free(String::from("generate_event_Free")));
                     let instruction = Instruction::new(self.time, MemoryUpdate::Free(address, String::from("generate_event_Free")));
-                    self.tx.send(instruction).unwrap();
+                    dbg!(&instruction);
+                    self.instruction_tx.send(instruction).unwrap();
                 },
                 _ => { panic!("[MemoryStub::generate_event]: Thread RNG out of scope") }
             };
+        self.time += 1;
     }
 
     pub fn force_generate_event(&mut self, event: MemoryUpdate) {
-        self.time += 1;
         match event {
             MemoryUpdate::Allocation(address, ref callstack) => {
                 self.map.insert(address, MemoryStatus::Allocated(callstack.clone()));
                 let instruction = Instruction::new(self.time, event);
-                self.tx.send(instruction).unwrap();
+                self.instruction_tx.send(instruction).unwrap();
             }
             MemoryUpdate::PartialAllocation(address, ref callstack) => {
                 self.map.insert(address, MemoryStatus::PartiallyAllocated(callstack.clone()));
                 let instruction = Instruction::new(self.time, event);
-                self.tx.send(instruction).unwrap();
+                self.instruction_tx.send(instruction).unwrap();
 
             }
             MemoryUpdate::Free(address, ref callstack) => {
                 self.map.insert(address, MemoryStatus::Free(callstack.clone()));
                 let instruction = Instruction::new(self.time, event);
-                self.tx.send(instruction).unwrap();
+                self.instruction_tx.send(instruction).unwrap();
 
             }
+            MemoryUpdate::Disconnect(reason) => {
+                let instruction = Instruction::new(self.time, MemoryUpdate::Disconnect(reason));
+                self.instruction_tx.send(instruction).unwrap();
+            }
         }
+        self.time += 1;
     }
 }
 
@@ -132,6 +142,9 @@ mod tests {
                 }
                 MemoryUpdate::Free(address, callstack) => {
                     eprintln!("[EVENT #{i}: SUCCESS]: Free({address} {callstack})");
+                }
+                MemoryUpdate::Disconnect(reason) => {
+                    eprintln!("[EVENT #{i}: SUCCESS]: Disconnect({reason})");
                 }
             }
         }

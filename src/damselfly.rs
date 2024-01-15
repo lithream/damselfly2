@@ -10,8 +10,7 @@ const MAX_MEMORY: u64 = 65535;
 struct Damselfly {
     instruction_rx: mpsc::Receiver<Instruction>,
     snapshot_tx: mpsc::Sender<MemorySnapshot>,
-    memory_map: HashMap<i64, MemoryStatus>,
-    instruction_history: Vec<Instruction>,
+    memory_map: HashMap<u64, MemoryStatus>,
 }
 
 impl Damselfly {
@@ -22,7 +21,6 @@ impl Damselfly {
             instruction_rx,
             snapshot_tx,
             memory_map: HashMap::new(),
-            instruction_history: Vec::new(),
         },
             snapshot_rx
         )
@@ -46,16 +44,11 @@ impl Damselfly {
                     .and_modify(|memory_state| *memory_state = MemoryStatus::Free(callstack.clone()))
                     .or_insert(MemoryStatus::Free(callstack));
             }
+            MemoryUpdate::Disconnect(reason) => {
+                println!("[Damselfly::execute_instruction]: Memory disconnected ({reason})");
+            }
         }
-        self.instruction_history.push(instruction);
-    }
-
-    pub fn query_block(&self, address: i64) -> Option<&MemoryStatus> {
-        self.memory_map.get(&address)
-    }
-
-    pub fn get_latest_instruction(&self) -> Option<&Instruction> {
-        self.instruction_history.last()
+        self.send_snapshot();
     }
 
     pub fn get_memory_usage(&self) -> (f64, u64) {
@@ -68,6 +61,14 @@ impl Damselfly {
             }
         }
         (memory_usage, MAX_MEMORY)
+    }
+
+    pub fn send_snapshot(&self) {
+        let snapshot = MemorySnapshot{
+            memory_usage: self.get_memory_usage(),
+            memory_map: self.memory_map.clone()
+        };
+        self.snapshot_tx.send(snapshot).expect("[Damselfly::send_snapshot]: Error sending into snapshot channel");
     }
 }
 
