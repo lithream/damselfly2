@@ -1,15 +1,14 @@
 use std::collections::HashMap;
 use std::sync::{mpsc};
 use std::sync::mpsc::{Receiver, Sender};
-use log::debug;
 use rand::{Rng};
 use crate::damselfly::instruction::Instruction;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum MemoryUpdate {
-    Allocation(u64, String),
-    PartialAllocation(u64, String),
-    Free(u64, String),
+    Allocation(usize, String),
+    PartialAllocation(usize, String),
+    Free(usize, String),
     Disconnect(String)
 }
 
@@ -26,14 +25,14 @@ pub trait MemoryTracker {
 
 #[derive(Debug)]
 pub struct MemorySnapshot {
-    pub memory_usage: (f64, u64),
-    pub memory_map: HashMap<u64, MemoryStatus>
+    pub memory_usage: (f64, usize),
+    pub memory_map: HashMap<usize, MemoryStatus>
 }
 
 pub struct MemoryStub {
     instruction_tx: Sender<Instruction>,
-    map: HashMap<u64, MemoryStatus>,
-    time: u64
+    map: HashMap<usize, MemoryStatus>,
+    time: usize
 }
 
 impl MemoryStub {
@@ -43,7 +42,7 @@ impl MemoryStub {
     }
 
     pub fn generate_event(&mut self) {
-        let address: u64 = rand::thread_rng().gen_range(0..65536);
+        let address: usize = rand::thread_rng().gen_range(0..65536);
             match rand::thread_rng().gen_range(0..3) {
                 0 => {
                     self.map.insert(address, MemoryStatus::Allocated(String::from("generate_event_Allocation")));

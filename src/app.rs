@@ -7,12 +7,11 @@ use crate::memory::MemoryStub;
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
 
 /// Application.
-#[derive(Debug)]
 pub struct App {
     /// Is the application running?
     pub running: bool,
     /// Damselfly
-    pub damselfly_viewer: DamselflyViewer
+    pub damselfly_viewer: DamselflyViewer,
 }
 
 impl App {

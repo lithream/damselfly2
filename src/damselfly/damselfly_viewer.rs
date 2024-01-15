@@ -6,25 +6,24 @@ use crate::damselfly::Damselfly;
 use crate::memory::{MemorySnapshot, MemoryStatus};
 
 
-const DEFAULT_TIMESPAN: u64 = 25;
-const DEFAULT_MEMORYSPAN: u64 = 1024;
+const DEFAULT_TIMESPAN: usize = 25;
 
 #[derive(Debug, Default, Clone)]
 pub struct MemoryUsage {
     pub memory_used_percentage: f64,
     pub memory_used_absolute: f64,
-    pub total_memory: u64
+    pub total_memory: usize
 }
 
 #[derive(Debug)]
 pub struct DamselflyViewer {
     snapshot_rx: mpsc::Receiver<MemorySnapshot>,
-    timespan: (u64, u64),
+    timespan: (usize, usize),
     timespan_is_unlocked: bool,
-    memoryspan: (u64, u64),
+    memoryspan: (usize, usize),
     memoryspan_is_unlocked: bool,
     memory_usage_snapshots: Vec<MemoryUsage>,
-    memory_map_snapshots: Vec<HashMap<u64, MemoryStatus>>
+    memory_map_snapshots: Vec<HashMap<usize, MemoryStatus>>
 }
 
 impl DamselflyViewer {
@@ -36,38 +35,38 @@ impl DamselflyViewer {
         });
         DamselflyViewer {
             snapshot_rx,
-            timespan: (0, DEFAULT_TIMESPAN),
+            timespan: (0, 0),
             timespan_is_unlocked: false,
-            memoryspan: (0, DEFAULT_MEMORYSPAN),
+            memoryspan: (0, 0),
             memoryspan_is_unlocked: false,
             memory_usage_snapshots: Vec::new(),
             memory_map_snapshots: Vec::new(),
         }
     }
 
-    pub fn shift_span(&mut self, mut left: u64, mut right: u64, units: i64) -> (u64, u64) {
+    pub fn shift_span(&mut self, mut left: usize, mut right: usize, units: isize) -> (usize, usize) {
         debug_assert!(right > left);
         let span = right - left;
-        let absolute_shift = units * span as i64;
+        let absolute_shift = units * span as isize;
 
-        left = left.saturating_add_signed(absolute_shift).clamp(u64::MIN, right + absolute_shift.unsigned_abs());
-        right = right.saturating_add_signed(absolute_shift).clamp(u64::MIN + span, u64::MAX);
+        left = left.saturating_add_signed(absolute_shift).clamp(usize::MIN, right + absolute_shift.unsigned_abs());
+        right = right.saturating_add_signed(absolute_shift).clamp(usize::MIN + span, usize::MAX);
         (left, right)
     }
 
-    pub fn shift_timespan(&mut self, units: i64) {
+    pub fn shift_timespan(&mut self, units: isize) {
         self.timespan_is_unlocked = true;
         (self.timespan.0, self.timespan.1) = self.shift_span(self.timespan.0, self.timespan.1, units);
     }
 
     pub fn lock_timespan(&mut self) {
         let current_span = self.timespan.1 - self.timespan.0;
-        self.timespan.1 = (self.memory_usage_snapshots.len().saturating_sub(1)) as u64;
+        self.timespan.1 = (self.memory_usage_snapshots.len().saturating_sub(1)) as usize;
         self.timespan.0 = self.timespan.1.saturating_sub(current_span);
         self.timespan_is_unlocked = false;
     }
 
-    pub fn shift_memoryspan(&mut self, units: i64) {
+    pub fn shift_memoryspan(&mut self, units: isize) {
         self.memoryspan_is_unlocked = true;
         (self.memoryspan.0, self.memoryspan.1) = self.shift_span(self.memoryspan.0, self.memoryspan.1, units);
     }
@@ -85,7 +84,9 @@ impl DamselflyViewer {
 
         if !self.timespan_is_unlocked {
             self.timespan.1 += 1;
-            self.timespan.0 += 1;
+            if (self.timespan.1 > DEFAULT_TIMESPAN) {
+                self.timespan.0 += 1;
+            }
         }
 
         if !self.memoryspan_is_unlocked {
@@ -111,6 +112,10 @@ impl DamselflyViewer {
             }
             Some(memory_usage) => (*memory_usage).clone()
         }
+    }
+
+    pub fn get_memory_usage_view(&self) -> &[MemoryUsage] {
+        &self.memory_usage_snapshots[self.timespan.0..self.timespan.1]
     }
 }
 

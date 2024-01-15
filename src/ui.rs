@@ -1,9 +1,8 @@
-use ratatui::{
-    layout::Alignment,
-    style::{Color, Style},
-    widgets::{Block, BorderType, Borders, Paragraph},
-    Frame,
-};
+use ratatui::{layout::Alignment, style::{Color, Style}, widgets::{Block, BorderType, Borders, Paragraph}, Frame, symbols};
+use ratatui::prelude::{Constraint, Direction, Layout};
+use ratatui::style::Stylize;
+use ratatui::text::Span;
+use ratatui::widgets::{Axis, Chart, Dataset};
 
 use crate::app::App;
 
@@ -13,6 +12,48 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     // See the following resources:
     // - https://docs.rs/ratatui/latest/ratatui/widgets/index.html
     // - https://github.com/ratatui-org/ratatui/tree/master/examples
+    let main_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(100)
+        ])
+        .split(frame.size());
+    let memory_usage_data = app.damselfly_viewer.get_memory_usage_view();
+    let mut vector_to_render: Vec<(f64, f64)> = Vec::new();
+    let mut data_index = 0;
+    for data_point in memory_usage_data {
+        let memory_usage: f64 = data_point.memory_used_percentage;
+        vector_to_render.push((data_index as f64, memory_usage));
+        data_index += 1;
+    }
+
+    let dataset = Dataset::default()
+        .name("Memory usage")
+        .marker(symbols::Marker::Dot)
+        .style(Style::default().fg(Color::Cyan))
+        .data(&vector_to_render);
+
+    let graph_chart = Chart::new(vec![dataset])
+        .block(
+            Block::default()
+                .title("Memory usage".cyan().bold())
+                .borders(Borders::ALL),
+        )
+        .x_axis(
+            Axis::default()
+                .title("Memory operations")
+                .style(Style::default().fg(Color::Gray))
+                .bounds([-20.0, 20.0])
+        )
+        .y_axis(
+            Axis::default()
+                .title("Memory usage")
+                .style(Style::default().fg(Color::Gray))
+                .labels(vec![Span::raw("-20"), Span::raw("0"), Span::raw("0")])
+                .bounds([-20.0, 20.0])
+        );
+    frame.render_widget(graph_chart, main_layout[0]);
+
     frame.render_widget(
         Paragraph::new(format!(
             "This is a tui template.\n\

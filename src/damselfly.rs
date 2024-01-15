@@ -6,13 +6,12 @@ use crate::damselfly::instruction::Instruction;
 
 pub mod instruction;
 pub mod damselfly_viewer;
-mod graph_widget;
 
-const MAX_MEMORY: u64 = 65535;
+const MAX_MEMORY: usize = 65535;
 pub struct Damselfly {
     instruction_rx: mpsc::Receiver<Instruction>,
     snapshot_tx: mpsc::Sender<MemorySnapshot>,
-    memory_map: HashMap<u64, MemoryStatus>,
+    memory_map: HashMap<usize, MemoryStatus>,
 }
 
 impl Damselfly {
@@ -53,7 +52,7 @@ impl Damselfly {
         self.send_snapshot();
     }
 
-    pub fn get_memory_usage(&self) -> (f64, u64) {
+    pub fn get_memory_usage(&self) -> (f64, usize) {
         let mut memory_usage: f64 = 0.0;
         for address in self.memory_map.keys() {
             match self.memory_map.get(address).unwrap() {
