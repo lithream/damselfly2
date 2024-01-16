@@ -51,15 +51,27 @@ impl DamselflyViewer {
         let span = right - left;
         let absolute_shift = units * span as isize;
 
-        left = left.saturating_add_signed(absolute_shift);
-        right = right.saturating_add_signed(absolute_shift).clamp(left, self.memory_usage_snapshots.len() - 1);
-        left = min(right - DEFAULT_TIMESPAN, left);
+        left = left.saturating_add_signed(absolute_shift).clamp(usize::MIN, right + absolute_shift.unsigned_abs());
+        right = right.saturating_add_signed(absolute_shift).clamp(usize::MIN + span, self.memory_usage_snapshots.len());
         (left, right)
+
     }
 
     pub fn shift_timespan(&mut self, units: isize) {
         self.timespan_is_unlocked = true;
         (self.timespan.0, self.timespan.1) = self.shift_span(self.timespan.0, self.timespan.1, units);
+    }
+
+    pub fn shift_timespan_to_beginning(&mut self) {
+        let span = self.get_span();
+        self.timespan.0 = 0;
+        self.timespan.1 = span.1 - span.0;
+    }
+
+    pub fn shift_timespan_to_end(&mut self) {
+        let span = self.get_span();
+        self.timespan.1 = self.get_total_operations() - 1;
+        self.timespan.0 = self.timespan.1 - (span.1 - span.0);
     }
 
     pub fn lock_timespan(&mut self) {

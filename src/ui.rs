@@ -1,3 +1,4 @@
+use std::cmp::min;
 use ratatui::{layout::Alignment, style::{Color, Style}, widgets::{Block, BorderType, Borders, Paragraph, canvas::*}, Frame, symbols};
 use ratatui::prelude::{Constraint, Direction, Layout, Rect};
 use ratatui::style::Stylize;
@@ -52,7 +53,8 @@ fn draw_graph(app: &mut App, area: Rect, frame: &mut Frame) {
         .y_bounds([0.0, 90.0])
         .paint(|ctx| {
             ctx.draw(&Points { coords: data, color: Color::Red });
-            if let Some(highlight) = app.highlight {
+            if let Some(mut highlight) = app.highlight {
+                highlight = min(highlight, data.len() - 1);
                 let (x, y) = data[highlight];
                 ctx.draw(&Points { coords: &[(x, y)], color: Color::White })
             }

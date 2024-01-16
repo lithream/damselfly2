@@ -21,7 +21,6 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         }
 
         KeyCode::Char('?') => {
-            app.highlight = None;
             app.damselfly_viewer.lock_timespan();
         }
 
@@ -57,6 +56,17 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                     app.highlight = Some((highlight + 1).clamp(0, span.1 - span.0 - 1));
                 }
             }
+        }
+
+        KeyCode::Char('i') => {
+            app.damselfly_viewer.unlock_timespan();
+            app.damselfly_viewer.shift_timespan_to_beginning();
+        }
+
+        KeyCode::Char('o') => {
+            app.damselfly_viewer.lock_timespan();
+            app.damselfly_viewer.unlock_timespan();
+            app.damselfly_viewer.shift_timespan_to_end();
         }
 
         KeyCode::Char('0') => {
