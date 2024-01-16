@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::sync::{Arc, mpsc, Mutex};
 use std::thread;
@@ -50,8 +51,9 @@ impl DamselflyViewer {
         let span = right - left;
         let absolute_shift = units * span as isize;
 
-        left = left.saturating_add_signed(absolute_shift).clamp(usize::MIN, right + absolute_shift.unsigned_abs());
-        right = right.saturating_add_signed(absolute_shift).clamp(usize::MIN + span, self.memory_usage_snapshots.len() - 1);
+        left = left.saturating_add_signed(absolute_shift);
+        right = right.saturating_add_signed(absolute_shift).clamp(left, self.memory_usage_snapshots.len() - 1);
+        left = min(right - DEFAULT_TIMESPAN, left);
         (left, right)
     }
 
@@ -61,7 +63,7 @@ impl DamselflyViewer {
     }
 
     pub fn lock_timespan(&mut self) {
-        let current_span = self.timespan.1 - self.timespan.0;
+        let current_span = max(DEFAULT_TIMESPAN, self.timespan.1 - self.timespan.0);
         self.timespan.1 = (self.memory_usage_snapshots.len().saturating_sub(1));
         self.timespan.0 = self.timespan.1.saturating_sub(current_span);
         self.timespan_is_unlocked = false;

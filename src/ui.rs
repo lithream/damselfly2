@@ -1,5 +1,5 @@
 use ratatui::{layout::Alignment, style::{Color, Style}, widgets::{Block, BorderType, Borders, Paragraph, canvas::*}, Frame, symbols};
-use ratatui::prelude::{Constraint, Direction, Layout};
+use ratatui::prelude::{Constraint, Direction, Layout, Rect};
 use ratatui::style::Stylize;
 use ratatui::text::Span;
 use ratatui::widgets::{Axis, Chart, Dataset};
@@ -19,24 +19,8 @@ pub fn render(app: &mut App, frame: &mut Frame) {
             Constraint::Percentage(20)
         ])
         .split(frame.size());
-    let binding = app.damselfly_viewer.get_memory_usage_view();
-    let data = binding.as_slice();
 
-    let canvas = Canvas::default()
-        .block(Block::default()
-            .title("Canvas")
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded))
-        .x_bounds([0.0, 100.0])
-        .y_bounds([0.0, 90.0])
-        .paint(|ctx| {
-            ctx.draw(&Points { coords: data, color: Color::Red });
-            if let Some(highlight) = app.highlight {
-                let (x, y) = data[highlight];
-                ctx.draw(&Points { coords: &[(x, y)], color: Color::White })
-            }
-        });
-    frame.render_widget(canvas, main_layout[0]);
+    draw_graph(app, main_layout[0], frame);
 
     frame.render_widget(
         Paragraph::new(format!(
@@ -54,3 +38,25 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         main_layout[1]
     )
 }
+
+fn draw_graph(app: &mut App, area: Rect, frame: &mut Frame) {
+    let binding = app.damselfly_viewer.get_memory_usage_view();
+    let data = binding.as_slice();
+
+    let canvas = Canvas::default()
+        .block(Block::default()
+            .title("MEMORY USAGE")
+            .borders(Borders::ALL)
+            .border_type(BorderType::Double))
+        .x_bounds([0.0, 100.0])
+        .y_bounds([0.0, 90.0])
+        .paint(|ctx| {
+            ctx.draw(&Points { coords: data, color: Color::Red });
+            if let Some(highlight) = app.highlight {
+                let (x, y) = data[highlight];
+                ctx.draw(&Points { coords: &[(x, y)], color: Color::White })
+            }
+        });
+    frame.render_widget(canvas, area);
+}
+
