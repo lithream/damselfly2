@@ -12,7 +12,7 @@ pub struct App {
     pub running: bool,
     /// Damselfly
     pub damselfly_viewer: DamselflyViewer,
-    pub highlight: Option<usize>,
+    pub graph_highlight: Option<usize>,
 }
 
 impl App {
@@ -29,7 +29,7 @@ impl App {
         App {
             running: true,
             damselfly_viewer,
-            highlight: None,
+            graph_highlight: None,
         }
     }
 

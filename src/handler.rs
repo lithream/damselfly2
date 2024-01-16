@@ -33,27 +33,27 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         }
 
         KeyCode::Char('h') => {
-            match app.highlight {
+            match app.graph_highlight {
                 None => {
                     let span = app.damselfly_viewer.get_span();
-                    app.highlight = Some((span.1 - span.0) / 2);
+                    app.graph_highlight = Some((span.1 - span.0) / 2);
                 }
                 Some(highlight) => {
                     let span = app.damselfly_viewer.get_span();
-                    app.highlight = Some(highlight.saturating_sub(1));
+                    app.graph_highlight = Some(highlight.saturating_sub(1));
                 }
             }
         }
 
         KeyCode::Char('l') => {
-            match app.highlight {
+            match app.graph_highlight {
                 None => {
                     let span = app.damselfly_viewer.get_span();
-                    app.highlight = Some((span.1 - span.0) / 2);
+                    app.graph_highlight = Some((span.1 - span.0) / 2);
                 }
                 Some(highlight) => {
                     let span = app.damselfly_viewer.get_span();
-                    app.highlight = Some((highlight + 1).clamp(0, span.1 - span.0 - 1));
+                    app.graph_highlight = Some((highlight + 1).clamp(0, span.1 - span.0 - 1));
                 }
             }
         }
@@ -70,12 +70,12 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         }
 
         KeyCode::Char('0') => {
-            app.highlight = Some(0);
+            app.graph_highlight = Some(0);
         }
 
         KeyCode::Char('$') => {
             let span = app.damselfly_viewer.get_span();
-            app.highlight = Some(span.1 - span.0 - 1);
+            app.graph_highlight = Some(span.1 - span.0 - 1);
         }
 
         // Counter handlers
