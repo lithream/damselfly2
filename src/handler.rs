@@ -25,15 +25,15 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
             app.damselfly_viewer.lock_timespan();
         }
 
-        KeyCode::Char('<') => {
+        KeyCode::Char('H') => {
             app.damselfly_viewer.shift_timespan(-1);
         }
 
-        KeyCode::Char('>') => {
+        KeyCode::Char('L') => {
             app.damselfly_viewer.shift_timespan(1);
         }
 
-        KeyCode::Char(',') => {
+        KeyCode::Char('h') => {
             match app.highlight {
                 None => {
                     let span = app.damselfly_viewer.get_span();
@@ -41,12 +41,12 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                 }
                 Some(highlight) => {
                     let span = app.damselfly_viewer.get_span();
-                    app.highlight = Some((highlight - 1).clamp(0, span.1 - span.0));
+                    app.highlight = Some(highlight.saturating_sub(1));
                 }
             }
         }
 
-        KeyCode::Char('.') => {
+        KeyCode::Char('l') => {
             match app.highlight {
                 None => {
                     let span = app.damselfly_viewer.get_span();
@@ -54,9 +54,18 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                 }
                 Some(highlight) => {
                     let span = app.damselfly_viewer.get_span();
-                    app.highlight = Some((highlight + 1).clamp(0, span.1 - span.0));
+                    app.highlight = Some((highlight + 1).clamp(0, span.1 - span.0 - 1));
                 }
             }
+        }
+
+        KeyCode::Char('0') => {
+            app.highlight = Some(0);
+        }
+
+        KeyCode::Char('$') => {
+            let span = app.damselfly_viewer.get_span();
+            app.highlight = Some(span.1 - span.0 - 1);
         }
 
         // Counter handlers

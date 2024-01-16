@@ -51,7 +51,7 @@ impl DamselflyViewer {
         let absolute_shift = units * span as isize;
 
         left = left.saturating_add_signed(absolute_shift).clamp(usize::MIN, right + absolute_shift.unsigned_abs());
-        right = right.saturating_add_signed(absolute_shift).clamp(usize::MIN + span, usize::MAX);
+        right = right.saturating_add_signed(absolute_shift).clamp(usize::MIN + span, self.memory_usage_snapshots.len() - 1);
         (left, right)
     }
 
@@ -131,6 +131,10 @@ impl DamselflyViewer {
 
     pub fn get_span(&self) -> (usize, usize) {
         self.timespan
+    }
+
+    pub fn get_total_operations(&self) -> (usize) {
+        self.memory_usage_snapshots.len()
     }
 }
 

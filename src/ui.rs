@@ -22,16 +22,11 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     let binding = app.damselfly_viewer.get_memory_usage_view();
     let data = binding.as_slice();
 
-    let ctx = Context::new(
-        100,
-        100,
-        [-180.0, 180.0],
-        [-90.0, 90.0],
-        symbols::Marker::Braille
-    );
-
     let canvas = Canvas::default()
-        .block(Block::default().title("Canvas").borders(Borders::ALL))
+        .block(Block::default()
+            .title("Canvas")
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded))
         .x_bounds([0.0, 100.0])
         .y_bounds([0.0, 90.0])
         .paint(|ctx| {
@@ -45,11 +40,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
     frame.render_widget(
         Paragraph::new(format!(
-            "This is a tui template.\n\
-                Press `Esc`, `Ctrl-C` or `q` to stop running.\n\
-                Press left and right to increment and decrement the counter respectively.\n\
-                Counter: {}",
-            app.damselfly_viewer.get_memory_usage().memory_used_absolute
+            "OPERATIONS: {}", app.damselfly_viewer.get_total_operations()
         ))
         .block(
             Block::default()
