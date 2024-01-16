@@ -42,7 +42,7 @@ impl MemoryStub {
     }
 
     pub fn generate_event(&mut self) {
-        let address: usize = rand::thread_rng().gen_range(0..65536);
+        let address: usize = rand::thread_rng().gen_range(0..16);
             match rand::thread_rng().gen_range(0..3) {
                 0 => {
                     self.map.insert(address, MemoryStatus::Allocated(String::from("generate_event_Allocation")));

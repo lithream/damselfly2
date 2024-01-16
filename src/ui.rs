@@ -1,4 +1,4 @@
-use ratatui::{layout::Alignment, style::{Color, Style}, widgets::{Block, BorderType, Borders, Paragraph}, Frame, symbols};
+use ratatui::{layout::Alignment, style::{Color, Style}, widgets::{Block, BorderType, Borders, Paragraph, canvas::*}, Frame, symbols};
 use ratatui::prelude::{Constraint, Direction, Layout};
 use ratatui::style::Stylize;
 use ratatui::text::Span;
@@ -15,37 +15,33 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     let main_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Percentage(100)
+            Constraint::Percentage(80),
+            Constraint::Percentage(20)
         ])
         .split(frame.size());
-    let memory_usage_view = app.damselfly_viewer.get_memory_usage_view();
+    let binding = app.damselfly_viewer.get_memory_usage_view();
+    let data = binding.as_slice();
 
-    let dataset = Dataset::default()
-        .name("Memory usage")
-        .marker(symbols::Marker::Dot)
-        .style(Style::default().fg(Color::Cyan))
-        .data(memory_usage_view);
+    let ctx = Context::new(
+        100,
+        100,
+        [-180.0, 180.0],
+        [-90.0, 90.0],
+        symbols::Marker::Braille
+    );
 
-    let graph_chart = Chart::new(vec![dataset])
-        .block(
-            Block::default()
-                .title("Memory usage".cyan().bold())
-                .borders(Borders::ALL),
-        )
-        .x_axis(
-            Axis::default()
-                .title("Memory operations")
-                .style(Style::default().fg(Color::Gray))
-                .bounds([-20.0, 20.0])
-        )
-        .y_axis(
-            Axis::default()
-                .title("Memory usage")
-                .style(Style::default().fg(Color::Gray))
-                .labels(vec![Span::raw("-20"), Span::raw("0"), Span::raw("0")])
-                .bounds([-20.0, 20.0])
-        );
-    frame.render_widget(graph_chart, main_layout[0]);
+    let canvas = Canvas::default()
+        .block(Block::default().title("Canvas").borders(Borders::ALL))
+        .x_bounds([0.0, 100.0])
+        .y_bounds([0.0, 90.0])
+        .paint(|ctx| {
+            ctx.draw(&Points { coords: data, color: Color::Red });
+            if let Some(highlight) = app.highlight {
+                let (x, y) = data[highlight];
+                ctx.draw(&Points { coords: &[(x, y)], color: Color::White })
+            }
+        });
+    frame.render_widget(canvas, main_layout[0]);
 
     frame.render_widget(
         Paragraph::new(format!(
@@ -64,6 +60,6 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         )
         .style(Style::default().fg(Color::Cyan).bg(Color::Black))
         .alignment(Alignment::Center),
-        frame.size(),
+        main_layout[1]
     )
 }

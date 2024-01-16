@@ -7,11 +7,11 @@ use crate::damselfly::Damselfly;
 use crate::memory::{MemorySnapshot, MemoryStatus};
 
 
-const DEFAULT_TIMESPAN: usize = 25;
+const DEFAULT_TIMESPAN: usize = 100;
 
 #[derive(Debug, Default, Clone)]
 pub struct MemoryUsage {
-    pub memory_used_percentage: f64,
+    pub memory_used_fraction: f64,
     pub memory_used_absolute: f64,
     pub total_memory: usize
 }
@@ -23,8 +23,8 @@ pub struct DamselflyViewer {
     timespan_is_unlocked: bool,
     memoryspan: (usize, usize),
     memoryspan_is_unlocked: bool,
-    memory_usage_snapshots: Arc<Mutex<Vec<MemoryUsage>>>,
-    memory_map_snapshots: Arc<Mutex<Vec<HashMap<usize, MemoryStatus>>>>
+    memory_usage_snapshots: Vec<MemoryUsage>,
+    memory_map_snapshots: Vec<HashMap<usize, MemoryStatus>>
 }
 
 impl DamselflyViewer {
@@ -40,8 +40,8 @@ impl DamselflyViewer {
             timespan_is_unlocked: false,
             memoryspan: (0, 0),
             memoryspan_is_unlocked: false,
-            memory_usage_snapshots: Arc::new(MutexVec::new(),
-            memory_map_snapshots: Vec::new(),
+            memory_usage_snapshots: Vec::new(),
+            memory_map_snapshots: Vec::new()
         }
     }
 
@@ -62,9 +62,13 @@ impl DamselflyViewer {
 
     pub fn lock_timespan(&mut self) {
         let current_span = self.timespan.1 - self.timespan.0;
-        self.timespan.1 = (self.memory_usage_snapshots.len().saturating_sub(1)) as usize;
+        self.timespan.1 = (self.memory_usage_snapshots.len().saturating_sub(1));
         self.timespan.0 = self.timespan.1.saturating_sub(current_span);
         self.timespan_is_unlocked = false;
+    }
+
+    pub fn unlock_timespan(&mut self) {
+        self.timespan_is_unlocked = true;
     }
 
     pub fn shift_memoryspan(&mut self, units: isize) {
@@ -85,7 +89,7 @@ impl DamselflyViewer {
 
         if !self.timespan_is_unlocked {
             self.timespan.1 += 1;
-            if (self.timespan.1 > DEFAULT_TIMESPAN) {
+            if self.timespan.1 > DEFAULT_TIMESPAN {
                 self.timespan.0 += 1;
             }
         }
@@ -97,7 +101,7 @@ impl DamselflyViewer {
 
     pub fn parse_snapshot(&mut self, snapshot: MemorySnapshot) {
         let memory_usage = MemoryUsage {
-            memory_used_percentage: snapshot.memory_usage.0 / snapshot.memory_usage.1 as f64,
+            memory_used_fraction: snapshot.memory_usage.0 / snapshot.memory_usage.1 as f64,
             memory_used_absolute: snapshot.memory_usage.0,
             total_memory: snapshot.memory_usage.1
         };
@@ -115,12 +119,18 @@ impl DamselflyViewer {
         }
     }
 
-    pub fn get_memory_usage_view(&self) -> &[(f64, f64)] {
+    pub fn get_memory_usage_view(&self) -> Vec<(f64, f64)> {
         let mut vector = Vec::new();
         for i in self.timespan.0..self.timespan.1 {
-            vector.push((i as f64, self.memory_usage_snapshots.get(i).unwrap().memory_used_percentage));
+            vector.push(((i - self.timespan.0) as f64, 100.0 * self.memory_usage_snapshots.get(i)
+                .expect("[DamselflyViewer::get_memory_usage_view]: Error getting timestamp {i} from memory_usage_snapshots")
+                .memory_used_fraction));
         }
-        &*vector
+        vector
+    }
+
+    pub fn get_span(&self) -> (usize, usize) {
+        self.timespan
     }
 }
 

@@ -7,7 +7,7 @@ use crate::damselfly::instruction::Instruction;
 pub mod instruction;
 pub mod damselfly_viewer;
 
-const MAX_MEMORY: usize = 65535;
+const MAX_MEMORY: usize = 16;
 pub struct Damselfly {
     instruction_rx: mpsc::Receiver<Instruction>,
     snapshot_tx: mpsc::Sender<MemorySnapshot>,
@@ -55,10 +55,14 @@ impl Damselfly {
     pub fn get_memory_usage(&self) -> (f64, usize) {
         let mut memory_usage: f64 = 0.0;
         for address in self.memory_map.keys() {
-            match self.memory_map.get(address).unwrap() {
-                MemoryStatus::Allocated(_) => memory_usage += 1.0,
-                MemoryStatus::PartiallyAllocated(_) => memory_usage += 0.5,
-                MemoryStatus::Free(_) => {}
+            if let Some(memory_status) = self.memory_map.get(address) {
+                match memory_status {
+                    MemoryStatus::Allocated(_) => memory_usage += 1.0,
+                    MemoryStatus::PartiallyAllocated(_) => memory_usage += 0.5,
+                    MemoryStatus::Free(_) => {}
+                }
+            } else {
+                return (0.0, MAX_MEMORY);
             }
         }
         (memory_usage, MAX_MEMORY)
