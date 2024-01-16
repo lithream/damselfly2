@@ -1,5 +1,6 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::mpsc;
+use std::sync::{Arc, mpsc, Mutex};
 use std::thread;
 use log::debug;
 use crate::damselfly::Damselfly;
@@ -22,8 +23,8 @@ pub struct DamselflyViewer {
     timespan_is_unlocked: bool,
     memoryspan: (usize, usize),
     memoryspan_is_unlocked: bool,
-    memory_usage_snapshots: Vec<MemoryUsage>,
-    memory_map_snapshots: Vec<HashMap<usize, MemoryStatus>>
+    memory_usage_snapshots: Arc<Mutex<Vec<MemoryUsage>>>,
+    memory_map_snapshots: Arc<Mutex<Vec<HashMap<usize, MemoryStatus>>>>
 }
 
 impl DamselflyViewer {
@@ -39,7 +40,7 @@ impl DamselflyViewer {
             timespan_is_unlocked: false,
             memoryspan: (0, 0),
             memoryspan_is_unlocked: false,
-            memory_usage_snapshots: Vec::new(),
+            memory_usage_snapshots: Arc::new(MutexVec::new(),
             memory_map_snapshots: Vec::new(),
         }
     }
@@ -114,8 +115,12 @@ impl DamselflyViewer {
         }
     }
 
-    pub fn get_memory_usage_view(&self) -> &[MemoryUsage] {
-        &self.memory_usage_snapshots[self.timespan.0..self.timespan.1]
+    pub fn get_memory_usage_view(&self) -> &[(f64, f64)] {
+        let mut vector = Vec::new();
+        for i in self.timespan.0..self.timespan.1 {
+            vector.push((i as f64, self.memory_usage_snapshots.get(i).unwrap().memory_used_percentage));
+        }
+        &*vector
     }
 }
 

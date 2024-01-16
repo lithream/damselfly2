@@ -18,20 +18,13 @@ pub fn render(app: &mut App, frame: &mut Frame) {
             Constraint::Percentage(100)
         ])
         .split(frame.size());
-    let memory_usage_data = app.damselfly_viewer.get_memory_usage_view();
-    let mut vector_to_render: Vec<(f64, f64)> = Vec::new();
-    let mut data_index = 0;
-    for data_point in memory_usage_data {
-        let memory_usage: f64 = data_point.memory_used_percentage;
-        vector_to_render.push((data_index as f64, memory_usage));
-        data_index += 1;
-    }
+    let memory_usage_view = app.damselfly_viewer.get_memory_usage_view();
 
     let dataset = Dataset::default()
         .name("Memory usage")
         .marker(symbols::Marker::Dot)
         .style(Style::default().fg(Color::Cyan))
-        .data(&vector_to_render);
+        .data(memory_usage_view);
 
     let graph_chart = Chart::new(vec![dataset])
         .block(
