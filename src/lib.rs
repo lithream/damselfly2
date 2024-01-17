@@ -17,4 +17,4 @@ pub mod handler;
 pub mod memory;
 
 /// Damselfly
-pub mod damselfly;
+pub mod damselfly_viewer;

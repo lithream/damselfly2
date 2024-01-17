@@ -1,4 +1,5 @@
 use std::cmp::min;
+use std::collections::HashMap;
 use ratatui::{layout::Alignment, style::{Color, Style}, widgets::{Block, BorderType, Borders, Paragraph, canvas::*}, Frame};
 use ratatui::prelude::{Constraint, Direction, Layout, Rect};
 
@@ -34,13 +35,25 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         ])
         .split(main_layout[1]);
 
-    let binding = app.damselfly_viewer.get_memory_usage_view();
-    let data = binding.as_slice();
+    let graph_binding = app.damselfly_viewer.get_memory_usage_view();
+    let graph_data = graph_binding.as_slice();
     if let Some(highlight) = app.graph_highlight {
-        app.graph_highlight = Some(min(highlight, data.len() - 1));
+        app.graph_highlight = Some(min(highlight, graph_data.len() - 1));
     }
-    draw_graph(app, left_inner_layout[0], frame, data);
-    //draw_mmap(app, right_inner_layout[0], frame, data);
+    draw_graph(app, left_inner_layout[0], frame, graph_data);
+    
+    let map_data;
+    match app.graph_highlight {
+        None => {
+            map_data = app.damselfly_viewer.get_latest_map_state();
+        }
+        Some(highlight) => {
+            let span = app.damselfly_viewer.get_span();
+            map_data = &app.damselfly_viewer.get_map_state(span.0 + highlight);
+        }
+    }
+    
+    draw_memorymap(app, right_inner_layout[0], frame, map_data);
 
     frame.render_widget(
         Paragraph::new(format!(
@@ -78,7 +91,7 @@ fn draw_graph(app: &mut App, area: Rect, frame: &mut Frame, data: &[(f64, f64)])
     frame.render_widget(canvas, area);
 }
 
-fn draw_mmap(app: &mut App, area: Rect, frame: &mut Frame, data: &[((f64, f64), MemoryStatus)]) {
+fn draw_memorymap(app: &mut App, area: Rect, frame: &mut Frame, map: &HashMap<usize, MemoryStatus>) {
     let canvas = Canvas::default()
         .block(Block::default()
             .title("MEMORY MAP")
@@ -87,19 +100,7 @@ fn draw_mmap(app: &mut App, area: Rect, frame: &mut Frame, data: &[((f64, f64), 
         .x_bounds([0.0, 100.0])
         .y_bounds([0.0, 90.0])
         .paint(|ctx| {
-        for point in data {
-            match point.1 {
-                MemoryStatus::Allocated(_) => {
-                    ctx.draw(&Points{ coords: &[point.0], color: Color::Red });
-                }
-                MemoryStatus::PartiallyAllocated(_) => {
-                    ctx.draw(&Points{ coords: &[point.0], color: Color::Yellow });
-                }
-                MemoryStatus::Free(_) => {
-                    ctx.draw(&Points{ coords: &[point.0], color: Color::Green });
-                }
-            }
-        }
+            for address in 0..crate::damselfly_viewer::DamselflyViewer::DEFAULT_
     });
     frame.render_widget(canvas, area);
 }

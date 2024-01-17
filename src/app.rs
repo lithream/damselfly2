@@ -1,5 +1,5 @@
 use std::{error, thread};
-use crate::damselfly::damselfly_viewer::DamselflyViewer;
+use crate::damselfly_viewer::DamselflyViewer;
 use crate::memory::MemoryStub;
 
 /// Application result type.
@@ -23,7 +23,6 @@ impl App {
                 memory_stub.generate_event();
             }
         });
-//        let (damselfly, snapshot_rx) = Damselfly::new(instruction_rx);
         let damselfly_viewer = DamselflyViewer::new(instruction_rx);
         App {
             running: true,

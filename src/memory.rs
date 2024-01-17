@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{mpsc};
 use std::sync::mpsc::{Receiver, Sender};
 use rand::{Rng};
-use crate::damselfly::instruction::Instruction;
+use crate::damselfly_viewer::instruction::Instruction;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum MemoryUpdate {
