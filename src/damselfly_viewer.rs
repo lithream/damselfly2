@@ -1,5 +1,5 @@
 pub mod instruction;
-mod consts;
+pub mod consts;
 
 use std::cmp::{max, min};
 use std::collections::HashMap;
@@ -9,13 +9,9 @@ use crate::damselfly_viewer::instruction::Instruction;
 use crate::memory::{MemoryStatus, MemoryUpdate};
 
 
-const DEFAULT_TIMESPAN: usize = 100;
-const DEFAULT_MEMORYSPAN: usize = 1024;
-const DEFAULT_MEMORY_SIZE: usize = 4096;
-
 #[derive(Debug, Default, Clone)]
 pub struct MemoryUsage {
-    pub memory_used_fraction: f64,
+    pub memory_used_percentage: f64,
     pub memory_used_absolute: f64,
     pub total_memory: usize
 }
@@ -38,7 +34,7 @@ impl DamselflyViewer {
             instruction_rx,
             timespan: (0, 0),
             timespan_is_unlocked: false,
-            memoryspan: (0, DEFAULT_MEMORYSPAN),
+            memoryspan: (0, consts::DEFAULT_MEMORYSPAN),
             memoryspan_is_unlocked: false,
             memory_usage_snapshots: Vec::new(),
             operation_history: Vec::new(),
@@ -93,25 +89,25 @@ impl DamselflyViewer {
         let span = *right - *left;
         let absolute_shift = units * span;
 
-        *right = min((*right).saturating_add(absolute_shift), DEFAULT_MEMORY_SIZE - 1);
+        *right = min((*right).saturating_add(absolute_shift), consts::DEFAULT_MEMORY_SIZE - 1);
         *left = min((*left).saturating_add(absolute_shift), (*right).saturating_sub(span));
         debug_assert!(right > left);
     }
 
     pub fn shift_timespan_to_beginning(&mut self) {
-        let span = self.get_span();
+        let span = self.get_timespan();
         self.timespan.0 = 0;
         self.timespan.1 = span.1 - span.0;
     }
 
     pub fn shift_timespan_to_end(&mut self) {
-        let span = self.get_span();
+        let span = self.get_timespan();
         self.timespan.1 = self.get_total_operations() - 1;
         self.timespan.0 = self.timespan.1 - (span.1 - span.0);
     }
 
     pub fn lock_timespan(&mut self) {
-        let current_span = max(DEFAULT_TIMESPAN, self.timespan.1 - self.timespan.0);
+        let current_span = max(consts::DEFAULT_TIMESPAN, self.timespan.1 - self.timespan.0);
         self.timespan.1 = self.memory_usage_snapshots.len().saturating_sub(1);
         self.timespan.0 = self.timespan.1.saturating_sub(current_span);
         self.timespan_is_unlocked = false;
@@ -142,7 +138,7 @@ impl DamselflyViewer {
 
         if !self.timespan_is_unlocked {
             self.timespan.1 += 1;
-            if self.timespan.1 > DEFAULT_TIMESPAN {
+            if self.timespan.1 > consts::DEFAULT_TIMESPAN {
                 self.timespan.0 += 1;
             }
         }
@@ -163,9 +159,9 @@ impl DamselflyViewer {
         }
 
         let memory_usage = MemoryUsage {
-            memory_used_fraction: memory_used_absolute / DEFAULT_MEMORY_SIZE as f64,
+            memory_used_percentage: (memory_used_absolute / consts::DEFAULT_MEMORY_SIZE as f64) * 100.0,
             memory_used_absolute,
-            total_memory: DEFAULT_MEMORY_SIZE
+            total_memory: consts::DEFAULT_MEMORY_SIZE
         };
 
         self.memory_usage_snapshots.push(memory_usage);
@@ -189,9 +185,9 @@ impl DamselflyViewer {
         match memory_usage {
             None => {
                 MemoryUsage{
-                    memory_used_fraction: 0.0,
+                    memory_used_percentage: 0.0,
                     memory_used_absolute: 0.0,
-                    total_memory: DEFAULT_MEMORY_SIZE,
+                    total_memory: consts::DEFAULT_MEMORY_SIZE,
                 }
             }
             Some(memory_usage) => (*memory_usage).clone()
@@ -203,7 +199,7 @@ impl DamselflyViewer {
         for i in self.timespan.0..self.timespan.1 {
             vector.push(((i - self.timespan.0) as f64, 100.0 * self.memory_usage_snapshots.get(i)
                 .expect("[damselfly_viewer::get_memory_usage_view]: Error getting timestamp {i} from memory_usage_snapshots")
-                .memory_used_fraction));
+                .memory_used_percentage));
         }
         vector
     }
@@ -237,8 +233,12 @@ impl DamselflyViewer {
         map
     }
 
-    pub fn get_span(&self) -> (usize, usize) {
+    pub fn get_timespan(&self) -> (usize, usize) {
         self.timespan
+    }
+
+    pub fn get_memoryspan(&self) -> (usize, usize) {
+        self.memoryspan
     }
 
     pub fn get_total_operations(&self) -> usize {
@@ -249,7 +249,7 @@ impl DamselflyViewer {
 
 #[cfg(test)]
 mod tests {
-    use crate::damselfly_viewer::{DamselflyViewer, DEFAULT_MEMORY_SIZE};
+    use crate::damselfly_viewer::{DamselflyViewer, consts::DEFAULT_MEMORY_SIZE, consts};
     use crate::memory::{MemoryStatus, MemoryStub, MemoryUpdate};
 
     fn initialise_viewer() -> (DamselflyViewer, MemoryStub) {
@@ -439,7 +439,7 @@ mod tests {
             damselfly_viewer.update();
         }
         for usage in &damselfly_viewer.memory_usage_snapshots {
-            assert_eq!(usage.total_memory, DEFAULT_MEMORY_SIZE);
+            assert_eq!(usage.total_memory, consts::DEFAULT_MEMORY_SIZE);
         }
         assert_eq!(damselfly_viewer.memory_usage_snapshots.get(0).unwrap().memory_used_absolute, 1.0);
         assert_eq!(damselfly_viewer.memory_usage_snapshots.get(1).unwrap().memory_used_absolute, 2.0);

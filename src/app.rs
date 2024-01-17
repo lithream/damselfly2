@@ -12,6 +12,7 @@ pub struct App {
     /// Damselfly
     pub damselfly_viewer: DamselflyViewer,
     pub graph_highlight: Option<usize>,
+    pub map_grid: Vec<Vec<usize>>,
 }
 
 impl App {
@@ -28,6 +29,7 @@ impl App {
             running: true,
             damselfly_viewer,
             graph_highlight: None,
+            map_grid: Vec::new(),
         }
     }
 
