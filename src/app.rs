@@ -24,8 +24,8 @@ impl App {
                 memory_stub.generate_event();
             }
         });
-        let (damselfly, snapshot_rx) = Damselfly::new(instruction_rx);
-        let damselfly_viewer = DamselflyViewer::new(damselfly, snapshot_rx);
+//        let (damselfly, snapshot_rx) = Damselfly::new(instruction_rx);
+        let damselfly_viewer = DamselflyViewer::new(instruction_rx);
         App {
             running: true,
             damselfly_viewer,

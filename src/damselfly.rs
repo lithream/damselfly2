@@ -10,7 +10,6 @@ pub mod damselfly_viewer;
 const DEFAULT_MEMORY_SIZE: usize = 4096;
 pub struct Damselfly {
     instruction_rx: mpsc::Receiver<Instruction>,
-    snapshot_tx: mpsc::Sender<MemorySnapshot>,
     memory_map: HashMap<usize, MemoryStatus>,
     operation_history: Vec<MemoryUpdate>,
 }
@@ -21,7 +20,6 @@ impl Damselfly {
         (
             Damselfly {
             instruction_rx,
-            snapshot_tx,
             memory_map: HashMap::new(),
             operation_history: Vec::new()
         },
@@ -54,7 +52,6 @@ impl Damselfly {
                 debug!("[Damselfly::execute_instruction]: Memory disconnected ({reason})");
             }
         }
-        self.send_snapshot();
     }
 
     pub fn get_memory_usage(&self) -> (f64, usize) {
@@ -71,16 +68,6 @@ impl Damselfly {
             }
         }
         (memory_usage, DEFAULT_MEMORY_SIZE)
-    }
-
-    pub fn send_snapshot(&self) {
-        if let Some(operation) = self.operation_history.last() {
-            let snapshot = MemorySnapshot {
-                memory_usage: self.get_memory_usage(),
-                operation: operation.clone(),
-            };
-            self.snapshot_tx.send(snapshot).expect("[Damselfly::send_snapshot]: Error sending into snapshot channel");
-        }
     }
 
     pub fn get_latest_map_state(&self) -> &HashMap<usize, MemoryStatus>{

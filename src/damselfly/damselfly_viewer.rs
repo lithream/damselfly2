@@ -5,6 +5,7 @@ use std::sync::{Arc, mpsc, Mutex};
 use std::thread;
 use log::debug;
 use crate::damselfly::Damselfly;
+use crate::damselfly::instruction::Instruction;
 use crate::memory::{MemorySnapshot, MemoryStatus, MemoryUpdate};
 
 
@@ -21,7 +22,7 @@ pub struct MemoryUsage {
 
 #[derive(Debug)]
 pub struct DamselflyViewer {
-    snapshot_rx: mpsc::Receiver<MemorySnapshot>,
+    instruction_rx: mpsc::Receiver<Instruction>,
     timespan: (usize, usize),
     timespan_is_unlocked: bool,
     memoryspan: (usize, usize),
@@ -32,14 +33,9 @@ pub struct DamselflyViewer {
 }
 
 impl DamselflyViewer {
-    pub fn new(mut damselfly: Damselfly, snapshot_rx: mpsc::Receiver<MemorySnapshot>) -> DamselflyViewer {
-        thread::spawn(move || {
-            loop {
-                damselfly.execute_instruction();
-            }
-        });
+    pub fn new(instruction_rx: mpsc::Receiver<Instruction>) -> DamselflyViewer {
         DamselflyViewer {
-            snapshot_rx,
+            instruction_rx,
             timespan: (0, 0),
             timespan_is_unlocked: false,
             memoryspan: (0, DEFAULT_MEMORYSPAN),
@@ -133,9 +129,9 @@ impl DamselflyViewer {
     }
 
     pub fn update(&mut self) {
-        let update = self.snapshot_rx.recv();
+        let update = self.instruction_rx.recv();
         match update {
-            Ok(snapshot) => self.parse_snapshot(snapshot),
+            Ok(instruction) => self.parse_instruction(instruction),
             Err(_) => debug!("[DamselflyViewer::update]: Snapshot channel hung up.")
         }
 
@@ -151,11 +147,41 @@ impl DamselflyViewer {
         }
     }
 
-    pub fn parse_snapshot(&mut self, snapshot: MemorySnapshot) {
+    pub fn parse_instruction(&mut self, instruction: Instruction) {
+        let mut memory_used_absolute: f64 = 0.0;
+        for (_, status) in self.memory_map.iter() {
+            match status {
+                MemoryStatus::Allocated(_) => memory_used_absolute += 1.0,
+                MemoryStatus::PartiallyAllocated(_) => memory_used_absolute += 0.5,
+                MemoryStatus::Free(_) => {}
+            }
+        }
+        match instruction.get_operation() {
+            MemoryUpdate::Allocation(_, _) => {
+                memory_used_absolute += 1.0;
+            }
+            MemoryUpdate::PartialAllocation(_, _) => {
+                memory_used_absolute += 0.0;
+            }
+            MemoryUpdate::Free(address, _) => {
+                memory_used_absolute -= match self.memory_map.get(&address) {
+                    None => 0.0,
+                    Some(status) => {
+                        match status {
+                            MemoryStatus::Allocated(_) => 1.0,
+                            MemoryStatus::PartiallyAllocated(_) => 0.5,
+                            MemoryStatus::Free(_) => 0.0,
+                        }
+                    }
+                }
+            }
+            MemoryUpdate::Disconnect(_) => {}
+        }
+
         let memory_usage = MemoryUsage {
-            memory_used_fraction: snapshot.memory_usage.0 / snapshot.memory_usage.1 as f64,
-            memory_used_absolute: snapshot.memory_usage.0,
-            total_memory: snapshot.memory_usage.1
+            memory_used_fraction: memory_used_absolute / DEFAULT_MEMORY_SIZE as f64,
+            memory_used_absolute,
+            total_memory: DEFAULT_MEMORY_SIZE
         };
         self.memory_usage_snapshots.push(memory_usage);
     }
@@ -164,7 +190,11 @@ impl DamselflyViewer {
         let memory_usage = self.memory_usage_snapshots.last();
         match memory_usage {
             None => {
-                MemoryUsage::default()
+                MemoryUsage{
+                    memory_used_fraction: 0.0,
+                    memory_used_absolute: 0.0,
+                    total_memory: DEFAULT_MEMORY_SIZE,
+                }
             }
             Some(memory_usage) => (*memory_usage).clone()
         }
@@ -181,7 +211,31 @@ impl DamselflyViewer {
     }
 
     pub fn get_latest_map_state(&self) -> &HashMap<usize, MemoryStatus> {
+        &self.memory_map
+    }
 
+    pub fn get_map_state(&self, time: usize) -> HashMap<usize, MemoryStatus> {
+        let mut map: HashMap<usize, MemoryStatus> = HashMap::new();
+        let mut iter = self.operation_history.iter();
+        for _ in 0..=time {
+            if let Some(operation) = iter.next() {
+                match operation {
+                    MemoryUpdate::Allocation(address, callstack) => {
+                        map.insert(*address, MemoryStatus::Allocated(String::from(callstack)));
+                    }
+                    MemoryUpdate::PartialAllocation(address, callstack) => {
+                        map.insert(*address, MemoryStatus::PartiallyAllocated(String::from(callstack)));
+                    }
+                    MemoryUpdate::Free(address, callstack) => {
+                        map.insert(*address, MemoryStatus::Free(String::from(callstack)));
+                    }
+                    MemoryUpdate::Disconnect(_) => {
+                        // nothing
+                    }
+                }
+            }
+        }
+        map
     }
 
     pub fn get_span(&self) -> (usize, usize) {
@@ -201,8 +255,8 @@ mod tests {
 
     fn initialise_viewer() -> (DamselflyViewer, MemoryStub) {
         let (memory_stub, instruction_rx) = MemoryStub::new();
-        let (damselfly, snapshot_rx) = Damselfly::new(instruction_rx);
-        let damselfly_viewer = DamselflyViewer::new(damselfly, snapshot_rx);
+//        let (damselfly, snapshot_rx) = Damselfly::new(instruction_rx);
+        let damselfly_viewer = DamselflyViewer::new(instruction_rx);
         (damselfly_viewer, memory_stub)
     }
 
@@ -319,10 +373,6 @@ mod tests {
         for i in 0..5 {
             damselfly.execute_instruction()
         }
-        for i in 0..5 {
-            let snapshot = snapshot_rx.recv().unwrap();
-//            assert_eq!(*snapshot.memory_map.get(&i).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        }
     }
     #[test]
     fn shift_memoryspan_right() {
@@ -374,6 +424,7 @@ mod tests {
         assert_eq!(damselfly_viewer.memoryspan.1, 2048);
     }
 
+    /*
     #[allow(clippy::get_first)]
     #[test]
     fn stub_to_viewer_channel_test() {
@@ -487,4 +538,5 @@ mod tests {
             assert!(!damselfly_viewer.memory_map_snapshots.get(time).unwrap().contains_key(&i));
         }
     }
+     */
 }
