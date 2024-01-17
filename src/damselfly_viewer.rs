@@ -199,8 +199,8 @@ impl DamselflyViewer {
     pub fn get_memory_usage_view(&self) -> Vec<(f64, f64)> {
         let mut vector = Vec::new();
         for i in self.timespan.0..self.timespan.1 {
-            vector.push(((i - self.timespan.0) as f64, 100.0 * self.memory_usage_snapshots.get(i)
-                .expect("[damselfly_viewer::get_memory_usage_view]: Error getting timestamp {i} from memory_usage_snapshots")
+            vector.push(((i - self.timespan.0) as f64, self.memory_usage_snapshots.get(i)
+                .expect("[DamselflyViewer::get_memory_usage_view]: Error getting timestamp {i} from memory_usage_snapshots")
                 .memory_used_percentage));
         }
         vector

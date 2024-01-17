@@ -76,10 +76,20 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
             app.graph_highlight = Some(span.1 - span.0 - 1);
         }
 
-        // Counter handlers
-        KeyCode::Right => {
+        KeyCode::Char('=') => {
+            app.graph_scale *= 2.0;
         }
-        KeyCode::Left => {
+
+        KeyCode::Char('-') => {
+            app.graph_scale /= 2.0;
+        }
+
+        KeyCode::Char('j') => {
+            *app.table_state.offset_mut() += 1;
+        }
+
+        KeyCode::Char('k') => {
+            *app.table_state.offset_mut() -= 1;
         }
         // Other handlers you could add here.
         _ => {}

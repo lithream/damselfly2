@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{mpsc};
 use std::sync::mpsc::{Receiver, Sender};
 use rand::{Rng};
+use crate::damselfly_viewer::consts::DEFAULT_MEMORY_SIZE;
 use crate::damselfly_viewer::instruction::Instruction;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -42,8 +43,8 @@ impl MemoryStub {
     }
 
     pub fn generate_event(&mut self) {
-        let address: usize = rand::thread_rng().gen_range(0..16);
-            match rand::thread_rng().gen_range(0..3) {
+        let address: usize = rand::thread_rng().gen_range(0..DEFAULT_MEMORY_SIZE);
+            match rand::thread_rng().gen_range(0..2) {
                 0 => {
                     self.map.insert(address, MemoryStatus::Allocated(String::from("generate_event_Allocation")));
                     let instruction = Instruction::new(self.time, MemoryUpdate::Allocation(address, String::from("generate_event_Allocation")));
