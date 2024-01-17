@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::mpsc;
 use log::debug;
-use crate::memory::{MemorySnapshot, MemoryStatus, MemoryUpdate};
+use crate::memory::{MemoryStatus, MemoryUpdate};
 use crate::damselfly::instruction::Instruction;
 
 pub mod instruction;
@@ -15,16 +15,12 @@ pub struct Damselfly {
 }
 
 impl Damselfly {
-    pub fn new(instruction_rx: mpsc::Receiver<Instruction>) -> (Damselfly, mpsc::Receiver<MemorySnapshot>) {
-        let (snapshot_tx, snapshot_rx) = mpsc::channel::<MemorySnapshot>();
-        (
-            Damselfly {
+    pub fn new(instruction_rx: mpsc::Receiver<Instruction>) -> Damselfly {
+        Damselfly {
             instruction_rx,
             memory_map: HashMap::new(),
             operation_history: Vec::new()
-        },
-            snapshot_rx
-        )
+        }
     }
 
     pub fn execute_instruction(&mut self) {
@@ -119,7 +115,7 @@ mod tests {
                 memory_stub.force_generate_event(MemoryUpdate::Free(i, String::from("force_generate_event_Free")));
             }
         });
-        let (mut damselfly, _snapshot_rx) = Damselfly::new(rx);
+        let mut damselfly = Damselfly::new(rx);
         for _ in 0..9 {
             damselfly.execute_instruction()
         }

@@ -1,12 +1,9 @@
-use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::collections::HashMap;
-use std::sync::{Arc, mpsc, Mutex};
-use std::thread;
+use std::sync::{mpsc};
 use log::debug;
-use crate::damselfly::Damselfly;
 use crate::damselfly::instruction::Instruction;
-use crate::memory::{MemorySnapshot, MemoryStatus, MemoryUpdate};
+use crate::memory::{MemoryStatus, MemoryUpdate};
 
 
 const DEFAULT_TIMESPAN: usize = 100;
@@ -47,8 +44,13 @@ impl DamselflyViewer {
     }
 
     pub fn execute_instruction(&mut self) {
-
+        if let Ok(instruction) = self.instruction_rx.recv() {
+            self.parse_instruction(instruction);
+        } else {
+            debug!("[DamselflyViewer::execute_instruction]: Error reading from instruction_rx");
+        }
     }
+
     pub fn shift_timespan_right(&mut self, units: usize) {
         let right = &mut self.timespan.1;
         let left = &mut self.timespan.0;
@@ -255,7 +257,6 @@ mod tests {
 
     fn initialise_viewer() -> (DamselflyViewer, MemoryStub) {
         let (memory_stub, instruction_rx) = MemoryStub::new();
-//        let (damselfly, snapshot_rx) = Damselfly::new(instruction_rx);
         let damselfly_viewer = DamselflyViewer::new(instruction_rx);
         (damselfly_viewer, memory_stub)
     }
@@ -366,12 +367,12 @@ mod tests {
     #[test]
     fn damselfly_channel_test() {
         let (mut memory_stub, instruction_rx) = MemoryStub::new();
-        let (mut damselfly, snapshot_rx) = Damselfly::new(instruction_rx);
+        let mut damselfly_viewer = DamselflyViewer::new(instruction_rx);
         for i in 0..5 {
             memory_stub.force_generate_event(MemoryUpdate::Allocation(i, String::from("force_generate_event_Allocation")));
         }
-        for i in 0..5 {
-            damselfly.execute_instruction()
+        for _ in 0..5 {
+            damselfly_viewer.execute_instruction()
         }
     }
     #[test]
@@ -424,7 +425,6 @@ mod tests {
         assert_eq!(damselfly_viewer.memoryspan.1, 2048);
     }
 
-    /*
     #[allow(clippy::get_first)]
     #[test]
     fn stub_to_viewer_channel_test() {
@@ -455,7 +455,8 @@ mod tests {
         assert_eq!(damselfly_viewer.memory_usage_snapshots.get(8).unwrap().memory_used_absolute, 2.5);
 
         let mut time = 0;
-        assert_eq!(*damselfly_viewer.memory_map_snapshots.get(time).unwrap().get(&0).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
+        assert_eq!(*damselfly_viewer.get_map_state(time).get(&0).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
+        /*
         for i in 1..10 {
             assert!(!damselfly_viewer.memory_map_snapshots.get(time).unwrap().contains_key(&i));
         }
@@ -537,6 +538,6 @@ mod tests {
         for i in 6..11 {
             assert!(!damselfly_viewer.memory_map_snapshots.get(time).unwrap().contains_key(&i));
         }
-    }
      */
+    }
 }

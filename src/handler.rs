@@ -1,4 +1,3 @@
-use std::ops::Add;
 use crate::app::{App, AppResult};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -39,7 +38,6 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                     app.graph_highlight = Some((span.1 - span.0) / 2);
                 }
                 Some(highlight) => {
-                    let span = app.damselfly_viewer.get_span();
                     app.graph_highlight = Some(highlight.saturating_sub(1));
                 }
             }

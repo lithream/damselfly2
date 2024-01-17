@@ -1,6 +1,5 @@
 use std::{error, thread};
 use crate::damselfly::damselfly_viewer::DamselflyViewer;
-use crate::damselfly::Damselfly;
 use crate::memory::MemoryStub;
 
 /// Application result type.

@@ -1,10 +1,6 @@
 use std::cmp::min;
-use std::ops::Deref;
-use ratatui::{layout::Alignment, style::{Color, Style}, widgets::{Block, BorderType, Borders, Paragraph, canvas::*}, Frame, symbols};
+use ratatui::{layout::Alignment, style::{Color, Style}, widgets::{Block, BorderType, Borders, Paragraph, canvas::*}, Frame};
 use ratatui::prelude::{Constraint, Direction, Layout, Rect};
-use ratatui::style::Stylize;
-use ratatui::text::Span;
-use ratatui::widgets::{Axis, Chart, Dataset};
 
 use crate::app::App;
 use crate::memory::MemoryStatus;
