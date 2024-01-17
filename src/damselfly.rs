@@ -12,6 +12,7 @@ pub struct Damselfly {
     instruction_rx: mpsc::Receiver<Instruction>,
     snapshot_tx: mpsc::Sender<MemorySnapshot>,
     memory_map: HashMap<usize, MemoryStatus>,
+    operation_history: Vec<MemoryUpdate>,
 }
 
 impl Damselfly {
@@ -22,28 +23,32 @@ impl Damselfly {
             instruction_rx,
             snapshot_tx,
             memory_map: HashMap::new(),
+            operation_history: Vec::new()
         },
             snapshot_rx
         )
     }
 
     pub fn execute_instruction(&mut self) {
-        let instruction = self.instruction_rx.recv().expect("[Damselfly::execute_instruction]: Error receiving from channel");
-        match instruction.get_operation() {
-            MemoryUpdate::Allocation(address, callstack) => {
+        let operation = self.instruction_rx.recv().expect("[Damselfly::execute_instruction]: Error receiving from channel").get_operation();
+        match operation {
+            MemoryUpdate::Allocation(address, ref callstack) => {
                 self.memory_map.entry(address)
                     .and_modify(|memory_state| *memory_state = MemoryStatus::Allocated(callstack.clone()))
-                    .or_insert(MemoryStatus::Allocated(callstack));
+                    .or_insert(MemoryStatus::Allocated(callstack.clone()));
+                self.operation_history.push(operation);
             }
-            MemoryUpdate::PartialAllocation(address, callstack) => {
+            MemoryUpdate::PartialAllocation(address, ref callstack) => {
                 self.memory_map.entry(address)
                     .and_modify(|memory_state| *memory_state = MemoryStatus::PartiallyAllocated(callstack.clone()))
-                    .or_insert(MemoryStatus::PartiallyAllocated(callstack));
+                    .or_insert(MemoryStatus::PartiallyAllocated(callstack.clone()));
+                self.operation_history.push(operation);
             }
-            MemoryUpdate::Free(address, callstack) => {
+            MemoryUpdate::Free(address, ref callstack) => {
                 self.memory_map.entry(address)
                     .and_modify(|memory_state| *memory_state = MemoryStatus::Free(callstack.clone()))
-                    .or_insert(MemoryStatus::Free(callstack));
+                    .or_insert(MemoryStatus::Free(callstack.clone()));
+                self.operation_history.push(operation);
             }
             MemoryUpdate::Disconnect(reason) => {
                 debug!("[Damselfly::execute_instruction]: Memory disconnected ({reason})");
@@ -69,11 +74,41 @@ impl Damselfly {
     }
 
     pub fn send_snapshot(&self) {
-        let snapshot = MemorySnapshot{
-            memory_usage: self.get_memory_usage(),
-            memory_map: self.memory_map.clone()
-        };
-        self.snapshot_tx.send(snapshot).expect("[Damselfly::send_snapshot]: Error sending into snapshot channel");
+        if let Some(operation) = self.operation_history.last() {
+            let snapshot = MemorySnapshot {
+                memory_usage: self.get_memory_usage(),
+                operation: operation.clone(),
+            };
+            self.snapshot_tx.send(snapshot).expect("[Damselfly::send_snapshot]: Error sending into snapshot channel");
+        }
+    }
+
+    pub fn get_latest_map_state(&self) -> &HashMap<usize, MemoryStatus>{
+        &self.memory_map
+    }
+
+    pub fn get_map_state(&self, time: usize) -> HashMap<usize, MemoryStatus> {
+        let mut map: HashMap<usize, MemoryStatus> = HashMap::new();
+        let mut iter = self.operation_history.iter();
+        for _ in 0..=time {
+            if let Some(operation) = iter.next() {
+                match operation {
+                    MemoryUpdate::Allocation(address, callstack) => {
+                        map.insert(*address, MemoryStatus::Allocated(String::from(callstack)));
+                    }
+                    MemoryUpdate::PartialAllocation(address, callstack) => {
+                        map.insert(*address, MemoryStatus::PartiallyAllocated(String::from(callstack)));
+                    }
+                    MemoryUpdate::Free(address, callstack) => {
+                        map.insert(*address, MemoryStatus::Free(String::from(callstack)));
+                    }
+                    MemoryUpdate::Disconnect(_) => {
+                        // nothing
+                    }
+                }
+            }
+        }
+        map
     }
 }
 

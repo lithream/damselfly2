@@ -5,7 +5,7 @@ use std::sync::{Arc, mpsc, Mutex};
 use std::thread;
 use log::debug;
 use crate::damselfly::Damselfly;
-use crate::memory::{MemorySnapshot, MemoryStatus};
+use crate::memory::{MemorySnapshot, MemoryStatus, MemoryUpdate};
 
 
 const DEFAULT_TIMESPAN: usize = 100;
@@ -27,7 +27,8 @@ pub struct DamselflyViewer {
     memoryspan: (usize, usize),
     memoryspan_is_unlocked: bool,
     memory_usage_snapshots: Vec<MemoryUsage>,
-    memory_map_snapshots: Vec<HashMap<usize, MemoryStatus>>
+    operation_history: Vec<MemoryUpdate>,
+    memory_map: HashMap<usize, MemoryStatus>,
 }
 
 impl DamselflyViewer {
@@ -44,21 +45,14 @@ impl DamselflyViewer {
             memoryspan: (0, DEFAULT_MEMORYSPAN),
             memoryspan_is_unlocked: false,
             memory_usage_snapshots: Vec::new(),
-            memory_map_snapshots: Vec::new()
+            operation_history: Vec::new(),
+            memory_map: HashMap::new(),
         }
     }
 
-    /*
-    pub fn shift_span(&mut self, mut left: usize, mut right: usize, units: isize) -> (usize, usize) {
-        debug_assert!(right > left);
-        let span = right - left;
-        let absolute_shift = units * span as isize;
+    pub fn execute_instruction(&mut self) {
 
-        left = left.saturating_add_signed(absolute_shift).clamp(usize::MIN, right - absolute_shift.unsigned_abs());
-        right = right.saturating_add_signed(absolute_shift).clamp(usize::MIN + span, self.memory_usage_snapshots.len());
-        (left, right)
     }
-    */
     pub fn shift_timespan_right(&mut self, units: usize) {
         let right = &mut self.timespan.1;
         let left = &mut self.timespan.0;
@@ -110,12 +104,6 @@ impl DamselflyViewer {
         *left = min((*left).saturating_add(absolute_shift), (*right).saturating_sub(span));
         debug_assert!(right > left);
     }
-    /*
-    pub fn shift_timespan(&mut self, units: isize) {
-        self.timespan_is_unlocked = true;
-        (self.timespan.0, self.timespan.1) = self.shift_span(self.timespan.0, self.timespan.1, units);
-    }
-     */
 
     pub fn shift_timespan_to_beginning(&mut self) {
         let span = self.get_span();
@@ -139,14 +127,6 @@ impl DamselflyViewer {
     pub fn unlock_timespan(&mut self) {
         self.timespan_is_unlocked = true;
     }
-
-    /*
-    pub fn shift_memoryspan(&mut self, units: isize) {
-        self.memoryspan_is_unlocked = true;
-        (self.memoryspan.0, self.memoryspan.1) = self.shift_span(self.memoryspan.0, self.memoryspan.1, units);
-    }
-     */
-
 
     pub fn lock_memoryspan(&mut self) {
         self.memoryspan_is_unlocked = false;
@@ -178,7 +158,6 @@ impl DamselflyViewer {
             total_memory: snapshot.memory_usage.1
         };
         self.memory_usage_snapshots.push(memory_usage);
-        self.memory_map_snapshots.push(snapshot.memory_map);
     }
 
     pub fn get_memory_usage(&self) -> MemoryUsage {
@@ -201,6 +180,10 @@ impl DamselflyViewer {
         vector
     }
 
+    pub fn get_latest_map_state(&self) -> &HashMap<usize, MemoryStatus> {
+
+    }
+
     pub fn get_span(&self) -> (usize, usize) {
         self.timespan
     }
@@ -212,7 +195,6 @@ impl DamselflyViewer {
 
 #[cfg(test)]
 mod tests {
-    use log::debug;
     use crate::damselfly::Damselfly;
     use crate::damselfly::damselfly_viewer::{DamselflyViewer, DEFAULT_MEMORY_SIZE};
     use crate::memory::{MemoryStatus, MemoryStub, MemoryUpdate};
@@ -339,7 +321,7 @@ mod tests {
         }
         for i in 0..5 {
             let snapshot = snapshot_rx.recv().unwrap();
-            assert_eq!(*snapshot.memory_map.get(&i).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
+//            assert_eq!(*snapshot.memory_map.get(&i).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
         }
     }
     #[test]

@@ -26,7 +26,7 @@ pub trait MemoryTracker {
 #[derive(Debug)]
 pub struct MemorySnapshot {
     pub memory_usage: (f64, usize),
-    pub memory_map: HashMap<usize, MemoryStatus>
+    pub operation: MemoryUpdate,
 }
 
 pub struct MemoryStub {
