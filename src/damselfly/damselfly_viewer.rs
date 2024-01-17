@@ -9,6 +9,8 @@ use crate::memory::{MemorySnapshot, MemoryStatus};
 
 
 const DEFAULT_TIMESPAN: usize = 100;
+const DEFAULT_MEMORYSPAN: usize = 1024;
+const DEFAULT_MEMORY_SIZE: usize = 4096;
 
 #[derive(Debug, Default, Clone)]
 pub struct MemoryUsage {
@@ -39,28 +41,81 @@ impl DamselflyViewer {
             snapshot_rx,
             timespan: (0, 0),
             timespan_is_unlocked: false,
-            memoryspan: (0, 0),
+            memoryspan: (0, DEFAULT_MEMORYSPAN),
             memoryspan_is_unlocked: false,
             memory_usage_snapshots: Vec::new(),
             memory_map_snapshots: Vec::new()
         }
     }
 
+    /*
     pub fn shift_span(&mut self, mut left: usize, mut right: usize, units: isize) -> (usize, usize) {
         debug_assert!(right > left);
         let span = right - left;
         let absolute_shift = units * span as isize;
 
-        left = left.saturating_add_signed(absolute_shift).clamp(usize::MIN, right + absolute_shift.unsigned_abs());
+        left = left.saturating_add_signed(absolute_shift).clamp(usize::MIN, right - absolute_shift.unsigned_abs());
         right = right.saturating_add_signed(absolute_shift).clamp(usize::MIN + span, self.memory_usage_snapshots.len());
         (left, right)
+    }
+    */
+    pub fn shift_timespan_right(&mut self, units: usize) {
+        let right = &mut self.timespan.1;
+        let left = &mut self.timespan.0;
+        debug_assert!(*right > *left);
+        let span = *right - *left;
+        let absolute_shift = units * span;
 
+        *right = min((*right).saturating_add(absolute_shift), self.memory_usage_snapshots.len() - 1);
+        *left = min((*left).saturating_add(absolute_shift), *right - span);
+        debug_assert!(right > left);
     }
 
+    pub fn shift_timespan_left(&mut self, units: usize) {
+        self.timespan_is_unlocked = true;
+        let right = &mut self.timespan.1;
+        let left = &mut self.timespan.0;
+        debug_assert!(*right > *left);
+        let span = *right - *left;
+        let absolute_shift = units * span;
+
+        *left = (*left).saturating_sub(absolute_shift);
+        *right = max((*right).saturating_sub(absolute_shift), *left + span);
+        debug_assert!(*right > *left);
+    }
+
+    pub fn shift_memoryspan_left(&mut self, units: usize) {
+        self.timespan_is_unlocked = true;
+        self.memoryspan_is_unlocked = true;
+        let right = &mut self.memoryspan.1;
+        let left = &mut self.memoryspan.0;
+        debug_assert!(*right > *left);
+        let span = *right - *left;
+        let absolute_shift = units * span;
+
+        *left = max((*left).saturating_sub(absolute_shift), usize::MIN);
+        *right = max((*right).saturating_sub(absolute_shift), *left + span);
+        debug_assert!(*right > *left);
+    }
+
+    pub fn shift_memoryspan_right(&mut self, units: usize) {
+        self.memoryspan_is_unlocked = true;
+        let right = &mut self.memoryspan.1;
+        let left = &mut self.memoryspan.0;
+        debug_assert!(*right > *left);
+        let span = *right - *left;
+        let absolute_shift = units * span;
+
+        *right = min((*right).saturating_add(absolute_shift), DEFAULT_MEMORY_SIZE - 1);
+        *left = min((*left).saturating_add(absolute_shift), (*right).saturating_sub(span));
+        debug_assert!(right > left);
+    }
+    /*
     pub fn shift_timespan(&mut self, units: isize) {
         self.timespan_is_unlocked = true;
         (self.timespan.0, self.timespan.1) = self.shift_span(self.timespan.0, self.timespan.1, units);
     }
+     */
 
     pub fn shift_timespan_to_beginning(&mut self) {
         let span = self.get_span();
@@ -76,7 +131,7 @@ impl DamselflyViewer {
 
     pub fn lock_timespan(&mut self) {
         let current_span = max(DEFAULT_TIMESPAN, self.timespan.1 - self.timespan.0);
-        self.timespan.1 = (self.memory_usage_snapshots.len().saturating_sub(1));
+        self.timespan.1 = self.memory_usage_snapshots.len().saturating_sub(1);
         self.timespan.0 = self.timespan.1.saturating_sub(current_span);
         self.timespan_is_unlocked = false;
     }
@@ -85,10 +140,13 @@ impl DamselflyViewer {
         self.timespan_is_unlocked = true;
     }
 
+    /*
     pub fn shift_memoryspan(&mut self, units: isize) {
         self.memoryspan_is_unlocked = true;
         (self.memoryspan.0, self.memoryspan.1) = self.shift_span(self.memoryspan.0, self.memoryspan.1, units);
     }
+     */
+
 
     pub fn lock_memoryspan(&mut self) {
         self.memoryspan_is_unlocked = false;
@@ -147,7 +205,7 @@ impl DamselflyViewer {
         self.timespan
     }
 
-    pub fn get_total_operations(&self) -> (usize) {
+    pub fn get_total_operations(&self) -> usize {
         self.memory_usage_snapshots.len()
     }
 }
@@ -156,7 +214,7 @@ impl DamselflyViewer {
 mod tests {
     use log::debug;
     use crate::damselfly::Damselfly;
-    use crate::damselfly::damselfly_viewer::DamselflyViewer;
+    use crate::damselfly::damselfly_viewer::{DamselflyViewer, DEFAULT_MEMORY_SIZE};
     use crate::memory::{MemoryStatus, MemoryStub, MemoryUpdate};
 
     fn initialise_viewer() -> (DamselflyViewer, MemoryStub) {
@@ -168,46 +226,64 @@ mod tests {
 
     #[test]
     fn shift_timespan() {
-        let (mut damselfly_viewer, _memory_stub) = initialise_viewer();
+        let (mut damselfly_viewer, mut memory_stub) = initialise_viewer();
+        for i in 0..100 {
+            memory_stub.force_generate_event(MemoryUpdate::Allocation(i, String::from("force_generate_event_Allocation")));
+        }
+        for _ in 0..100 {
+            damselfly_viewer.update();
+        }
         damselfly_viewer.timespan.0 = 50;
         damselfly_viewer.timespan.1 = 75;
         assert_eq!(damselfly_viewer.timespan.0, 50);
         assert_eq!(damselfly_viewer.timespan.1, 75);
-        damselfly_viewer.shift_timespan(-1);
+        damselfly_viewer.shift_timespan_left(1);
         assert_eq!(damselfly_viewer.timespan.0, 25);
         assert_eq!(damselfly_viewer.timespan.1, 50);
-        damselfly_viewer.shift_timespan(1);
+        damselfly_viewer.shift_timespan_right(1);
         assert_eq!(damselfly_viewer.timespan.0, 50);
         assert_eq!(damselfly_viewer.timespan.1, 75);
     }
 
     #[test]
     fn shift_timespan_left_cap() {
-        let (mut damselfly_viewer, _memory_stub) = initialise_viewer();
-        damselfly_viewer.timespan.0 = 50;
-        damselfly_viewer.timespan.1 = 75;
-        damselfly_viewer.shift_timespan(-3);
+        let (mut damselfly_viewer, mut memory_stub) = initialise_viewer();
+        for i in 0..250 {
+            memory_stub.force_generate_event(MemoryUpdate::Allocation(i, String::from("force_generate_event_Allocation")));
+        }
+
+        for _ in 0..250 {
+            damselfly_viewer.update();
+        }
+        damselfly_viewer.shift_timespan_left(3);
         assert_eq!(damselfly_viewer.timespan.0, 0);
-        assert_eq!(damselfly_viewer.timespan.1, 25);
-        damselfly_viewer.shift_timespan(1);
-        assert_eq!(damselfly_viewer.timespan.0, 25);
-        assert_eq!(damselfly_viewer.timespan.1, 50);
-        damselfly_viewer.shift_timespan(2);
-        assert_eq!(damselfly_viewer.timespan.0, 75);
+        assert_eq!(damselfly_viewer.timespan.1, 100);
+        damselfly_viewer.shift_timespan_right(1);
+        assert_eq!(damselfly_viewer.timespan.0, 100);
+        assert_eq!(damselfly_viewer.timespan.1, 200);
+        damselfly_viewer.shift_timespan_left(2);
+        assert_eq!(damselfly_viewer.timespan.0, 0);
         assert_eq!(damselfly_viewer.timespan.1, 100);
     }
 
     #[test]
     fn shift_timespan_right() {
-        let (mut damselfly_viewer, _memory_stub) = initialise_viewer();
-        damselfly_viewer.timespan.0 = 50;
-        damselfly_viewer.timespan.1 = 75;
-        damselfly_viewer.shift_timespan(1);
-        assert_eq!(damselfly_viewer.timespan.0, 75);
+        let (mut damselfly_viewer, mut memory_stub) = initialise_viewer();
+        for i in 0..250 {
+            memory_stub.force_generate_event(MemoryUpdate::Allocation(i, String::from("force_generate_event_Allocation")));
+        }
+        for _ in 0..250 {
+            damselfly_viewer.update();
+        }
+        damselfly_viewer.shift_timespan_left(3);
+        assert_eq!(damselfly_viewer.timespan.0, 0);
         assert_eq!(damselfly_viewer.timespan.1, 100);
-        damselfly_viewer.shift_timespan(2);
-        assert_eq!(damselfly_viewer.timespan.0, 125);
-        assert_eq!(damselfly_viewer.timespan.1, 150);
+        damselfly_viewer.shift_timespan_right(1);
+        assert_eq!(damselfly_viewer.timespan.0, 100);
+        assert_eq!(damselfly_viewer.timespan.1, 200);
+        damselfly_viewer.shift_timespan_right(2);
+        assert_eq!(damselfly_viewer.timespan.0, 149);
+        assert_eq!(damselfly_viewer.timespan.1, 249);
     }
 
     #[test]
@@ -215,10 +291,10 @@ mod tests {
         let (mut damselfly_viewer, _memory_stub) = initialise_viewer();
         damselfly_viewer.memoryspan.0 = 0;
         damselfly_viewer.memoryspan.1 = 1024;
-        damselfly_viewer.shift_memoryspan(1);
+        damselfly_viewer.shift_memoryspan_right(1);
         assert_eq!(damselfly_viewer.memoryspan.0, 1024);
         assert_eq!(damselfly_viewer.memoryspan.1, 2048);
-        damselfly_viewer.shift_memoryspan(-1);
+        damselfly_viewer.shift_memoryspan_left(1);
         assert_eq!(damselfly_viewer.memoryspan.0, 0);
         assert_eq!(damselfly_viewer.memoryspan.1, 1024);
     }
@@ -228,15 +304,15 @@ mod tests {
         let (mut damselfly_viewer, _memory_stub) = initialise_viewer();
         damselfly_viewer.memoryspan.0 = 0;
         damselfly_viewer.memoryspan.1 = 1024;
-        damselfly_viewer.shift_memoryspan(-3);
+        damselfly_viewer.shift_memoryspan_left(3);
         assert_eq!(damselfly_viewer.memoryspan.0, 0);
         assert_eq!(damselfly_viewer.memoryspan.1, 1024);
-        damselfly_viewer.shift_memoryspan(1);
+        damselfly_viewer.shift_memoryspan_right(1);
         assert_eq!(damselfly_viewer.memoryspan.0, 1024);
         assert_eq!(damselfly_viewer.memoryspan.1, 2048);
-        damselfly_viewer.shift_memoryspan(2);
-        assert_eq!(damselfly_viewer.memoryspan.0, 3072);
-        assert_eq!(damselfly_viewer.memoryspan.1, 4096);
+        damselfly_viewer.shift_memoryspan_right(2);
+        assert_eq!(damselfly_viewer.memoryspan.0, 3071);
+        assert_eq!(damselfly_viewer.memoryspan.1, 4095);
     }
 
     #[test]
@@ -271,39 +347,43 @@ mod tests {
         let (mut damselfly_viewer, _memory_stub) = initialise_viewer();
         damselfly_viewer.memoryspan.0 = 0;
         damselfly_viewer.memoryspan.1 = 1024;
-        damselfly_viewer.shift_memoryspan(1);
+        damselfly_viewer.shift_memoryspan_right(1);
         assert_eq!(damselfly_viewer.memoryspan.0, 1024);
         assert_eq!(damselfly_viewer.memoryspan.1, 2048);
-        damselfly_viewer.shift_memoryspan(2);
-        assert_eq!(damselfly_viewer.memoryspan.0, 3072);
-        assert_eq!(damselfly_viewer.memoryspan.1, 4096);
+        damselfly_viewer.shift_memoryspan_right(2);
+        assert_eq!(damselfly_viewer.memoryspan.0, 3071);
+        assert_eq!(damselfly_viewer.memoryspan.1, 4095);
     }
 
     #[test]
     fn lock_timespan() {
         let (mut damselfly_viewer, mut memory_stub) = initialise_viewer();
-        for i in 0..5 {
+        for i in 0..250 {
             memory_stub.force_generate_event(MemoryUpdate::Allocation(i, String::from("force_generate_event_Allocation")));
         }
-        for _ in 0..5 {
+        for _ in 0..250 {
             damselfly_viewer.update();
         }
-        damselfly_viewer.shift_timespan(-1);
-        assert_eq!(damselfly_viewer.timespan.0, 0);
-        assert_eq!(damselfly_viewer.timespan.1, 25);
+        damselfly_viewer.shift_timespan_left(1);
+        assert_eq!(damselfly_viewer.timespan.0, 50);
+        assert_eq!(damselfly_viewer.timespan.1, 150);
         assert!(damselfly_viewer.timespan_is_unlocked);
         damselfly_viewer.lock_timespan();
-        assert_eq!(damselfly_viewer.timespan.0, 0);
-        assert_eq!(damselfly_viewer.timespan.1, 4);
+        assert_eq!(damselfly_viewer.timespan.0, 149);
+        assert_eq!(damselfly_viewer.timespan.1, 249);
         assert!(!damselfly_viewer.timespan_is_unlocked);
     }
 
     #[test]
     fn lock_memoryspan() {
-        let (mut damselfly_viewer, _memory_stub) = initialise_viewer();
-        damselfly_viewer.memoryspan.0 = 0;
-        damselfly_viewer.memoryspan.1 = 1024;
-        damselfly_viewer.shift_memoryspan(1);
+        let (mut damselfly_viewer, mut memory_stub) = initialise_viewer();
+        for i in 0..250 {
+            memory_stub.force_generate_event(MemoryUpdate::Allocation(i, String::from("force_generate_event_Allocation")));
+        }
+        for _ in 0..250 {
+            damselfly_viewer.update();
+        }
+        damselfly_viewer.shift_memoryspan_right(1);
         assert_eq!(damselfly_viewer.memoryspan.0, 1024);
         assert_eq!(damselfly_viewer.memoryspan.1, 2048);
         assert!(damselfly_viewer.memoryspan_is_unlocked);
@@ -325,12 +405,11 @@ mod tests {
         for i in 6..9 {
             memory_stub.force_generate_event(MemoryUpdate::Free(i - 4, String::from("force_generate_event_Free")));
         }
-        for i in 0..9 {
-            debug!("iteration: {i}");
+        for _ in 0..9 {
             damselfly_viewer.update();
         }
         for usage in &damselfly_viewer.memory_usage_snapshots {
-            assert_eq!(usage.total_memory, 65535);
+            assert_eq!(usage.total_memory, DEFAULT_MEMORY_SIZE);
         }
         assert_eq!(damselfly_viewer.memory_usage_snapshots.get(0).unwrap().memory_used_absolute, 1.0);
         assert_eq!(damselfly_viewer.memory_usage_snapshots.get(1).unwrap().memory_used_absolute, 2.0);

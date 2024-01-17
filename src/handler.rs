@@ -25,11 +25,11 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         }
 
         KeyCode::Char('H') => {
-            app.damselfly_viewer.shift_timespan(-1);
+//            app.damselfly_viewer.shift_left(1);
         }
 
         KeyCode::Char('L') => {
-            app.damselfly_viewer.shift_timespan(1);
+            app.damselfly_viewer.shift_timespan_right(1);
         }
 
         KeyCode::Char('h') => {

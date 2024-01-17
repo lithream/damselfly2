@@ -7,7 +7,7 @@ use crate::damselfly::instruction::Instruction;
 pub mod instruction;
 pub mod damselfly_viewer;
 
-const MAX_MEMORY: usize = 16;
+const DEFAULT_MEMORY_SIZE: usize = 4096;
 pub struct Damselfly {
     instruction_rx: mpsc::Receiver<Instruction>,
     snapshot_tx: mpsc::Sender<MemorySnapshot>,
@@ -62,10 +62,10 @@ impl Damselfly {
                     MemoryStatus::Free(_) => {}
                 }
             } else {
-                return (0.0, MAX_MEMORY);
+                return (0.0, DEFAULT_MEMORY_SIZE);
             }
         }
-        (memory_usage, MAX_MEMORY)
+        (memory_usage, DEFAULT_MEMORY_SIZE)
     }
 
     pub fn send_snapshot(&self) {
