@@ -5,6 +5,7 @@ use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::sync::{mpsc};
 use log::debug;
+use crate::damselfly_viewer::consts::DEFAULT_TIMESPAN;
 use crate::damselfly_viewer::instruction::Instruction;
 use crate::memory::{MemoryStatus, MemoryUpdate};
 
@@ -47,6 +48,7 @@ impl DamselflyViewer {
         let left = &mut self.timespan.0;
         debug_assert!(*right > *left);
         let span = *right - *left;
+        if span < DEFAULT_TIMESPAN { return; }
         let absolute_shift = units * span;
 
         *right = min((*right).saturating_add(absolute_shift), self.memory_usage_snapshots.len() - 1);

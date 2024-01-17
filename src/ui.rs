@@ -1,5 +1,6 @@
 use std::cmp::min;
 use std::collections::HashMap;
+use std::rc::Rc;
 use ratatui::{layout::Alignment, style::{Color, Style}, widgets::{Block, BorderType, Borders, Paragraph, canvas::*}, Frame};
 use ratatui::prelude::{Constraint, Direction, Layout, Rect, Stylize};
 use ratatui::widgets::{Row, Table};
@@ -41,9 +42,9 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     if let Some(highlight) = app.graph_highlight {
         app.graph_highlight = Some(min(highlight, graph_data.len() - 1));
     }
-    draw_graph(app, left_inner_layout[0], frame, graph_data);
+    draw_graph(app, &left_inner_layout, frame, graph_data);
 
-    let map_data;
+    let map_data: HashMap<usize, MemoryStatus>;
     match app.graph_highlight {
         None => {
             map_data = app.damselfly_viewer.get_latest_map_state().clone();
@@ -56,26 +57,19 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
     draw_memorymap(app, right_inner_layout[0], frame, &map_data);
 
-    frame.render_widget(
-        Paragraph::new(format!(
-            "OPERATIONS: {}\n\
-            X: {}\n\
-            Y: {}\n", app.damselfly_viewer.get_total_operations(), graph_data.last().unwrap_or(&(0.0, 0.0)).0, graph_data.last().unwrap_or(&(0.0, 0.0)).1 * 100.0
-        ))
-        .block(
-            Block::default()
-                .title("Template")
-                .title_alignment(Alignment::Center)
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded),
-        )
-        .style(Style::default())
-        .alignment(Alignment::Center),
-        left_inner_layout[1]
-    )
+
+
 }
 
-fn draw_graph(app: &mut App, area: Rect, frame: &mut Frame, data: &[(f64, f64)]) {
+fn draw_graph(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, data: &[(f64, f64)]) {
+    let graph_highlight;
+    if !data.is_empty() {
+        if let Some(highlight) = app.graph_highlight {
+            graph_highlight = min(highlight, data.len().saturating_sub(1));
+        } else {
+            graph_highlight = data.len().saturating_sub(1);
+        }
+    }
     let canvas = Canvas::default()
         .block(Block::default()
             .title("MEMORY USAGE")
@@ -85,13 +79,44 @@ fn draw_graph(app: &mut App, area: Rect, frame: &mut Frame, data: &[(f64, f64)])
         .y_bounds([0.0, 90.0])
         .paint(|ctx| {
             ctx.draw(&Points { coords: data, color: Color::Red });
-            if let Some(mut highlight) = app.graph_highlight {
-                highlight = min(highlight, data.len() - 1);
-                let (x, mut y) = data[highlight];
-                ctx.draw(&Points { coords: &[(x, y)], color: Color::White })
+            if !data.is_empty() {
+                if let Some(mut highlight) = app.graph_highlight {
+                    highlight = min(highlight, data.len().saturating_sub(1));
+                    let (x, y) = data[highlight];
+                    ctx.draw(&Points { coords: &[(x, y)], color: Color::White })
+                } else {
+                    let highlight = data.len().saturating_sub(1);
+                    let (x, y) = data[highlight];
+                    ctx.draw(&Points { coords: &[(x, y)], color: Color::White })
+                }
             }
         });
-    frame.render_widget(canvas, area);
+    frame.render_widget(canvas, area[0]);
+
+    let mut true_x = 0;
+    let mut y = 0.0;
+    if let Some(graph_highlight) = app.graph_highlight {
+        true_x = app.damselfly_viewer.get_timespan().0 + graph_highlight;
+        y = data[graph_highlight].1;
+    }
+
+    frame.render_widget(
+        Paragraph::new(format!(
+            "OPERATIONS: {}\n\
+            TIME      : {}\n\
+            USAGE %   : {}\n", app.damselfly_viewer.get_total_operations(), true_x, y
+        ))
+            .block(
+                Block::default()
+                    .title("USAGE GRAPH")
+                    .title_alignment(Alignment::Left)
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded),
+            )
+            .style(Style::default())
+            .alignment(Alignment::Left),
+        area[1]
+    )
 }
 
 fn draw_memorymap(app: &mut App, area: Rect, frame: &mut Frame, map: &HashMap<usize, MemoryStatus>) {
