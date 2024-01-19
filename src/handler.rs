@@ -1,6 +1,6 @@
 use crate::app::{App, AppResult};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use crate::damselfly_viewer::consts::DEFAULT_MEMORY_SIZE;
+use crate::damselfly_viewer::consts::{DEFAULT_MEMORY_SIZE, DEFAULT_ROW_LENGTH};
 
 /// Handles the key events and updates the state of [`App`].
 pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
@@ -16,11 +16,11 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
             }
         }
 
-        KeyCode::Char('/') => {
+        KeyCode::Char(';') => {
             app.damselfly_viewer.unlock_timespan()
         }
 
-        KeyCode::Char('?') => {
+        KeyCode::Char(':') => {
             app.damselfly_viewer.lock_timespan();
         }
 
@@ -86,12 +86,49 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         }
 
         KeyCode::Char('j') => {
+            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(1));
+        }
+
+        KeyCode::Char('J') => {
+            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(DEFAULT_ROW_LENGTH));
+        }
+
+        KeyCode::PageUp => {
+            app.map_span.0 = app.map_span.0.saturating_sub(64);
+            app.map_span.1 = app.map_span.1.saturating_sub(64);
+            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(DEFAULT_ROW_LENGTH));
+        }
+
+        KeyCode::PageDown => {
+            app.map_span.0 = app.map_span.0.saturating_add(64);
+            app.map_span.1 = app.map_span.1.saturating_add(64);
+            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(DEFAULT_ROW_LENGTH));
+        }
+
+        KeyCode::Left => {
+            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(1));
+        }
+
+        KeyCode::Right => {
             app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(1));
         }
 
-        KeyCode::Char('k') => {
-            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(1));
+        KeyCode::Up => {
+            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(DEFAULT_ROW_LENGTH));
         }
+
+        KeyCode::Down => {
+            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(DEFAULT_ROW_LENGTH));
+        }
+
+        KeyCode::Char('k') => {
+            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(1));
+        }
+
+        KeyCode::Char('K') => {
+            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(DEFAULT_ROW_LENGTH));
+        }
+
         // Other handlers you could add here.
         _ => {}
     }

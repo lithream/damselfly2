@@ -1,6 +1,6 @@
 use std::{error, thread};
 use ratatui::widgets::TableState;
-use crate::damselfly_viewer::consts::DEFAULT_ROW_LENGTH;
+use crate::damselfly_viewer::consts::{DEFAULT_MEMORYSPAN, DEFAULT_ROW_LENGTH};
 use crate::damselfly_viewer::DamselflyViewer;
 use crate::memory::MemoryStub;
 
@@ -19,7 +19,8 @@ pub struct App {
     pub graph_scale: f64,
     pub table_state: TableState,
 
-    pub row_length: usize
+    pub row_length: usize,
+    pub map_span: (usize, usize)
 }
 
 impl App {
@@ -41,6 +42,7 @@ impl App {
             graph_scale: 1.0,
             table_state: TableState::default(),
             row_length: DEFAULT_ROW_LENGTH,
+            map_span: (0, DEFAULT_MEMORYSPAN),
         }
     }
 
