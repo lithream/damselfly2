@@ -123,6 +123,8 @@ impl DamselflyViewer {
         self.memoryspan_is_unlocked = false;
     }
 
+    pub fn unlock_memoryspan(&mut self) { self.memoryspan_is_unlocked = true; }
+
     pub fn update(&mut self) {
         let update = self.instruction_rx.recv();
         match update {
@@ -146,7 +148,7 @@ impl DamselflyViewer {
         }
 
         if !self.memoryspan_is_unlocked {
-            // do nothing, no memoryspan locking for now
+            // do nothing, memoryspan locking in tui
         }
     }
 
@@ -206,11 +208,11 @@ impl DamselflyViewer {
         vector
     }
 
-    pub fn get_latest_map_state(&self) -> (HashMap<usize, MemoryStatus>, usize) {
-        (self.memory_map.clone(), self.get_operation_address_at_time(self.get_total_operations().saturating_sub(1)))
+    pub fn get_latest_map_state(&self) -> (HashMap<usize, MemoryStatus>, Option<&MemoryUpdate>) {
+        (self.memory_map.clone(), self.operation_history.get(self.get_total_operations().saturating_sub(1)))
     }
 
-    pub fn get_map_state(&self, time: usize) -> (HashMap<usize, MemoryStatus>, usize) {
+    pub fn get_map_state(&self, time: usize) -> (HashMap<usize, MemoryStatus>, Option<&MemoryUpdate>) {
         let mut map: HashMap<usize, MemoryStatus> = HashMap::new();
         let mut iter = self.operation_history.iter();
         for _ in 0..=time {
@@ -231,21 +233,11 @@ impl DamselflyViewer {
                 }
             }
         }
-        (map, self.get_operation_address_at_time(time))
+        (map, self.operation_history.get(time))
     }
 
-    pub fn get_operation_address_at_time(&self, time: usize) -> MemoryUpdate {
-        match self.operation_history.get(time) {
-            None => usize::MIN,
-            Some(operation) => {
-                match operation {
-                    MemoryUpdate::Allocation(address, callstack) => *address,
-                    MemoryUpdate::PartialAllocation(address, callstack) => *address,
-                    MemoryUpdate::Free(address, callstack) => *address,
-                    MemoryUpdate::Disconnect(_) => 0
-                }
-            }
-        }
+    pub fn get_operation_address_at_time(&self, time: usize) -> Option<&MemoryUpdate> {
+        self.operation_history.get(time)
     }
 
     pub fn get_timespan(&self) -> (usize, usize) {
@@ -258,6 +250,13 @@ impl DamselflyViewer {
 
     pub fn get_total_operations(&self) -> usize {
         self.memory_usage_snapshots.len()
+    }
+
+    pub fn get_operation_log_span(&self, start: usize, end: usize) -> &[MemoryUpdate] {
+        if self.operation_history.get(start).is_none() || self.operation_history.get(end).is_none() {
+            return &[];
+        }
+        &self.operation_history[start..end]
     }
 
 }

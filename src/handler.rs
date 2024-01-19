@@ -24,6 +24,14 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
             app.damselfly_viewer.lock_timespan();
         }
 
+        KeyCode::Char('\'') => {
+            app.is_mapspan_locked = false;
+        }
+
+        KeyCode::Char('\"') => {
+            app.is_mapspan_locked = true;
+        }
+
         KeyCode::Char('H') => {
             app.damselfly_viewer.shift_timespan_left(1);
             app.graph_highlight = Some(0);

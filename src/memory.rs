@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::sync::{mpsc};
 use std::sync::mpsc::{Receiver, Sender};
 use rand::{Rng, thread_rng};
@@ -18,6 +19,18 @@ pub enum MemoryStatus {
     Allocated(String),
     PartiallyAllocated(String),
     Free(String),
+}
+
+impl Display for MemoryUpdate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            MemoryUpdate::Allocation(address, callstack) => String::from(format!("ALLOC: {}", address)),
+            MemoryUpdate::PartialAllocation(address, callstack) => String::from(format!("P-ALLOC: {}", address)),
+            MemoryUpdate::Free(address, callstack) => String::from(format!("FREE: {}", address)),
+            MemoryUpdate::Disconnect(_) => String::from("DISCONNECT")
+        };
+        write!(f, "{}", str)
+    }
 }
 
 pub trait MemoryTracker {

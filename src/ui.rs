@@ -1,5 +1,6 @@
 use std::cmp::min;
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::rc::Rc;
 use ratatui::{layout::Alignment, style::{Color, Style}, widgets::{Block, BorderType, Borders, Paragraph, canvas::*}, Frame};
 use ratatui::prelude::{Constraint, Direction, Layout, Rect, Stylize};
@@ -9,7 +10,7 @@ use ratatui::widgets::block::Title;
 
 use crate::app::App;
 use crate::damselfly_viewer::consts::{DEFAULT_MEMORY_SIZE, DEFAULT_MEMORYSPAN, DEFAULT_ROW_LENGTH};
-use crate::memory::MemoryStatus;
+use crate::memory::{MemoryStatus, MemoryUpdate};
 
 /// Renders the user interface widgets.
 pub fn render(app: &mut App, frame: &mut Frame) {
@@ -48,17 +49,32 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     }
     draw_graph(app, &left_inner_layout, frame, graph_data);
 
-    let (map_data, latest_address) = match app.graph_highlight {
-        None => {
-            app.damselfly_viewer.get_latest_map_state()
-        }
-        Some(graph_highlight) => {
-            let span = app.damselfly_viewer.get_timespan();
-            app.damselfly_viewer.get_map_state(span.0 + graph_highlight)
+    let (map_data, latest_operation) = {
+        match app.graph_highlight {
+            None => {
+                let map_state = app.damselfly_viewer.get_latest_map_state();
+                let map = map_state.0.clone();
+                let operation = match map_state.1 {
+                    None => None,
+                    Some(operation) => Some(operation.clone())
+                };
+                (map, operation)
+            }
+            Some(graph_highlight) => {
+                let span = app.damselfly_viewer.get_timespan();
+                let map_state = app.damselfly_viewer.get_map_state(span.0 + graph_highlight);
+                //let map_state = app.damselfly_viewer.get_map_state(span.0 + graph_highlight.clone());
+                let map = map_state.0.clone();
+                let operation = match map_state.1 {
+                    None => None,
+                    Some(operation) => Some(operation.clone())
+                };
+                (map, operation)
+            }
         }
     };
 
-    draw_memorymap(app, &right_inner_layout, frame, &map_data, latest_address);
+    draw_memorymap(app, &right_inner_layout, frame, &map_data, latest_operation);
 }
 
 fn snap_memoryspan_to_latest_operation(app: &mut App, latest_address: usize) {
@@ -66,11 +82,9 @@ fn snap_memoryspan_to_latest_operation(app: &mut App, latest_address: usize) {
     if latest_address >= app.map_span.1 {
         new_map_span.0 = latest_address.saturating_sub(DEFAULT_MEMORYSPAN / 2);
         new_map_span.1 = new_map_span.0 + DEFAULT_MEMORYSPAN;
-        app.map_highlight = Some(latest_address);
     } else if latest_address < app.map_span.0 {
         new_map_span.1 = latest_address + DEFAULT_MEMORYSPAN / 2;
         new_map_span.0 = new_map_span.1.saturating_sub(DEFAULT_MEMORYSPAN);
-        app.map_highlight = Some(latest_address);
     }
     app.map_span = new_map_span;
 }
@@ -121,11 +135,28 @@ fn draw_graph(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, data: &[(f64,
     );
 }
 
-fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &HashMap<usize, MemoryStatus>, latest_address: usize) {
+fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &HashMap<usize, MemoryStatus>, latest_operation: Option<MemoryUpdate>) {
+    let right_inner_layout_bottom = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(70),
+            Constraint::Percentage(30)
+        ])
+        .split(area[1]);
+
+    let latest_address = match latest_operation {
+        None => 0,
+        Some(operation) => match operation {
+            MemoryUpdate::Allocation(address, _) => address,
+            MemoryUpdate::PartialAllocation(address, _) => address,
+            MemoryUpdate::Free(address, _) => address,
+            MemoryUpdate::Disconnect(_) => 0
+        }
+    };
     if app.is_mapspan_locked {
         snap_memoryspan_to_latest_operation(app, latest_address);
+        app.map_highlight = Some(latest_address);
     }
-    let latest_operation = app.damselfly_viewer.get_operation_address_at_time()
     let grid = generate_rows(app.map_span, app.map_highlight, map);
     let widths = [Constraint::Length(1); DEFAULT_ROW_LENGTH];
     let table = Table::new(grid)
@@ -137,9 +168,22 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
             .border_type(BorderType::Rounded));
     frame.render_widget(table, area[0]);
 
+    let callstack = match map.get(&app.map_highlight.unwrap_or(0)) {
+        None => "",
+        Some(memory_status) => {
+            match memory_status {
+                MemoryStatus::Allocated(callstack) => callstack,
+                MemoryStatus::PartiallyAllocated(callstack) => callstack,
+                MemoryStatus::Free(callstack) => callstack
+            }
+        }
+    };
+
     frame.render_widget(
         Paragraph::new(format!(
-            "MAP HIGHLIGHT: {}\n", app.map_highlight.unwrap_or(0)
+            "MAP HIGHLIGHT: {}\n\
+            CALLSTACK: {}\n\
+            VIEW LOCKED: {}", app.map_highlight.unwrap_or(0), callstack, app.is_mapspan_locked
         ))
             .block(
                 Block::default()
@@ -150,8 +194,28 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
             )
             .style(Style::default())
             .alignment(Alignment::Left),
-        area[1]
+        right_inner_layout_bottom[0]
     );
+
+    let operation_count = app.damselfly_viewer.get_total_operations();
+    let operation_list = app.damselfly_viewer.get_operation_log_span(operation_count.saturating_sub(3), operation_count);
+    let mut rows = Vec::new();
+    for operation in operation_list {
+        let style = match operation {
+            MemoryUpdate::Allocation(_, _) => Style::default().red(),
+            MemoryUpdate::PartialAllocation(_, _) => Style::default().yellow(),
+            MemoryUpdate::Free(_, _) => Style::default().gray(),
+            MemoryUpdate::Disconnect(_) => Style::default()
+        };
+        rows.push(Row::new(vec![operation.to_string()]).set_style(style));
+    }
+    let widths = [
+        Constraint::Percentage(100),
+    ];
+    let table = Table::new(rows).widths(&widths[..])
+        .block(Block::default().title("operations"));
+
+    frame.render_widget(table, right_inner_layout_bottom[1]);
 }
 
 fn generate_rows(map_span: (usize, usize), map_highlight: Option<usize>, map: &HashMap<usize, MemoryStatus>) -> Vec<Row> {
