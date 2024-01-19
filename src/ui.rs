@@ -64,7 +64,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         }
     }
 
-    draw_memorymap(app, right_inner_layout[0], frame, &map_data);
+    draw_memorymap(app, &right_inner_layout, frame, &map_data);
 }
 
 fn draw_graph(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, data: &[(f64, f64)]) {
@@ -113,11 +113,9 @@ fn draw_graph(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, data: &[(f64,
     )
 }
 
-fn draw_memorymap(app: &mut App, area: Rect, frame: &mut Frame, map: &HashMap<usize, MemoryStatus>) {
-    let grid = generate_rows(map);
-    let percentage_width = 100 / DEFAULT_ROW_LENGTH;
-    /*
-    let widths = [Constraint::Percentage(percentage_width as u16); DEFAULT_ROW_LENGTH];
+fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &HashMap<usize, MemoryStatus>) {
+    let grid = generate_rows(app.map_highlight, map);
+    let widths = [Constraint::Length(1); DEFAULT_ROW_LENGTH];
     let table = Table::new(grid)
         .widths(&widths)
         .column_spacing(0)
@@ -127,30 +125,64 @@ fn draw_memorymap(app: &mut App, area: Rect, frame: &mut Frame, map: &HashMap<us
             .border_type(BorderType::Rounded))
         .highlight_style(Style::new().reversed())
         .highlight_symbol(">>");
-    frame.render_stateful_widget(table, area, &mut app.table_state);
-     */
+    frame.render_stateful_widget(table, area[0], &mut app.table_state);
+
+    frame.render_widget(
+        Paragraph::new(format!(
+            "MAP HIGHLIGHT: {}\n", app.map_highlight.unwrap_or(0)
+        ))
+            .block(
+                Block::default()
+                    .title("MAP")
+                    .title_alignment(Alignment::Left)
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded),
+            )
+            .style(Style::default())
+            .alignment(Alignment::Left),
+        area[1]
+    )
 }
 
-fn generate_rows(map: &HashMap<usize, MemoryStatus>) -> Vec<Row> {
+fn generate_rows(map_highlight: Option<usize>, map: &HashMap<usize, MemoryStatus>) -> Vec<Row> {
     let mut address: usize = 0;
     let mut grid: Vec<Row> = Vec::new();
-    for _row in 0..(DEFAULT_MEMORY_SIZE / DEFAULT_ROW_LENGTH) {
+    let push_cell = |row: &mut Vec<Cell>, block_state: &MemoryStatus| {
+        match block_state {
+            MemoryStatus::Allocated(_) => {
+                row.push(Cell::from("x").style(Style::default().red()));
+            }
+            MemoryStatus::PartiallyAllocated(_) => {
+                row.push(Cell::from("=").style(Style::default().yellow()));
+            }
+            MemoryStatus::Free(_) => {
+                row.push(Cell::from("o").style(Style::default().gray()));
+            }
+        }
+    };
+    let push_cell_or_default = |current_row: &mut Vec<Cell>, map: &HashMap<usize, MemoryStatus>, address: usize| {
+        if let Some(block_state) = map.get(&address) {
+            push_cell(current_row, block_state);
+        } else {
+            current_row.push(Cell::from("o").style(Style::default().gray()));
+        }
+    };
+
+    for row in 0..(DEFAULT_MEMORY_SIZE / DEFAULT_ROW_LENGTH) {
         let mut current_row: Vec<Cell> = Vec::new();
-        for _col in 0..DEFAULT_ROW_LENGTH {
-            if let Some(block_state) = map.get(&address) {
-                match block_state {
-                    MemoryStatus::Allocated(_) => {
-                        current_row.push(Cell::from("x").style(Style::default().red()));
-                    }
-                    MemoryStatus::PartiallyAllocated(_) => {
-                        current_row.push(Cell::from("=").style(Style::default().yellow()));
-                    }
-                    MemoryStatus::Free(_) => {
-                        current_row.push(Cell::from("o").style(Style::default().gray()));
+        for col in 0..DEFAULT_ROW_LENGTH {
+            let style = Style::default().gray();
+            match map_highlight {
+                None => {
+                    push_cell_or_default(&mut current_row, map, address);
+                }
+                Some(map_highlight) => {
+                    if address == map_highlight {
+                        current_row.push(Cell::from("#").style(Style::default().green()));
+                    } else {
+                        push_cell_or_default(&mut current_row, map, address);
                     }
                 }
-            } else {
-                current_row.push(Cell::from("o").style(Style::default().gray()));
             }
             address += 1;
         }

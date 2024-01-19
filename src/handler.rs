@@ -1,5 +1,6 @@
 use crate::app::{App, AppResult};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crate::damselfly_viewer::consts::DEFAULT_MEMORY_SIZE;
 
 /// Handles the key events and updates the state of [`App`].
 pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
@@ -85,11 +86,11 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         }
 
         KeyCode::Char('j') => {
-            *app.table_state.offset_mut() += 1;
+            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(1));
         }
 
         KeyCode::Char('k') => {
-            *app.table_state.offset_mut() -= 1;
+            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(1));
         }
         // Other handlers you could add here.
         _ => {}
