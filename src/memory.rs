@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{mpsc};
 use std::sync::mpsc::{Receiver, Sender};
-use rand::{Rng};
+use rand::{Rng, thread_rng};
 use crate::damselfly_viewer::consts::DEFAULT_MEMORY_SIZE;
 use crate::damselfly_viewer::instruction::Instruction;
 
@@ -43,22 +43,29 @@ impl MemoryStub {
     }
 
     pub fn generate_event(&mut self) {
-//        let address: usize = rand::thread_rng().gen_range(0..DEFAULT_MEMORY_SIZE);
+        let address: usize = rand::thread_rng().gen_range(0..DEFAULT_MEMORY_SIZE);
+        let block_size = rand::thread_rng().gen_range(0..64);
             match rand::thread_rng().gen_range(0..3) {
                 0 => {
-                    self.map.insert(self.time, MemoryStatus::Allocated(String::from("generate_event_Allocation")));
-                    let instruction = Instruction::new(self.time, MemoryUpdate::Allocation(self.time, String::from("generate_event_Allocation")));
-                    self.instruction_tx.send(instruction).unwrap();
+                    for cur_address in address..address + block_size {
+                        self.map.insert(cur_address, MemoryStatus::Allocated(String::from("generate_event_Allocation")));
+                        let instruction = Instruction::new(cur_address, MemoryUpdate::Allocation(address, String::from("generate_event_Allocation")));
+                        self.instruction_tx.send(instruction).unwrap();
+                    }
                 },
                 1 => {
-                    self.map.insert(self.time, MemoryStatus::PartiallyAllocated(String::from("generate_event_PartialAllocation")));
-                    let instruction = Instruction::new(self.time, MemoryUpdate::PartialAllocation(self.time, String::from("generate_event_PartialAllocation")));
-                    self.instruction_tx.send(instruction).unwrap();
+                    for cur_address in address..address + block_size {
+                        self.map.insert(cur_address, MemoryStatus::PartiallyAllocated(String::from("generate_event_PartialAllocation")));
+                        let instruction = Instruction::new(cur_address, MemoryUpdate::PartialAllocation(cur_address, String::from("generate_event_PartialAllocation")));
+                        self.instruction_tx.send(instruction).unwrap();
+                    }
                 },
                 2 => {
-                    self.map.insert(self.time, MemoryStatus::Free(String::from("generate_event_Free")));
-                    let instruction = Instruction::new(self.time, MemoryUpdate::Free(self.time, String::from("generate_event_Free")));
-                    self.instruction_tx.send(instruction).unwrap();
+                    for cur_address in address..address + block_size {
+                        self.map.insert(cur_address, MemoryStatus::Free(String::from("generate_event_Free")));
+                        let instruction = Instruction::new(cur_address, MemoryUpdate::Free(cur_address, String::from("generate_event_Free")));
+                        self.instruction_tx.send(instruction).unwrap();
+                    }
                 },
                 _ => { panic!("[MemoryStub::generate_event]: Thread RNG out of scope") }
             };

@@ -207,7 +207,7 @@ impl DamselflyViewer {
     }
 
     pub fn get_latest_map_state(&self) -> (HashMap<usize, MemoryStatus>, usize) {
-        (self.memory_map.clone(), self.get_operation_address_at_time(self.get_total_operations() - 1))
+        (self.memory_map.clone(), self.get_operation_address_at_time(self.get_total_operations().saturating_sub(1)))
     }
 
     pub fn get_map_state(&self, time: usize) -> (HashMap<usize, MemoryStatus>, usize) {
@@ -234,9 +234,9 @@ impl DamselflyViewer {
         (map, self.get_operation_address_at_time(time))
     }
 
-    pub fn get_operation_address_at_time(&self, time: usize) -> usize {
+    pub fn get_operation_address_at_time(&self, time: usize) -> MemoryUpdate {
         match self.operation_history.get(time) {
-            None => panic!("[DamselflyViewer::get_operation_address_at_time]: Error getting operation at time {time} from operation_history"),
+            None => usize::MIN,
             Some(operation) => {
                 match operation {
                     MemoryUpdate::Allocation(address, callstack) => *address,

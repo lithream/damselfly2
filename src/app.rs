@@ -20,7 +20,8 @@ pub struct App {
     pub table_state: TableState,
 
     pub row_length: usize,
-    pub map_span: (usize, usize)
+    pub map_span: (usize, usize),
+    pub is_mapspan_locked: bool,
 }
 
 impl App {
@@ -43,6 +44,7 @@ impl App {
             table_state: TableState::default(),
             row_length: DEFAULT_ROW_LENGTH,
             map_span: (0, DEFAULT_MEMORYSPAN),
+            is_mapspan_locked: true,
         }
     }
 

@@ -8,7 +8,7 @@ use ratatui::widgets::{Cell, Row, Table};
 use ratatui::widgets::block::Title;
 
 use crate::app::App;
-use crate::damselfly_viewer::consts::{DEFAULT_MEMORY_SIZE, DEFAULT_ROW_LENGTH};
+use crate::damselfly_viewer::consts::{DEFAULT_MEMORY_SIZE, DEFAULT_MEMORYSPAN, DEFAULT_ROW_LENGTH};
 use crate::memory::MemoryStatus;
 
 /// Renders the user interface widgets.
@@ -58,7 +58,21 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         }
     };
 
-    draw_memorymap(app, &right_inner_layout, frame, &map_data);
+    draw_memorymap(app, &right_inner_layout, frame, &map_data, latest_address);
+}
+
+fn snap_memoryspan_to_latest_operation(app: &mut App, latest_address: usize) {
+    let mut new_map_span = app.map_span;
+    if latest_address >= app.map_span.1 {
+        new_map_span.0 = latest_address.saturating_sub(DEFAULT_MEMORYSPAN / 2);
+        new_map_span.1 = new_map_span.0 + DEFAULT_MEMORYSPAN;
+        app.map_highlight = Some(latest_address);
+    } else if latest_address < app.map_span.0 {
+        new_map_span.1 = latest_address + DEFAULT_MEMORYSPAN / 2;
+        new_map_span.0 = new_map_span.1.saturating_sub(DEFAULT_MEMORYSPAN);
+        app.map_highlight = Some(latest_address);
+    }
+    app.map_span = new_map_span;
 }
 
 fn draw_graph(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, data: &[(f64, f64)]) {
@@ -104,10 +118,14 @@ fn draw_graph(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, data: &[(f64,
             .style(Style::default())
             .alignment(Alignment::Left),
         area[1]
-    )
+    );
 }
 
-fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &HashMap<usize, MemoryStatus>) {
+fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &HashMap<usize, MemoryStatus>, latest_address: usize) {
+    if app.is_mapspan_locked {
+        snap_memoryspan_to_latest_operation(app, latest_address);
+    }
+    let latest_operation = app.damselfly_viewer.get_operation_address_at_time()
     let grid = generate_rows(app.map_span, app.map_highlight, map);
     let widths = [Constraint::Length(1); DEFAULT_ROW_LENGTH];
     let table = Table::new(grid)
@@ -116,9 +134,7 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
         .block(Block::default()
             .title("MEMORY MAP")
             .borders(Borders::ALL)
-            .border_type(BorderType::Rounded))
-        .highlight_style(Style::new().reversed())
-        .highlight_symbol(">>");
+            .border_type(BorderType::Rounded));
     frame.render_widget(table, area[0]);
 
     frame.render_widget(
@@ -135,7 +151,7 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
             .style(Style::default())
             .alignment(Alignment::Left),
         area[1]
-    )
+    );
 }
 
 fn generate_rows(map_span: (usize, usize), map_highlight: Option<usize>, map: &HashMap<usize, MemoryStatus>) -> Vec<Row> {
