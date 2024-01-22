@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::sync::{mpsc};
 use std::sync::mpsc::{Receiver, Sender};
-use rand::{Rng, thread_rng};
+use rand::{Rng};
 use crate::damselfly_viewer::consts::DEFAULT_MEMORY_SIZE;
 use crate::damselfly_viewer::instruction::Instruction;
 
@@ -55,6 +55,13 @@ impl MemoryStub {
         (MemoryStub { instruction_tx: tx, map: HashMap::new(), time: 0 }, rx)
     }
 
+    pub fn generate_event_sequential(&mut self) {
+        self.map.insert(self.time, MemoryStatus::Allocated(String::from("generate_event_sequential_Allocation")));
+        let instruction = Instruction::new(self.time, MemoryUpdate::Allocation(self.time, String::from("generate_event_sequential_Allocation")));
+        self.instruction_tx.send(instruction).unwrap();
+        self.time += 1;
+    }
+
     pub fn generate_event(&mut self) {
         let address: usize = rand::thread_rng().gen_range(0..DEFAULT_MEMORY_SIZE);
         let block_size = rand::thread_rng().gen_range(0..64);
@@ -62,7 +69,7 @@ impl MemoryStub {
                 0 => {
                     for cur_address in address..address + block_size {
                         self.map.insert(cur_address, MemoryStatus::Allocated(String::from("generate_event_Allocation")));
-                        let instruction = Instruction::new(cur_address, MemoryUpdate::Allocation(address, String::from("generate_event_Allocation")));
+                        let instruction = Instruction::new(cur_address, MemoryUpdate::Allocation(cur_address, String::from("generate_event_Allocation")));
                         self.instruction_tx.send(instruction).unwrap();
                     }
                 },

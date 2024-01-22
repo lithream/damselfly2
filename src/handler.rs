@@ -34,12 +34,12 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
 
         KeyCode::Char('H') => {
             app.damselfly_viewer.shift_timespan_left(1);
-            app.graph_highlight = Some(0);
+            app.graph_highlight = Some(DEFAULT_TIMESPAN);
         }
 
         KeyCode::Char('L') => {
             app.damselfly_viewer.shift_timespan_right(1);
-            app.graph_highlight = Some(DEFAULT_TIMESPAN);
+            app.graph_highlight = Some(0);
         }
 
         KeyCode::Char('h') => {

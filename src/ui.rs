@@ -1,6 +1,5 @@
-use std::cmp::min;
+use std::cmp::{max_by, min};
 use std::collections::HashMap;
-use std::ops::Deref;
 use std::rc::Rc;
 use ratatui::{layout::Alignment, style::{Color, Style}, widgets::{Block, BorderType, Borders, Paragraph, canvas::*}, Frame};
 use ratatui::prelude::{Constraint, Direction, Layout, Rect, Stylize};
@@ -49,15 +48,12 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     }
     draw_graph(app, &left_inner_layout, frame, graph_data);
 
-    let (map_data, latest_operation) = {
+    let (mut map_data, latest_operation) = {
         match app.graph_highlight {
             None => {
                 let map_state = app.damselfly_viewer.get_latest_map_state();
                 let map = map_state.0.clone();
-                let operation = match map_state.1 {
-                    None => None,
-                    Some(operation) => Some(operation.clone())
-                };
+                let operation = map_state.1.cloned();
                 (map, operation)
             }
             Some(graph_highlight) => {
@@ -65,10 +61,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
                 let map_state = app.damselfly_viewer.get_map_state(span.0 + graph_highlight);
                 //let map_state = app.damselfly_viewer.get_map_state(span.0 + graph_highlight.clone());
                 let map = map_state.0.clone();
-                let operation = match map_state.1 {
-                    None => None,
-                    Some(operation) => Some(operation.clone())
-                };
+                let operation = map_state.1.cloned();
                 (map, operation)
             }
         }
@@ -144,6 +137,14 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
         ])
         .split(area[1]);
 
+    let right_inner_layout_upper = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(80),
+            Constraint::Percentage(20),
+        ])
+        .split(area[0]);
+
     let latest_address = match latest_operation {
         None => 0,
         Some(operation) => match operation {
@@ -157,7 +158,7 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
         snap_memoryspan_to_latest_operation(app, latest_address);
         app.map_highlight = Some(latest_address);
     }
-    let grid = generate_rows(app.map_span, app.map_highlight, map);
+    let grid = generate_rows(DEFAULT_MEMORY_SIZE / DEFAULT_ROW_LENGTH, app.map_span, app.map_highlight, map);
     let widths = [Constraint::Length(1); DEFAULT_ROW_LENGTH];
     let table = Table::new(grid)
         .widths(&widths)
@@ -166,7 +167,7 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
             .title("MEMORY MAP")
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded));
-    frame.render_widget(table, area[0]);
+    frame.render_widget(table, right_inner_layout_upper[0]);
 
     let callstack = match map.get(&app.map_highlight.unwrap_or(0)) {
         None => "",
@@ -197,8 +198,27 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
         right_inner_layout_bottom[0]
     );
 
-    let operation_count = app.damselfly_viewer.get_total_operations();
-    let operation_list = app.damselfly_viewer.get_operation_log_span(operation_count.saturating_sub(3), operation_count);
+    let shrunk_map_data = shrink_hashmap(&map, 2);
+    let shrunk_grid = generate_rows(DEFAULT_MEMORY_SIZE / (2 * 12), (0, DEFAULT_MEMORY_SIZE), None, &shrunk_map_data);
+    let widths = [Constraint::Length(1); 12];
+    let table = Table::new(shrunk_grid)
+        .widths(&widths)
+        .column_spacing(0)
+        .block(Block::default()
+            .title("OVERVIEW")
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded));
+    frame.render_widget(table, right_inner_layout_upper[1]);
+
+    let operation_count;
+    let operation_list;
+    if app.damselfly_viewer.is_timespan_locked() {
+        operation_count = app.damselfly_viewer.get_total_operations();
+        operation_list = app.damselfly_viewer.get_operation_log_span(operation_count.saturating_sub(7), operation_count);
+    } else {
+        let timespan = app.damselfly_viewer.get_timespan();
+        operation_list = app.damselfly_viewer.get_operation_log_span(timespan.0 + app.graph_highlight.unwrap(), timespan.0 + app.graph_highlight.unwrap() + 7);
+    }
     let mut rows = Vec::new();
     for operation in operation_list {
         let style = match operation {
@@ -213,17 +233,21 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
         Constraint::Percentage(100),
     ];
     let table = Table::new(rows).widths(&widths[..])
-        .block(Block::default().title("operations"));
+        .block(Block::default()
+            .title("OPERATIONS")
+            .title_alignment(Alignment::Left)
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded));
 
     frame.render_widget(table, right_inner_layout_bottom[1]);
 }
 
-fn generate_rows(map_span: (usize, usize), map_highlight: Option<usize>, map: &HashMap<usize, MemoryStatus>) -> Vec<Row> {
+fn generate_rows(rows: usize, map_span: (usize, usize), map_highlight: Option<usize>, map: &HashMap<usize, MemoryStatus>) -> Vec<Row> {
     let mut address = map_span.0;
     let mut grid: Vec<Row> = Vec::new();
     let push_cell = |row: &mut Vec<Cell>, block_state: &MemoryStatus, force_bg: Option<Color>| {
         let mut bg = Color::Black;
-        let mut fg = Color::White;
+        let fg;
         let content;
         match block_state {
             MemoryStatus::Allocated(_) => {
@@ -254,7 +278,7 @@ fn generate_rows(map_span: (usize, usize), map_highlight: Option<usize>, map: &H
         }
     };
 
-    for _row in 0..(DEFAULT_MEMORY_SIZE / DEFAULT_ROW_LENGTH) {
+    for _row in 0..rows {
         let mut current_row: Vec<Cell> = Vec::new();
         for _col in 0..DEFAULT_ROW_LENGTH {
             match map_highlight {
@@ -274,4 +298,66 @@ fn generate_rows(map_span: (usize, usize), map_highlight: Option<usize>, map: &H
         grid.push(Row::new(current_row));
     }
     grid
+}
+
+fn shrink_hashmap(map: &HashMap<usize, MemoryStatus>, step: usize) -> HashMap<usize, MemoryStatus> {
+    let mut new_map = HashMap::new();
+    let mut new_map_address = 0;
+    for address in (0..DEFAULT_MEMORY_SIZE).step_by(step) {
+        let mut allocated_count = 0;
+        let mut pallocated_count = 0;
+        let mut free_count = 0;
+
+        for i in address..address + step {
+            let weight = match map.get(&i) {
+                Some(block_state) => match block_state {
+                    MemoryStatus::Allocated(_) => allocated_count += 1, // weight for allocated
+                    MemoryStatus::PartiallyAllocated(_) => pallocated_count += 1, // weight for partially allocated
+                    MemoryStatus::Free(_) => free_count += 1, // weight for free
+                },
+                None => free_count += 1, // weight for free
+            };
+        }
+        let mean_status;
+        if allocated_count >= pallocated_count && allocated_count >= free_count {
+            mean_status = MemoryStatus::Allocated(String::from("__placeholder"));
+        } else if pallocated_count >= free_count {
+            mean_status = MemoryStatus::PartiallyAllocated(String::from("__placeholder"));
+        } else {
+            mean_status = MemoryStatus::Free(String::from("__placeholder"));
+        }
+        new_map.insert(new_map_address, mean_status);
+        new_map_address += 1;
+    }
+    new_map
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use crate::memory::MemoryStatus;
+    use crate::ui::shrink_hashmap;
+
+    #[test]
+    fn shrink_hashmap_test() {
+        let mut original_map: HashMap<usize, MemoryStatus> = HashMap::new();
+        original_map.insert(0, MemoryStatus::Allocated(String::from("__init")));
+        original_map.insert(1, MemoryStatus::Allocated(String::from("__init")));
+        original_map.insert(2, MemoryStatus::PartiallyAllocated(String::from("__init")));
+        original_map.insert(3, MemoryStatus::Free(String::from("__init")));
+
+        original_map.insert(4, MemoryStatus::Allocated(String::from("__init")));
+        original_map.insert(5, MemoryStatus::PartiallyAllocated(String::from("__init")));
+        original_map.insert(6, MemoryStatus::PartiallyAllocated(String::from("__init")));
+        original_map.insert(7, MemoryStatus::Free(String::from("__init")));
+
+        original_map.insert(8, MemoryStatus::Allocated(String::from("__init")));
+        original_map.insert(9, MemoryStatus::PartiallyAllocated(String::from("__init")));
+        original_map.insert(10, MemoryStatus::Free(String::from("__init")));
+        original_map.insert(11, MemoryStatus::Free(String::from("__init")));
+        let shrunk_map = shrink_hashmap(&original_map, 4);
+        assert_eq!(shrunk_map[&0], MemoryStatus::Allocated(String::from("__placeholder")));
+        assert_eq!(shrunk_map[&1], MemoryStatus::PartiallyAllocated(String::from("__placeholder")));
+        assert_eq!(shrunk_map[&2], MemoryStatus::Free(String::from("__placeholder")));
+    }
 }

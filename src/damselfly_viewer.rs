@@ -253,10 +253,14 @@ impl DamselflyViewer {
     }
 
     pub fn get_operation_log_span(&self, start: usize, end: usize) -> &[MemoryUpdate] {
-        if self.operation_history.get(start).is_none() || self.operation_history.get(end).is_none() {
+        if self.operation_history.get(start).is_none() || self.operation_history.get(end - 1).is_none() {
             return &[];
         }
         &self.operation_history[start..end]
+    }
+    
+    pub fn is_timespan_locked(&self) -> bool {
+        !self.timespan_is_unlocked
     }
 
 }
