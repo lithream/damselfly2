@@ -30,7 +30,7 @@ impl App {
         let (mut memory_stub, instruction_rx) = MemoryStub::new();
         thread::spawn(move ||{
             loop {
-                memory_stub.generate_event_sequential();
+                memory_stub.generate_event();
             }
         });
         let damselfly_viewer = DamselflyViewer::new(instruction_rx);

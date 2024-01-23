@@ -48,7 +48,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     }
     draw_graph(app, &left_inner_layout, frame, graph_data);
 
-    let (mut map_data, latest_operation) = {
+    let (map_data, latest_operation) = {
         match app.graph_highlight {
             None => {
                 let map_state = app.damselfly_viewer.get_latest_map_state();
@@ -198,6 +198,7 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
         right_inner_layout_bottom[0]
     );
 
+    /*
     let shrunk_map_data = shrink_hashmap(&map, 2);
     let shrunk_grid = generate_rows(DEFAULT_MEMORY_SIZE / (2 * 12), (0, DEFAULT_MEMORY_SIZE), None, &shrunk_map_data);
     let widths = [Constraint::Length(1); 12];
@@ -209,7 +210,7 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded));
     frame.render_widget(table, right_inner_layout_upper[1]);
-
+*/
     let operation_count;
     let operation_list;
     if app.damselfly_viewer.is_timespan_locked() {
