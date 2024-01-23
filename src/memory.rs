@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::num::ParseFloatError;
 use std::sync::{mpsc};
 use std::sync::mpsc::{Receiver, Sender};
 use rand::{Rng};
@@ -41,6 +42,67 @@ pub trait MemoryTracker {
 pub struct MemorySnapshot {
     pub memory_usage: (f64, usize),
     pub operation: MemoryUpdate,
+}
+
+pub struct MemorySysTraceParser {
+    instruction_tx: Sender<Instruction>,
+    map: HashMap<usize, MemoryStatus>,
+    time: usize
+}
+
+impl MemorySysTraceParser {
+    pub fn new() -> (MemorySysTraceParser, Receiver<Instruction>) {
+        let (tx, rx) = mpsc::channel();
+        (MemorySysTraceParser { instruction_tx: tx, map: HashMap::new(), time: 0 }, rx)
+    }
+
+    pub fn parse_log(&mut self, log: &str) -> Vec<Instruction> {
+        Vec::new()
+    }
+    fn parse_line(line: &str) -> Result<Instruction, &'static str> {
+        let split_line: Vec<&str> = line.trim().split(' ').collect();
+        let timestamp = split_line.first();
+        if timestamp.is_none() {
+            return Err("[MemorySysTraceParser::parse_line]: No timestamp found");
+        }
+
+        let binding = line.split('>').collect::<Vec<_>>();
+        let dataline = binding.get(1);
+        if dataline.is_none() {
+            return Err("[MemorySysTraceParser::parse_line]: Failed to split by > char");
+        }
+        let dataline = dataline.unwrap();
+
+        let split_dataline = dataline.split(' ').collect::<Vec<_>>();
+        if split_dataline.len() < 2 || split_dataline.len() > 3 {
+            return Err ("[MemorySysTraceParser::parse_line]: Line length mismatch");
+        }
+
+        let mut operation;
+        match split_dataline[0] {
+            "+" => operation = MemoryUpdate::Allocation(0, String::from("default")),
+            "-" => operation = MemoryUpdate::Free(0, String::from("default")),
+             _  => return Err("[MemorySysTraceParser::parse_line]: Invalid operation type"),
+        }
+
+        let address = usize::from_str_radix(split_dataline[1], 16);
+        if let Err(error) = address {
+            return Err("[MemorySysTraceParser::parse_line]: Failed to convert address to decimal");
+        }
+
+        let address = address.unwrap();
+        match operation {
+            MemoryUpdate::Allocation(ref mut stored_address, _) => *stored_address = address,
+            MemoryUpdate::Free(ref mut stored_address , _) => *stored_address = address,
+            _ => return Err("[MemorySysTraceParser::parse_line]: Invalid operation type"),
+        }
+
+        if let MemoryUpdate::Allocation(_, ) = operation {
+            let allocated_bytes = split_dataline[2];
+            operation.
+        }
+        Err("defaul")
+    }
 }
 
 pub struct MemoryStub {
