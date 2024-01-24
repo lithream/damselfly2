@@ -74,6 +74,9 @@ impl MemorySysTraceParser {
             let instruction = self.process_instruction(&mut log_iter);
             self.instruction_tx.send(instruction).expect("[MemorySysTraceParser::parse_log]: Failed to send instruction");
         }
+        // EOF
+        let instruction = self.bake_instruction();
+        self.instruction_tx.send(instruction).expect("[MemorySysTraceParser::parse_log]: Failed to send final instruction");
     }
 
     fn is_line_useless(&self, next_line: &&str) -> bool {
@@ -91,6 +94,9 @@ impl MemorySysTraceParser {
         let mut baked_instruction = None;
         while baked_instruction.is_none() {
             if let Some(line) = log_iter.next() {
+                if self.is_line_useless(&line) {
+                    continue;
+                }
                 let record = self.line_to_record(line).expect("[MemorySysTraceParser::process_operation]: Failed to process line");
                 match record {
                     RecordType::StackTrace(_, _) => self.process_stacktrace(record),
@@ -195,7 +201,7 @@ impl MemorySysTraceParser {
         match record {
             RecordType::Allocation(ref mut default_address, ref mut default_size, _) => {
                 *default_address = address;
-                *default_size = split_dataline[2].parse()
+                *default_size = usize::from_str_radix(split_dataline[2], 16)
                     .expect("[MemorySysTraceParser::parse_line]: Failed to read size");
             },
             RecordType::Free(ref mut default_address, _) => *default_address = address,
@@ -208,6 +214,7 @@ impl MemorySysTraceParser {
 
 #[cfg(test)]
 mod tests {
+    use std::arch::x86_64::_mm256_abs_epi8;
     use crate::memory::{MemorySysTraceParser, MemoryUpdate, RecordType};
 
     #[test]
@@ -394,6 +401,15 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn process_stacktrace_empty_queue_test() {
+        let (mut memsystraceparser, _) = MemorySysTraceParser::new();
+        memsystraceparser.process_stacktrace(
+            RecordType::StackTrace(0, "1".to_string())
+        );
+    }
+
+    #[test]
     fn line_to_record_alloc_test() {
         let (memsystraceparser, _) = MemorySysTraceParser::new();
         let line = "00001444: 039e0edc |V|A|005|        0 us   0003.678 s    < DT:0xE1504C74> + e150206c 20";
@@ -408,139 +424,99 @@ mod tests {
             RecordType::StackTrace(_, _) => panic!("Wrong record type: Stacktrace"),
         }
     }
-}
-/*
-pub struct MemoryStub {
-    instruction_tx: Sender<Instruction>,
-    map: HashMap<usize, MemoryStatus>,
-    time: usize
-}
 
-impl MemoryStub {
-    pub fn new() -> (MemoryStub, Receiver<Instruction>) {
-        let (tx, rx) = mpsc::channel();
-        (MemoryStub { instruction_tx: tx, map: HashMap::new(), time: 0 }, rx)
-    }
-
-    pub fn generate_event_sequential(&mut self) {
-        self.map.insert(self.time, MemoryStatus::Allocated(String::from("generate_event_sequential_Allocation")));
-        let instruction = Instruction::new(self.time, MemoryUpdate::Allocation(self.time, String::from("generate_event_sequential_Allocation")));
-        self.instruction_tx.send(instruction).unwrap();
-        self.time += 1;
-    }
-
-    pub fn generate_event(&mut self) {
-        let address: usize = rand::thread_rng().gen_range(0..DEFAULT_MEMORY_SIZE);
-        let block_size = rand::thread_rng().gen_range(0..64);
-            match rand::thread_rng().gen_range(0..3) {
-                0 => {
-                    for cur_address in address..address + block_size {
-                        self.map.insert(cur_address, MemoryStatus::Allocated(String::from("generate_event_Allocation")));
-                        let instruction = Instruction::new(cur_address, MemoryUpdate::Allocation(cur_address, String::from("generate_event_Allocation")));
-                        self.instruction_tx.send(instruction).unwrap();
-                    }
-                },
-                1 => {
-                    for cur_address in address..address + block_size {
-                        self.map.insert(cur_address, MemoryStatus::PartiallyAllocated(String::from("generate_event_PartialAllocation")));
-                        let instruction = Instruction::new(cur_address, MemoryUpdate::PartialAllocation(cur_address, String::from("generate_event_PartialAllocation")));
-                        self.instruction_tx.send(instruction).unwrap();
-                    }
-                },
-                2 => {
-                    for cur_address in address..address + block_size {
-                        self.map.insert(cur_address, MemoryStatus::Free(String::from("generate_event_Free")));
-                        let instruction = Instruction::new(cur_address, MemoryUpdate::Free(cur_address, String::from("generate_event_Free")));
-                        self.instruction_tx.send(instruction).unwrap();
-                    }
-                },
-                _ => { panic!("[MemoryStub::generate_event]: Thread RNG out of scope") }
-            };
-        self.time += 1;
-    }
-
-    pub fn force_generate_event(&mut self, event: MemoryUpdate) {
-        match event {
-            MemoryUpdate::Allocation(address, ref callstack) => {
-                self.map.insert(address, MemoryStatus::Allocated(callstack.clone()));
-                let instruction = Instruction::new(self.time, event);
-                self.instruction_tx.send(instruction).unwrap();
+    #[test]
+    fn line_to_record_free_test() {
+        let (memsystraceparser, _) = MemorySysTraceParser::new();
+        let line = "00001190: 039dd8f5 |V|A|005|       13 us   0003.677 s    < DT:0xE1504B54> - e150202c";
+        let record = memsystraceparser.line_to_record(line).unwrap();
+        match record {
+            RecordType::Allocation(_, _, _) => panic!("Wrong type: Allocation"),
+            RecordType::Free(address, callstack) => {
+                assert_eq!(address, 3780124716);
+                assert!(callstack.is_empty());
             }
-            MemoryUpdate::PartialAllocation(address, ref callstack) => {
-                self.map.insert(address, MemoryStatus::PartiallyAllocated(callstack.clone()));
-                let instruction = Instruction::new(self.time, event);
-                self.instruction_tx.send(instruction).unwrap();
-
-            }
-            MemoryUpdate::Free(address, ref callstack) => {
-                self.map.insert(address, MemoryStatus::Free(callstack.clone()));
-                let instruction = Instruction::new(self.time, event);
-                self.instruction_tx.send(instruction).unwrap();
-
-            }
-            MemoryUpdate::Disconnect(reason) => {
-                let instruction = Instruction::new(self.time, MemoryUpdate::Disconnect(reason));
-                self.instruction_tx.send(instruction).unwrap();
-            }
+            RecordType::StackTrace(_, _) => panic!("Wrong type: Stacktrace"),
         }
-        self.time += 1;
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use log::debug;
-    use crate::memory::{MemoryStatus, MemoryStub, MemoryUpdate};
-
-    #[test]
-    fn allocate() {
-        let (mut memory_stub, rx) = MemoryStub::new();
-        memory_stub.force_generate_event(MemoryUpdate::Allocation(0, String::from("force_generate_event_Allocation")));
-        assert_eq!(*memory_stub.map.get(&0).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(rx.recv().unwrap().get_operation(), MemoryUpdate::Allocation(0, String::from("force_generate_event_Allocation")));
     }
 
     #[test]
-    fn partially_allocate() {
-        let (mut memory_stub, rx) = MemoryStub::new();
-        memory_stub.force_generate_event(MemoryUpdate::PartialAllocation(0, String::from("force_generate_event_PartialAllocation")));
-        assert_eq!(*memory_stub.map.get(&0).unwrap(), MemoryStatus::PartiallyAllocated(String::from("force_generate_event_PartialAllocation")));
-        assert_eq!(rx.recv().unwrap().get_operation(), MemoryUpdate::PartialAllocation(0, String::from("force_generate_event_PartialAllocation")));
-    }
-
-    #[test]
-    fn free() {
-        let (mut memory_stub, rx) = MemoryStub::new();
-        memory_stub.force_generate_event(MemoryUpdate::Allocation(0, String::from("force_generate_event_Free")));
-        assert_eq!(*memory_stub.map.get(&0).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Free")));
-        memory_stub.force_generate_event(MemoryUpdate::Free(0, String::from("force_generate_event_Free")));
-        assert_eq!(*memory_stub.map.get(&0).unwrap(), MemoryStatus::Free(String::from("force_generate_event_Free")));
-        assert_eq!(rx.recv().unwrap().get_operation(), MemoryUpdate::Allocation(0, String::from("force_generate_event_Free")));
-        assert_eq!(rx.recv().unwrap().get_operation(), MemoryUpdate::Free(0, String::from("force_generate_event_Free")));
-    }
-
-    #[test]
-    fn generate_random_events() {
-        let (mut memory_stub, rx) = MemoryStub::new();
-        for i in 0..10 {
-            memory_stub.generate_event();
-            let event = rx.recv().unwrap().get_operation();
-            match event {
-                MemoryUpdate::Allocation(address, callstack) => {
-                    debug!("[EVENT #{i}: SUCCESS]: Allocation({address} {callstack})");
-                }
-                MemoryUpdate::PartialAllocation(address, callstack) => {
-                    debug!("[EVENT #{i}: SUCCESS]: PartialAllocation({address} {callstack})");
-                }
-                MemoryUpdate::Free(address, callstack) => {
-                    debug!("[EVENT #{i}: SUCCESS]: Free({address} {callstack})");
-                }
-                MemoryUpdate::Disconnect(reason) => {
-                    debug!("[EVENT #{i}: SUCCESS]: Disconnect({reason})");
-                }
+    fn line_to_record_trace_test() {
+        let (memsystraceparser, _) = MemorySysTraceParser::new();
+        let line = "00001191: 039dd8f5 |V|A|005|        0 us   0003.677 s    < DT:0xE1504B54> ^ e150202c [e045d889]";
+        let record = memsystraceparser.line_to_record(line).unwrap();
+        match record {
+            RecordType::Allocation(_, _, _) => panic!("Wrong type: Allocation"),
+            RecordType::Free(_, _) => panic!("Wrong type: Free"),
+            RecordType::StackTrace(address, callstack) => {
+                assert_eq!(address, 3780124716);
             }
         }
     }
-}
 
- */
+    #[test]
+    fn parse_log_test() {
+        let (mut memsystraceparser, instruction_rx) = MemorySysTraceParser::new();
+        let log = "\
+       00001066: 039dcad2 |V|B|002|        0 us   0003.677 s    < DT:0xE14DEEBC> ActivityMonitorStandard::runTimer::state 2
+00001067: 039dcb32 |V|B|002|        6 us   0003.677 s    < DT:0xE14DEEBC> ActivityMonitorStandard::runTimer: starting timer to state 2 because of no state activity
+00001068: 039dcb32 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> + e150202c 14
+00001069: 039dcb32 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e045d83b]
+00001070: 039dcb41 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e045f0eb]
+00001071: 039dcb41 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e0015de9]
+00001072: 039dcb41 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e0016197]
+00001073: 039dcb4c |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e001a835]
+00001074: 039dcb4c |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e001a935]
+00001075: 039dcb4c |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e001a9d1]
+00001076: 039dcb62 |V|A|005|        1 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e001b37b]
+00001077: 039dcb62 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e001b699]
+00001078: 039dcb70 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e045506d]
+00001079: 039dcb70 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e00146eb]
+00001080: 039dcb70 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e001b6ad]
+00001081: 039dcb77 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e00145a9]
+00001082: 039dcb77 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e00115e1]
+00001083: 039dcb77 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e0011a2d]
+00001084: 039dcca1 |V|A|005|       19 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e048c81f]
+00001085: 039dcca1 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e04865ef]
+00001086: 039dcca1 |V|A|002|        0 us   0003.677 s    < DT:0xE14DEEBC> SSC::handleActivityStateInProgressEvent state 3
+00001087: 039dcdad |V|A|005|       17 us   0003.677 s    < DT:0xE14DEEBC> - e150202c
+00001088: 039dcdad |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e045d889]
+00001089: 039dcdad |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e001ab0b]
+00001090: 039dcdb7 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e001ac83]
+00001091: 039dcdb7 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e001b4ed]
+00001092: 039dcdc4 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e001b577]
+00001093: 039dcdc4 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e001b6ad]
+00001094: 039dcdc4 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e00146eb]
+00001095: 039dcdce |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e001b6ad]
+00001096: 039dcdce |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e00145a9]
+00001097: 039dcdce |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e00115e1]
+00001098: 039dce14 |V|A|005|        4 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e0011a2d]
+00001099: 039dce14 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e048c81f]
+00001100: 039dce14 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e04865ef]
+00001101: 039dcf14 |V|B|002|       16 us   0003.677 s    < DT:0xE14DEEBC> ActivityMonitorStandard::runTimer: notified InProgress state 3 event
+00001102: 039dcff1 |V|B|002|       14 us   0003.677 s    < DT:0xE1504B54> sched_switch from pid <0xe14ca764> (priority 252) to pid <0xe1504b54> (priority 253)
+00001103: 039dcff1 |V|A|002|        0 us   0003.677 s    < DT:0xE1504B54> SSC::StateSchedulerController Async path for scheduling power level change from: 0 to: 2
+00001104: 039dd04f |V|A|002|        6 us   0003.677 s    < DT:0xE1504B54> SSC::[StateSchedulerController] scheduling Power Level Change from: 0 to: 2
+00001105: 039dd04f |V|A|005|        0 us   0003.677 s    < DT:0xE1504B54> + e15020a4 6c
+ ";
+
+        memsystraceparser.parse_log(log.to_string());
+        let alloc = instruction_rx.recv().unwrap();
+        if let MemoryUpdate::Allocation(address, size, callstack) = alloc.get_operation() {
+            assert_eq!(address, 3780124716);
+            assert_eq!(size, 20);
+            assert!(callstack.is_empty());
+        }
+        let free = instruction_rx.recv().unwrap();
+        if let MemoryUpdate::Free(address, callstack) = free.get_operation() {
+            assert_eq!(address, 3780124716);
+            assert!(callstack.is_empty());
+        }
+        let alloc = instruction_rx.recv().unwrap();
+        if let MemoryUpdate::Allocation(address, size, callstack) = alloc.get_operation() {
+            assert_eq!(address, 3780124836);
+            assert_eq!(size, 108);
+            assert!(callstack.is_empty());
+        }
+    }
+}
