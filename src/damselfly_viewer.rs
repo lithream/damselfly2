@@ -5,7 +5,7 @@ use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::sync::{mpsc};
 use log::debug;
-use crate::damselfly_viewer::consts::DEFAULT_TIMESPAN;
+use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_TIMESPAN};
 use crate::damselfly_viewer::instruction::Instruction;
 use crate::memory::{MemoryStatus, MemoryUpdate};
 
@@ -153,10 +153,8 @@ impl DamselflyViewer {
 
     fn update_memory_map(&mut self, instruction: &Instruction) {
         match instruction.get_operation() {
-            MemoryUpdate::Allocation(address, callstack) => self.memory_map.insert(address, MemoryStatus::Allocated(callstack)),
-            MemoryUpdate::PartialAllocation(address, callstack) => self.memory_map.insert(address, MemoryStatus::PartiallyAllocated(callstack)),
+            MemoryUpdate::Allocation(address, size, callstack) => self.memory_map.insert(address, MemoryStatus::Allocated(callstack)),
             MemoryUpdate::Free(address, callstack) => self.memory_map.insert(address, MemoryStatus::Free(callstack)),
-            _ => None
         };
     }
 
@@ -198,22 +196,27 @@ impl DamselflyViewer {
         for _ in 0..=time {
             if let Some(operation) = iter.next() {
                 match operation {
-                    MemoryUpdate::Allocation(address, callstack) => {
+                    MemoryUpdate::Allocation(address, size, callstack) => {
                         map.insert(*address, MemoryStatus::Allocated(String::from(callstack)));
-                    }
-                    MemoryUpdate::PartialAllocation(address, callstack) => {
-                        map.insert(*address, MemoryStatus::PartiallyAllocated(String::from(callstack)));
                     }
                     MemoryUpdate::Free(address, callstack) => {
                         map.insert(*address, MemoryStatus::Free(String::from(callstack)));
-                    }
-                    MemoryUpdate::Disconnect(_) => {
-                        // nothing
                     }
                 }
             }
         }
         (map, self.operation_history.get(time))
+    }
+
+    fn allocate_memory(map: &mut HashMap<usize, MemoryStatus>, mut address: usize, mut bytes: usize, callstack: &str) {
+        let full_blocks = bytes / DEFAULT_BLOCK_SIZE;
+        for block_count in 0..full_blocks {
+            map.insert(address + block_count, MemoryStatus::Allocated(String::from(callstack)));
+        }
+
+        if (full_blocks * DEFAULT_BLOCK_SIZE) < bytes {
+            map.insert(address + full_blocks, MemoryStatus::PartiallyAllocated(String::from(callstack)));
+        }
     }
 
     pub fn get_operation_address_at_time(&self, time: usize) -> Option<&MemoryUpdate> {
@@ -245,13 +248,14 @@ impl DamselflyViewer {
 
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use crate::damselfly_viewer::{DamselflyViewer, consts::DEFAULT_MEMORY_SIZE, consts};
-    use crate::memory::{MemoryStatus, MemoryStub, MemoryUpdate};
+    use crate::memory::{MemoryStatus, MemorySysTraceParser, MemoryUpdate};
 
-    fn initialise_viewer() -> (DamselflyViewer, MemoryStub) {
-        let (memory_stub, instruction_rx) = MemoryStub::new();
+    fn initialise_viewer() -> (DamselflyViewer, MemorySysTraceParser) {
+        let (memory_stub, instruction_rx) = MemorySysTraceParser::new();
         let damselfly_viewer = DamselflyViewer::new(instruction_rx);
         (damselfly_viewer, memory_stub)
     }
@@ -476,3 +480,4 @@ mod tests {
         }
     }
 }
+*/

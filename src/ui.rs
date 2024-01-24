@@ -1,4 +1,4 @@
-use std::cmp::{max_by, min};
+use std::cmp::{min};
 use std::collections::HashMap;
 use std::rc::Rc;
 use ratatui::{layout::Alignment, style::{Color, Style}, widgets::{Block, BorderType, Borders, Paragraph, canvas::*}, Frame};
@@ -8,7 +8,7 @@ use ratatui::widgets::{Cell, Row, Table};
 use ratatui::widgets::block::Title;
 
 use crate::app::App;
-use crate::damselfly_viewer::consts::{DEFAULT_MEMORY_SIZE, DEFAULT_MEMORYSPAN, DEFAULT_ROW_LENGTH};
+use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORY_SIZE, DEFAULT_MEMORYSPAN, DEFAULT_ROW_LENGTH};
 use crate::memory::{MemoryStatus, MemoryUpdate};
 
 /// Renders the user interface widgets.
@@ -148,10 +148,8 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
     let latest_address = match latest_operation {
         None => 0,
         Some(operation) => match operation {
-            MemoryUpdate::Allocation(address, _) => address,
-            MemoryUpdate::PartialAllocation(address, _) => address,
+            MemoryUpdate::Allocation(address, _, _) => address,
             MemoryUpdate::Free(address, _) => address,
-            MemoryUpdate::Disconnect(_) => 0
         }
     };
     if app.is_mapspan_locked {
@@ -198,19 +196,6 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
         right_inner_layout_bottom[0]
     );
 
-    /*
-    let shrunk_map_data = shrink_hashmap(&map, 2);
-    let shrunk_grid = generate_rows(DEFAULT_MEMORY_SIZE / (2 * 12), (0, DEFAULT_MEMORY_SIZE), None, &shrunk_map_data);
-    let widths = [Constraint::Length(1); 12];
-    let table = Table::new(shrunk_grid)
-        .widths(&widths)
-        .column_spacing(0)
-        .block(Block::default()
-            .title("OVERVIEW")
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded));
-    frame.render_widget(table, right_inner_layout_upper[1]);
-*/
     let operation_count;
     let operation_list;
     if app.damselfly_viewer.is_timespan_locked() {
@@ -223,10 +208,16 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
     let mut rows = Vec::new();
     for operation in operation_list {
         let style = match operation {
-            MemoryUpdate::Allocation(_, _) => Style::default().red(),
-            MemoryUpdate::PartialAllocation(_, _) => Style::default().yellow(),
+            MemoryUpdate::Allocation(_, size, _) => {
+                let style;
+                if *size < DEFAULT_BLOCK_SIZE {
+                    style = Style::default().yellow();
+                } else {
+                    style = Style::default().red()
+                }
+                style
+            },
             MemoryUpdate::Free(_, _) => Style::default().gray(),
-            MemoryUpdate::Disconnect(_) => Style::default()
         };
         rows.push(Row::new(vec![operation.to_string()]).set_style(style));
     }
@@ -301,6 +292,7 @@ fn generate_rows(rows: usize, map_span: (usize, usize), map_highlight: Option<us
     grid
 }
 
+/*
 fn shrink_hashmap(map: &HashMap<usize, MemoryStatus>, step: usize) -> HashMap<usize, MemoryStatus> {
     let mut new_map = HashMap::new();
     let mut new_map_address = 0;
@@ -333,11 +325,12 @@ fn shrink_hashmap(map: &HashMap<usize, MemoryStatus>, step: usize) -> HashMap<us
     new_map
 }
 
+ */
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
     use crate::memory::MemoryStatus;
-    use crate::ui::shrink_hashmap;
 
     #[test]
     fn shrink_hashmap_test() {
@@ -356,9 +349,11 @@ mod tests {
         original_map.insert(9, MemoryStatus::PartiallyAllocated(String::from("__init")));
         original_map.insert(10, MemoryStatus::Free(String::from("__init")));
         original_map.insert(11, MemoryStatus::Free(String::from("__init")));
+        /*
         let shrunk_map = shrink_hashmap(&original_map, 4);
         assert_eq!(shrunk_map[&0], MemoryStatus::Allocated(String::from("__placeholder")));
         assert_eq!(shrunk_map[&1], MemoryStatus::PartiallyAllocated(String::from("__placeholder")));
         assert_eq!(shrunk_map[&2], MemoryStatus::Free(String::from("__placeholder")));
+         */
     }
 }

@@ -1,6 +1,6 @@
 use crate::app::{App, AppResult};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use crate::damselfly_viewer::consts::{DEFAULT_MEMORY_SIZE, DEFAULT_ROW_LENGTH, DEFAULT_TIMESPAN};
+use crate::damselfly_viewer::consts::{DEFAULT_ROW_LENGTH, DEFAULT_TIMESPAN};
 
 /// Handles the key events and updates the state of [`App`].
 pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {

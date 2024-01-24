@@ -1,8 +1,8 @@
-use std::{error, thread};
+use std::{error};
 use ratatui::widgets::TableState;
 use crate::damselfly_viewer::consts::{DEFAULT_MEMORYSPAN, DEFAULT_ROW_LENGTH};
 use crate::damselfly_viewer::DamselflyViewer;
-use crate::memory::MemoryStub;
+use crate::memory::MemorySysTraceParser;
 
 /// Application result type.
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
@@ -27,12 +27,7 @@ pub struct App {
 impl App {
     /// Constructs a new instance of [`App`].
     pub fn new() -> Self {
-        let (mut memory_stub, instruction_rx) = MemoryStub::new();
-        thread::spawn(move ||{
-            loop {
-                memory_stub.generate_event();
-            }
-        });
+        let (_, instruction_rx) = MemorySysTraceParser::new();
         let damselfly_viewer = DamselflyViewer::new(instruction_rx);
         App {
             running: true,
