@@ -172,7 +172,7 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
         Some(memory_status) => {
             match memory_status {
                 MemoryStatus::Allocated(_, callstack) => callstack,
-                MemoryStatus::PartiallyAllocated(callstack) => callstack,
+                MemoryStatus::PartiallyAllocated(_, callstack) => callstack,
                 MemoryStatus::Free(callstack) => callstack
             }
         }
@@ -244,11 +244,11 @@ fn generate_rows(rows: usize, map_span: (usize, usize), map_highlight: Option<us
         let fg;
         let content;
         match block_state {
-            MemoryStatus::Allocated(_, _) => {
+            MemoryStatus::Allocated(..) => {
                 content = "x";
                 fg = Color::Red;
             }
-            MemoryStatus::PartiallyAllocated(_) => {
+            MemoryStatus::PartiallyAllocated(..) => {
                 content = "=";
                 fg = Color::Yellow;
             },

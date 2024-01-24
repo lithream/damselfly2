@@ -244,6 +244,9 @@ impl DamselflyViewer {
                     MemoryStatus::Free(_) => return,
                 }
                 map.insert(local_block + offset, MemoryStatus::Free(callstack.to_string()));
+            } else {
+                map.insert(local_block + offset, MemoryStatus::Free(callstack.to_string()));
+                return;
             }
             offset += 1;
         }
