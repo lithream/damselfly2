@@ -8,7 +8,7 @@ use ratatui::widgets::{Cell, Row, Table};
 use ratatui::widgets::block::Title;
 
 use crate::app::App;
-use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORY_SIZE, DEFAULT_MEMORYSPAN, DEFAULT_ROW_LENGTH};
+use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORY_SIZE, DEFAULT_MEMORYSPAN, DEFAULT_ROW_LENGTH, DEFAULT_TIMESPAN};
 use crate::memory::{MemoryStatus, MemoryUpdate};
 
 /// Renders the user interface widgets.
@@ -171,7 +171,7 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
         None => "",
         Some(memory_status) => {
             match memory_status {
-                MemoryStatus::Allocated(callstack) => callstack,
+                MemoryStatus::Allocated(_, callstack) => callstack,
                 MemoryStatus::PartiallyAllocated(callstack) => callstack,
                 MemoryStatus::Free(callstack) => callstack
             }
@@ -203,7 +203,9 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
         operation_list = app.damselfly_viewer.get_operation_log_span(operation_count.saturating_sub(7), operation_count);
     } else {
         let timespan = app.damselfly_viewer.get_timespan();
-        operation_list = app.damselfly_viewer.get_operation_log_span(timespan.0 + app.graph_highlight.unwrap(), timespan.0 + app.graph_highlight.unwrap() + 7);
+        operation_list = app.damselfly_viewer
+            .get_operation_log_span(timespan.0 + app.graph_highlight.unwrap_or(DEFAULT_TIMESPAN),
+        timespan.0 + app.graph_highlight.unwrap_or(DEFAULT_TIMESPAN) + 7);
     }
     let mut rows = Vec::new();
     for operation in operation_list {
@@ -242,7 +244,7 @@ fn generate_rows(rows: usize, map_span: (usize, usize), map_highlight: Option<us
         let fg;
         let content;
         match block_state {
-            MemoryStatus::Allocated(_) => {
+            MemoryStatus::Allocated(_, _) => {
                 content = "x";
                 fg = Color::Red;
             }
@@ -329,31 +331,4 @@ fn shrink_hashmap(map: &HashMap<usize, MemoryStatus>, step: usize) -> HashMap<us
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-    use crate::memory::MemoryStatus;
-
-    #[test]
-    fn shrink_hashmap_test() {
-        let mut original_map: HashMap<usize, MemoryStatus> = HashMap::new();
-        original_map.insert(0, MemoryStatus::Allocated(String::from("__init")));
-        original_map.insert(1, MemoryStatus::Allocated(String::from("__init")));
-        original_map.insert(2, MemoryStatus::PartiallyAllocated(String::from("__init")));
-        original_map.insert(3, MemoryStatus::Free(String::from("__init")));
-
-        original_map.insert(4, MemoryStatus::Allocated(String::from("__init")));
-        original_map.insert(5, MemoryStatus::PartiallyAllocated(String::from("__init")));
-        original_map.insert(6, MemoryStatus::PartiallyAllocated(String::from("__init")));
-        original_map.insert(7, MemoryStatus::Free(String::from("__init")));
-
-        original_map.insert(8, MemoryStatus::Allocated(String::from("__init")));
-        original_map.insert(9, MemoryStatus::PartiallyAllocated(String::from("__init")));
-        original_map.insert(10, MemoryStatus::Free(String::from("__init")));
-        original_map.insert(11, MemoryStatus::Free(String::from("__init")));
-        /*
-        let shrunk_map = shrink_hashmap(&original_map, 4);
-        assert_eq!(shrunk_map[&0], MemoryStatus::Allocated(String::from("__placeholder")));
-        assert_eq!(shrunk_map[&1], MemoryStatus::PartiallyAllocated(String::from("__placeholder")));
-        assert_eq!(shrunk_map[&2], MemoryStatus::Free(String::from("__placeholder")));
-         */
-    }
 }

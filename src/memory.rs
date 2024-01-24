@@ -4,7 +4,6 @@ use std::iter::Peekable;
 use std::str::Split;
 use std::sync::{mpsc};
 use std::sync::mpsc::{Receiver, Sender};
-use std::time::Duration;
 use crate::damselfly_viewer::instruction::Instruction;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -27,8 +26,10 @@ pub enum RecordType {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum MemoryStatus {
-    Allocated(String),
-    PartiallyAllocated(String),
+    // parent block, callstack
+    Allocated(usize, String),
+    // parent block, callstack
+    PartiallyAllocated(usize, String),
     Free(String),
 }
 

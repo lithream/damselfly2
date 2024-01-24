@@ -35,7 +35,7 @@ impl DamselflyViewer {
         DamselflyViewer {
             instruction_rx,
             timespan: (0, DEFAULT_TIMESPAN),
-            timespan_is_unlocked: false,
+            timespan_is_unlocked: true,
             memoryspan: (0, consts::DEFAULT_MEMORYSPAN),
             memoryspan_is_unlocked: false,
             memory_usage_snapshots: Vec::new(),
@@ -105,7 +105,6 @@ impl DamselflyViewer {
         self.timespan_is_unlocked = true;
     }
 
-    /// The main entry point to 
     pub fn update(&mut self) {
         let update = self.instruction_rx.recv();
         match update {
@@ -148,8 +147,8 @@ impl DamselflyViewer {
         let mut memory_used_absolute: f64 = 0.0;
         for (_, status) in self.memory_map.iter() {
             match status {
-                MemoryStatus::Allocated(_) => memory_used_absolute += 1.0,
-                MemoryStatus::PartiallyAllocated(_) => memory_used_absolute += 0.5,
+                MemoryStatus::Allocated(_, _) => memory_used_absolute += 1.0,
+                MemoryStatus::PartiallyAllocated(_, _) => memory_used_absolute += 0.5,
                 MemoryStatus::Free(_) => {}
             }
         }
@@ -165,7 +164,10 @@ impl DamselflyViewer {
 
     fn update_memory_map(&mut self, instruction: &Instruction) {
         match instruction.get_operation() {
-            MemoryUpdate::Allocation(address, size, callstack) => self.memory_map.insert(address, MemoryStatus::Allocated(callstack)),
+            MemoryUpdate::Allocation(address, size, callstack) => {
+
+                self.memory_map.insert(address, MemoryStatus::Allocated(size, callstack))
+            },
             MemoryUpdate::Free(address, callstack) => self.memory_map.insert(address, MemoryStatus::Free(callstack)),
         };
     }
@@ -209,10 +211,10 @@ impl DamselflyViewer {
             if let Some(operation) = iter.next() {
                 match operation {
                     MemoryUpdate::Allocation(address, size, callstack) => {
-                        map.insert(*address, MemoryStatus::Allocated(String::from(callstack)));
+                        self.allocate_memory(&mut map, *address, *size, callstack);
                     }
                     MemoryUpdate::Free(address, callstack) => {
-                        map.insert(*address, MemoryStatus::Free(String::from(callstack)));
+                        self.free_memory(&mut map, *address, callstack);
                     }
                 }
             }
@@ -220,14 +222,49 @@ impl DamselflyViewer {
         (map, self.operation_history.get(time))
     }
 
-    fn allocate_memory(map: &mut HashMap<usize, MemoryStatus>, mut address: usize, mut bytes: usize, callstack: &str) {
+    fn free_memory(&self, map: &mut HashMap<usize, MemoryStatus>, mut address: usize, callstack: &str) {
+        let local_block = address / DEFAULT_BLOCK_SIZE;
+        if local_block * DEFAULT_BLOCK_SIZE != address {
+            panic!("[DamselflyViewer::free_memory]: Block arithmetic error");
+        }
+        let mut offset = 0;
+        loop {
+            if let Some(status) = map.get(&(local_block + offset)) {
+                match status {
+                    MemoryStatus::Allocated(parent_block, callstack) => {
+                        if *parent_block != address {
+                            return;
+                        }
+                    }
+                    MemoryStatus::PartiallyAllocated(parent_block, callstack) => {
+                        if *parent_block != address {
+                            return;
+                        }
+                    }
+                    MemoryStatus::Free(_) => return,
+                }
+                map.insert(local_block + offset, MemoryStatus::Free(callstack.to_string()));
+            }
+            offset += 1;
+        }
+    }
+
+    pub fn allocate_memory(&self, map: &mut HashMap<usize, MemoryStatus>, mut address: usize, mut bytes: usize, callstack: &str) {
+        if bytes == 0 {
+            return;
+        }
+        if bytes < DEFAULT_BLOCK_SIZE && bytes > 0 {
+            map.insert(address, MemoryStatus::PartiallyAllocated(address, callstack.to_string()));
+            return;
+        }
+
         let full_blocks = bytes / DEFAULT_BLOCK_SIZE;
         for block_count in 0..full_blocks {
-            map.insert(address + block_count, MemoryStatus::Allocated(String::from(callstack)));
+            map.insert(address + block_count, MemoryStatus::Allocated(address, String::from(callstack)));
         }
 
         if (full_blocks * DEFAULT_BLOCK_SIZE) < bytes {
-            map.insert(address + full_blocks, MemoryStatus::PartiallyAllocated(String::from(callstack)));
+            map.insert(address + full_blocks, MemoryStatus::PartiallyAllocated(address, String::from(callstack)));
         }
     }
 
