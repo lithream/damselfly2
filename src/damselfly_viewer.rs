@@ -4,6 +4,7 @@ pub mod consts;
 use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::sync::{mpsc};
+use std::time::Duration;
 use log::debug;
 use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_TIMESPAN};
 use crate::damselfly_viewer::instruction::Instruction;
@@ -33,7 +34,7 @@ impl DamselflyViewer {
     pub fn new(instruction_rx: mpsc::Receiver<Instruction>) -> DamselflyViewer {
         DamselflyViewer {
             instruction_rx,
-            timespan: (0, 0),
+            timespan: (0, DEFAULT_TIMESPAN),
             timespan_is_unlocked: false,
             memoryspan: (0, consts::DEFAULT_MEMORYSPAN),
             memoryspan_is_unlocked: false,
@@ -129,6 +130,17 @@ impl DamselflyViewer {
 
         if !self.memoryspan_is_unlocked {
             // do nothing, memoryspan locking in tui
+        }
+    }
+
+    pub fn gulp_channel(&mut self) {
+        let mut counter = 0;
+        while let Ok(instruction) = self.instruction_rx.recv_timeout(Duration::from_nanos(1)) {
+            eprintln!("gulping {counter}");
+            counter += 1;
+            self.update_memory_map(&instruction);
+            self.calculate_memory_usage();
+            self.log_operation(instruction);
         }
     }
 

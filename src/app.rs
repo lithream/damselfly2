@@ -27,8 +27,12 @@ pub struct App {
 impl App {
     /// Constructs a new instance of [`App`].
     pub fn new() -> Self {
-        let (_, instruction_rx) = MemorySysTraceParser::new();
-        let damselfly_viewer = DamselflyViewer::new(instruction_rx);
+        let (mut mst_parser, instruction_rx) = MemorySysTraceParser::new();
+        let log = std::fs::read_to_string("trace.log").unwrap();
+        mst_parser.parse_log(log);
+        let mut damselfly_viewer = DamselflyViewer::new(instruction_rx);
+        println!("gulping");
+        damselfly_viewer.gulp_channel();
         App {
             running: true,
             damselfly_viewer,
@@ -45,7 +49,7 @@ impl App {
 
     /// Handles the tick event of the terminal.
     pub fn tick(&mut self) {
-        self.damselfly_viewer.update();
+
     }
 
     /// Set running to false to quit the application.

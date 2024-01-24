@@ -4,6 +4,7 @@ use std::iter::Peekable;
 use std::str::Split;
 use std::sync::{mpsc};
 use std::sync::mpsc::{Receiver, Sender};
+use std::time::Duration;
 use crate::damselfly_viewer::instruction::Instruction;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -51,6 +52,7 @@ pub struct MemorySnapshot {
     pub operation: MemoryUpdate,
 }
 
+// CALLSTACK TRACING NOT IMPLEMENTED YET!!! TODO!
 pub struct MemorySysTraceParser {
     instruction_tx: Sender<Instruction>,
     map: HashMap<usize, MemoryStatus>,
@@ -75,8 +77,6 @@ impl MemorySysTraceParser {
             self.instruction_tx.send(instruction).expect("[MemorySysTraceParser::parse_log]: Failed to send instruction");
         }
         // EOF
-        let instruction = self.bake_instruction();
-        self.instruction_tx.send(instruction).expect("[MemorySysTraceParser::parse_log]: Failed to send final instruction");
     }
 
     fn is_line_useless(&self, next_line: &&str) -> bool {
@@ -130,23 +130,23 @@ impl MemorySysTraceParser {
 
     fn bake_instruction(&mut self) -> Instruction {
         let mut iter = self.record_queue.iter();
-        let mut first_rec: RecordType = iter.next().expect("[MemorySysTraceParser::process_allocation]: Record queue empty").clone();
+        let mut first_rec: RecordType = iter.next().expect("[MemorySysTraceParser::bake_instruction]: Record queue empty").clone();
         for rec in iter {
             if let RecordType::StackTrace(trace_address, trace_callstack) = rec {
                 match first_rec {
                     RecordType::Allocation(alloc_address, _, ref mut allocation_callstack) => {
                         // Check if we are tracing the correct address
-                        if *trace_address != alloc_address { panic!("[MemorySysTraceParser::process_allocation]: Tracing wrong alloc"); }
+                        if *trace_address != alloc_address { panic!("[MemorySysTraceParser::bake_instruction]: Tracing wrong alloc"); }
                         if !allocation_callstack.is_empty() { allocation_callstack.push('\n'); }
                         allocation_callstack.push_str(trace_callstack);
                     },
                     RecordType::Free(free_address, ref mut free_callstack) => {
                         // Check if we are tracing the correct address
-                        if *trace_address != free_address { panic!("[MemorySysTraceParser::process_allocation]: Tracing wrong free"); }
+                        if *trace_address != free_address { panic!("[MemorySysTraceParser::bake_instruction]: Tracing wrong free"); }
                         if !free_callstack.is_empty() { free_callstack.push('\n'); }
                         free_callstack.push_str(trace_callstack);
                     }
-                    RecordType::StackTrace(_, _) => panic!("[MemorySysTraceParser::process_allocation]: First instruction in instruction queue is a stacktrace, but it should be an alloc/free"),
+                    RecordType::StackTrace(_, _) => panic!("[MemorySysTraceParser::bake_instruction]: First instruction in instruction queue is a stacktrace, but it should be an alloc/free"),
                 }
             }
         }
@@ -219,7 +219,7 @@ mod tests {
 
     #[test]
     fn is_line_useless_test() {
-        let (memsystraceparser, _) = MemorySysTraceParser::new();
+        let (mst_parser, _) = MemorySysTraceParser::new();
         let allocation_record = "00001068: 039dcb32 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> + e150202c 14";
         let free_record = "00001053: 039dc9d7 |V|A|005|       67 us   0003.677 s    < DT:0xE14DEEBC> - e150202c";
         let stacktrace_record = "00001069: 039dcb32 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e045d83b]";
@@ -227,23 +227,23 @@ mod tests {
 
         let log = [allocation_record, free_record, stacktrace_record, useless_record];
         let mut iter = log.iter().peekable();
-        assert!(!memsystraceparser.is_line_useless(iter.peek().unwrap()));
+        assert!(!mst_parser.is_line_useless(iter.peek().unwrap()));
         iter.next();
-        assert!(!memsystraceparser.is_line_useless(iter.peek().unwrap()));
+        assert!(!mst_parser.is_line_useless(iter.peek().unwrap()));
         iter.next();
-        assert!(!memsystraceparser.is_line_useless(iter.peek().unwrap()));
+        assert!(!mst_parser.is_line_useless(iter.peek().unwrap()));
         iter.next();
-        assert!(memsystraceparser.is_line_useless(iter.peek().unwrap()));
+        assert!(mst_parser.is_line_useless(iter.peek().unwrap()));
     }
 
     #[test]
     fn bake_instruction_alloc_test() {
-        let (mut memsystraceparser, _) = MemorySysTraceParser::new();
-        memsystraceparser.record_queue.push(RecordType::Allocation(0, 4, "callstack".to_string()));
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "1".to_string()));
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "2".to_string()));
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "3".to_string()));
-        let instruction = memsystraceparser.bake_instruction();
+        let (mut mst_parser, _) = MemorySysTraceParser::new();
+        mst_parser.record_queue.push(RecordType::Allocation(0, 4, "callstack".to_string()));
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "1".to_string()));
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "2".to_string()));
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "3".to_string()));
+        let instruction = mst_parser.bake_instruction();
         assert!(matches!(instruction.get_operation(), MemoryUpdate::Allocation(_, _, _)));
         if let MemoryUpdate::Allocation(address, size, callstack) = instruction.get_operation() {
             assert_eq!(address, 0);
@@ -254,12 +254,12 @@ mod tests {
 
     #[test]
     fn bake_instruction_free_test() {
-        let (mut memsystraceparser, _) = MemorySysTraceParser::new();
-        memsystraceparser.record_queue.push(RecordType::Free(0, "callstack".to_string()));
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "1".to_string()));
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "2".to_string()));
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "3".to_string()));
-        let instruction = memsystraceparser.bake_instruction();
+        let (mut mst_parser, _) = MemorySysTraceParser::new();
+        mst_parser.record_queue.push(RecordType::Free(0, "callstack".to_string()));
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "1".to_string()));
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "2".to_string()));
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "3".to_string()));
+        let instruction = mst_parser.bake_instruction();
         assert!(matches!(instruction.get_operation(), MemoryUpdate::Free(_, _)));
         if let MemoryUpdate::Free(address, callstack) = instruction.get_operation() {
             assert_eq!(address, 0);
@@ -270,54 +270,54 @@ mod tests {
     #[test]
     #[should_panic]
     fn bake_instruction_empty_test() {
-        let (mut memsystraceparser, _) = MemorySysTraceParser::new();
-        memsystraceparser.bake_instruction();
+        let (mut mst_parser, _) = MemorySysTraceParser::new();
+        mst_parser.bake_instruction();
     }
 
     #[test]
     #[should_panic]
     fn bake_instruction_invalid_queue_trace_only_test() {
-        let (mut memsystraceparser, _) = MemorySysTraceParser::new();
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
-        memsystraceparser.bake_instruction();
+        let (mut mst_parser, _) = MemorySysTraceParser::new();
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
+        mst_parser.bake_instruction();
     }
 
     #[test]
     #[should_panic]
     fn bake_instruction_invalid_queue_trace_first_allocation_test() {
-        let (mut memsystraceparser, _) = MemorySysTraceParser::new();
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
-        memsystraceparser.record_queue.push(RecordType::Allocation(0, 4, "callstack".to_string()));
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
-        memsystraceparser.bake_instruction();
+        let (mut mst_parser, _) = MemorySysTraceParser::new();
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
+        mst_parser.record_queue.push(RecordType::Allocation(0, 4, "callstack".to_string()));
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
+        mst_parser.bake_instruction();
     }
 
     #[test]
     #[should_panic]
     fn bake_instruction_invalid_queue_trace_first_free_test() {
-        let (mut memsystraceparser, _) = MemorySysTraceParser::new();
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
-        memsystraceparser.record_queue.push(RecordType::Free(0, "callstack".to_string()));
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
-        memsystraceparser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
-        memsystraceparser.bake_instruction();
+        let (mut mst_parser, _) = MemorySysTraceParser::new();
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
+        mst_parser.record_queue.push(RecordType::Free(0, "callstack".to_string()));
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
+        mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
+        mst_parser.bake_instruction();
     }
 
     #[test]
     fn process_alloc_or_free_first_record_test(){
-        let (mut memsystraceparser, _) = MemorySysTraceParser::new();
+        let (mut mst_parser, _) = MemorySysTraceParser::new();
         let record = RecordType::Allocation(0, 4, "callstack".to_string());
-        let instruction = memsystraceparser.process_alloc_or_free(Some(record));
+        let instruction = mst_parser.process_alloc_or_free(Some(record));
         assert!(instruction.is_none());
-        assert_eq!(memsystraceparser.record_queue.len(), 1);
-        match memsystraceparser.record_queue.first().unwrap() {
+        assert_eq!(mst_parser.record_queue.len(), 1);
+        match mst_parser.record_queue.first().unwrap() {
             RecordType::Allocation(address, size, callstack) => {
                 assert_eq!(*address, 0);
                 assert_eq!(*size, 4);
@@ -330,7 +330,7 @@ mod tests {
 
     #[test]
     fn process_alloc_or_free_existing_records_test() {
-        let (mut memsystraceparser, _) = MemorySysTraceParser::new();
+        let (mut mst_parser, _) = MemorySysTraceParser::new();
         let alloc_record = RecordType::Allocation(0, 4, "callstack".to_string());
         let records = vec![
             RecordType::StackTrace(0, "1".to_string()),
@@ -338,14 +338,14 @@ mod tests {
             RecordType::StackTrace(0, "3".to_string()),
         ];
 
-        memsystraceparser.process_alloc_or_free(Some(alloc_record));
+        mst_parser.process_alloc_or_free(Some(alloc_record));
         for record in records {
-            memsystraceparser.process_stacktrace(record);
+            mst_parser.process_stacktrace(record);
         }
 
         // Current queue status
         // | Alloc0 | Trace1 | Trace2 | Trace3 |
-        let instruction = memsystraceparser.process_alloc_or_free(
+        let instruction = mst_parser.process_alloc_or_free(
             Some(RecordType::Allocation(4, 4, "callstack2".to_string()))
         ).unwrap();
         // | Alloc4 |
@@ -367,11 +367,11 @@ mod tests {
         ];
 
         for record in records {
-            memsystraceparser.process_stacktrace(record);
+            mst_parser.process_stacktrace(record);
         }
 
         // | Alloc4 | Trace4 | Trace5 | Trace6 |
-        let instruction = memsystraceparser.process_alloc_or_free(
+        let instruction = mst_parser.process_alloc_or_free(
             Some(RecordType::Free(0, "callstack3".to_string()))
         ).unwrap();
         // | Free0 |
@@ -387,7 +387,7 @@ mod tests {
         }
 
         // EOF
-        let instruction = memsystraceparser.process_alloc_or_free(None).unwrap();
+        let instruction = mst_parser.process_alloc_or_free(None).unwrap();
         // Empty
         // instruction = Free
 
@@ -403,17 +403,17 @@ mod tests {
     #[test]
     #[should_panic]
     fn process_stacktrace_empty_queue_test() {
-        let (mut memsystraceparser, _) = MemorySysTraceParser::new();
-        memsystraceparser.process_stacktrace(
+        let (mut mst_parser, _) = MemorySysTraceParser::new();
+        mst_parser.process_stacktrace(
             RecordType::StackTrace(0, "1".to_string())
         );
     }
 
     #[test]
     fn line_to_record_alloc_test() {
-        let (memsystraceparser, _) = MemorySysTraceParser::new();
+        let (mst_parser, _) = MemorySysTraceParser::new();
         let line = "00001444: 039e0edc |V|A|005|        0 us   0003.678 s    < DT:0xE1504C74> + e150206c 20";
-        let record = memsystraceparser.line_to_record(line).unwrap();
+        let record = mst_parser.line_to_record(line).unwrap();
         match record {
             RecordType::Allocation(address, size, callstack) => {
                 assert_eq!(address, 3780124780);
@@ -427,9 +427,9 @@ mod tests {
 
     #[test]
     fn line_to_record_free_test() {
-        let (memsystraceparser, _) = MemorySysTraceParser::new();
+        let (mst_parser, _) = MemorySysTraceParser::new();
         let line = "00001190: 039dd8f5 |V|A|005|       13 us   0003.677 s    < DT:0xE1504B54> - e150202c";
-        let record = memsystraceparser.line_to_record(line).unwrap();
+        let record = mst_parser.line_to_record(line).unwrap();
         match record {
             RecordType::Allocation(_, _, _) => panic!("Wrong type: Allocation"),
             RecordType::Free(address, callstack) => {
@@ -442,9 +442,9 @@ mod tests {
 
     #[test]
     fn line_to_record_trace_test() {
-        let (memsystraceparser, _) = MemorySysTraceParser::new();
+        let (mst_parser, _) = MemorySysTraceParser::new();
         let line = "00001191: 039dd8f5 |V|A|005|        0 us   0003.677 s    < DT:0xE1504B54> ^ e150202c [e045d889]";
-        let record = memsystraceparser.line_to_record(line).unwrap();
+        let record = mst_parser.line_to_record(line).unwrap();
         match record {
             RecordType::Allocation(_, _, _) => panic!("Wrong type: Allocation"),
             RecordType::Free(_, _) => panic!("Wrong type: Free"),
@@ -456,7 +456,7 @@ mod tests {
 
     #[test]
     fn parse_log_test() {
-        let (mut memsystraceparser, instruction_rx) = MemorySysTraceParser::new();
+        let (mut mst_parser, instruction_rx) = MemorySysTraceParser::new();
         let log = "\
        00001066: 039dcad2 |V|B|002|        0 us   0003.677 s    < DT:0xE14DEEBC> ActivityMonitorStandard::runTimer::state 2
 00001067: 039dcb32 |V|B|002|        6 us   0003.677 s    < DT:0xE14DEEBC> ActivityMonitorStandard::runTimer: starting timer to state 2 because of no state activity
@@ -500,23 +500,44 @@ mod tests {
 00001105: 039dd04f |V|A|005|        0 us   0003.677 s    < DT:0xE1504B54> + e15020a4 6c
  ";
 
-        memsystraceparser.parse_log(log.to_string());
+        mst_parser.parse_log(log.to_string());
         let alloc = instruction_rx.recv().unwrap();
         if let MemoryUpdate::Allocation(address, size, callstack) = alloc.get_operation() {
             assert_eq!(address, 3780124716);
             assert_eq!(size, 20);
             assert!(callstack.is_empty());
         }
+        assert_eq!(alloc.get_timestamp(), 0);
         let free = instruction_rx.recv().unwrap();
         if let MemoryUpdate::Free(address, callstack) = free.get_operation() {
             assert_eq!(address, 3780124716);
             assert!(callstack.is_empty());
         }
+        assert_eq!(free.get_timestamp(), 1);
         let alloc = instruction_rx.recv().unwrap();
         if let MemoryUpdate::Allocation(address, size, callstack) = alloc.get_operation() {
             assert_eq!(address, 3780124836);
             assert_eq!(size, 108);
             assert!(callstack.is_empty());
         }
+        assert_eq!(alloc.get_timestamp(), 2);
+    }
+
+    #[test]
+    fn parse_log_garbage_at_end_test() {
+        let (mut mst_parser, instruction_rx) = MemorySysTraceParser::new();
+        let log = "\
+       00057601: 0b1972d8 |V|A|005|       11 us   0011.712 s    < DT:0xE14B3B4C> - e1504dc4
+00057602: 0b1972d8 |V|A|005|        0 us   0011.712 s    < DT:0xE14B3B4C> ^ e1504dc4 [e045d889]
+00057603: 0b1972d8 |V|A|005|        0 us   0011.712 s    < DT:0xE14B3B4C> ^ e1504dc4 [e048c88f]
+00057604: 0b19731e |V|A|005|        4 us   0011.712 s    < DT:0xE14B3B4C> ^ e1504dc4 [e048c81f]
+00057605: 0b19731e |V|A|005|        0 us   0011.712 s    < DT:0xE14B3B4C> ^ e1504dc4 [e04865ef]
+00057606: 0b19741f |V|B|002|       16 us   0011.712 s    < DT:0xE14DEEBC> sched_switch from pid <0xe14b3b4c> (priority 252) to pid <0xe14deebc> (priority 255)
+00057607: 0b197a34 |V|B|002|       99 us   0011.712 s    < DT:0xE14E6D94> sched_switch from pid <0xe14deebc> (priority 255) to pid <0xe14e6d94> (priority 235)
+00057608: 0b197a34 |V|B|002|        0 us   0011.712 s    < DT:0xE14DEEBC> sched_switch from pid <0xe14e6d94> (priority 235) to pid <0xe14deebc> (priority 235)
+00057609: 0b197a70 |V|B|002|        3 us   0011.712 s    < DT:0xE14E6D94> sched_switch from pid <0xe14deebc> (priority 255) to pid <0xe14e6d94> (priority 235)
+ ";
+        mst_parser.parse_log(log.to_string());
+        let free = instruction_rx.recv().unwrap();
     }
 }
