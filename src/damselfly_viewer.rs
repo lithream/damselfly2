@@ -229,32 +229,32 @@ impl DamselflyViewer {
             panic!("[DamselflyViewer::free_memory]: Block arithmetic error");
         }
         let mut offset = 0;
+        if map.get(&scaled_address).is_none() {
+            map.insert(scaled_address, MemoryStatus::Free(callstack.to_string()));
+        }
         loop {
             if let Some(status) = map.get(&(scaled_address + offset)) {
                 match status {
                     MemoryStatus::Allocated(parent_block, _) => {
-                        if *parent_block != absolute_address {
+                        if *parent_block != scaled_address {
                             return;
                         }
                     }
                     MemoryStatus::PartiallyAllocated(parent_block, _) => {
-                        if *parent_block != absolute_address {
+                        if *parent_block != scaled_address {
                             return;
                         }
                     }
                     MemoryStatus::Free(_) => return,
                 }
                 map.insert(scaled_address + offset, MemoryStatus::Free(callstack.to_string()));
-            } else {
-                map.insert(scaled_address + offset, MemoryStatus::Free(callstack.to_string()));
-                return;
             }
             offset += 1;
         }
     }
 
-    pub fn allocate_memory(map: &mut HashMap<usize, MemoryStatus>, absolute_address: usize, mut bytes: usize, callstack: &str) {
-        let scaled_address = absolute_address / 4;
+    pub fn allocate_memory(map: &mut HashMap<usize, MemoryStatus>, absolute_address: usize, bytes: usize, callstack: &str) {
+        let scaled_address = MapManipulator::scale_address_down(absolute_address);
         if bytes == 0 {
             return;
         }

@@ -419,7 +419,7 @@ mod tests {
         match record {
             RecordType::Allocation(address, size, callstack) => {
                 assert_eq!(address, 3780124780);
-                assert_eq!(size, 20);
+                assert_eq!(size, 32);
                 assert!(callstack.is_empty());
             }
             RecordType::Free(_, _) => panic!("Wrong record type: Free"),

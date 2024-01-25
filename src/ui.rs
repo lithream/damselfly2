@@ -9,6 +9,7 @@ use ratatui::widgets::block::Title;
 
 use crate::app::App;
 use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORY_SIZE, DEFAULT_MEMORYSPAN, DEFAULT_ROW_LENGTH, DEFAULT_TIMESPAN};
+use crate::map_manipulator::MapManipulator;
 use crate::memory::{MemoryStatus, MemoryUpdate};
 
 /// Renders the user interface widgets.
@@ -72,14 +73,16 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
 fn snap_memoryspan_to_latest_operation(app: &mut App, latest_address: usize) {
     let mut new_map_span = app.map_span;
-    let scaled_address = latest_address / DEFAULT_BLOCK_SIZE;
-    if latest_address >= app.map_span.1 {
-        new_map_span.0 = scaled_address.saturating_sub(DEFAULT_MEMORYSPAN / 2);
+    let relative_address = MapManipulator::scale_address_down(latest_address);
+    let address_of_row = MapManipulator::get_address_of_row(relative_address);
+    if relative_address >= app.map_span.1 {
+        new_map_span.0 = address_of_row.saturating_sub(DEFAULT_MEMORYSPAN / 2);
         new_map_span.1 = new_map_span.0 + DEFAULT_MEMORYSPAN;
-    } else if latest_address < app.map_span.0 {
-        new_map_span.1 = scaled_address + DEFAULT_MEMORYSPAN / 2;
+    } else if relative_address < app.map_span.0 {
+        new_map_span.1 = relative_address + DEFAULT_MEMORYSPAN / 2;
         new_map_span.0 = new_map_span.1.saturating_sub(DEFAULT_MEMORYSPAN);
     }
+    app.map_highlight = Some(relative_address);
     app.map_span = new_map_span;
 }
 
@@ -155,7 +158,7 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
     };
     if app.is_mapspan_locked {
         snap_memoryspan_to_latest_operation(app, latest_address);
-        app.map_highlight = Some(latest_address);
+        app.map_highlight = Some(latest_address / DEFAULT_BLOCK_SIZE);
     }
 
     let grid = generate_rows(DEFAULT_MEMORY_SIZE / DEFAULT_ROW_LENGTH, app.map_span, app.map_highlight, map);

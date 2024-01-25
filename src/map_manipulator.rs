@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::damselfly_viewer::consts::DEFAULT_BLOCK_SIZE;
+use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_ROW_LENGTH};
 use crate::memory::{MemoryStatus, MemoryUpdate};
 
 pub struct MapManipulator {
@@ -39,6 +39,23 @@ impl MapManipulator {
             adjacent_address += 1;
         }
         map.insert(scaled_address, MemoryStatus::Free(callstack.clone()));
+    }
+
+    pub fn view_memory(map: &mut HashMap<usize, MemoryStatus>, absolute_address: usize) -> (Option<&MemoryStatus>, usize) {
+        let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
+        (map.get(&scaled_address), scaled_address)
+    }
+
+    pub fn scale_address_down(absolute_address: usize) -> usize {
+        absolute_address / DEFAULT_BLOCK_SIZE
+    }
+
+    pub fn scale_address_up(relative_address: usize) -> usize {
+        relative_address * DEFAULT_BLOCK_SIZE
+    }
+
+    pub fn get_address_of_row(relative_address: usize) -> usize {
+        (relative_address / DEFAULT_ROW_LENGTH) * DEFAULT_ROW_LENGTH
     }
 }
 
