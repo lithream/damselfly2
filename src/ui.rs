@@ -187,7 +187,7 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
         Paragraph::new(format!(
             "MAP HIGHLIGHT: {:x}\n\
             CALLSTACK: {}\n\
-            VIEW LOCKED: {}", app.map_highlight.unwrap_or(0), callstack, app.is_mapspan_locked
+            VIEW LOCKED: {}", MapManipulator::scale_address_up(app.map_highlight.unwrap_or(0)), callstack, app.is_mapspan_locked
         ))
             .block(
                 Block::default()

@@ -69,10 +69,9 @@ impl MemorySysTraceParser {
     }
 
     pub fn parse_log(&mut self, log: String) {
-        let mut log_iter = log.split('\n').peekable();
-        while let Some(next_line) = log_iter.peek() {
-            if self.is_line_useless(next_line) {
-                log_iter.next();
+        let mut log_iter = log.split('\n');
+        while let Some(line) = log_iter.next() {
+            if self.is_line_useless(line) {
                 continue;
             }
             let instruction = self.process_instruction(&mut log_iter);
@@ -81,7 +80,7 @@ impl MemorySysTraceParser {
         // EOF
     }
 
-    fn is_line_useless(&self, next_line: &&str) -> bool {
+    fn is_line_useless(&self, next_line: &str) -> bool {
         let split_line = next_line.split('>').collect::<Vec<_>>();
         if let Some(latter_half) = split_line.get(1) {
             let trimmed_string = latter_half.trim();
@@ -92,11 +91,11 @@ impl MemorySysTraceParser {
         true
     }
 
-    pub fn process_instruction(&mut self, log_iter: &mut Peekable<Split<char>>) -> Instruction {
+    pub fn process_instruction(&mut self, log_iter: &mut Split<char>) -> Instruction {
         let mut baked_instruction = None;
         while baked_instruction.is_none() {
-            if let Some(line) = log_iter.next() {
-                if self.is_line_useless(&line) {
+            for line in &mut *log_iter {
+                if self.is_line_useless(line) {
                     continue;
                 }
                 let record = self.line_to_record(line).expect("[MemorySysTraceParser::process_operation]: Failed to process line");
@@ -104,9 +103,6 @@ impl MemorySysTraceParser {
                     RecordType::StackTrace(_, _) => self.process_stacktrace(record),
                     _ => baked_instruction = self.process_alloc_or_free(Some(record)),
                 }
-            } else {
-                // EOF
-                baked_instruction = self.process_alloc_or_free(None);
             }
         }
         baked_instruction.unwrap()

@@ -208,7 +208,7 @@ impl DamselflyViewer {
     pub fn get_map_state(&self, time: usize) -> (HashMap<usize, MemoryStatus>, Option<&MemoryUpdate>) {
         let mut map: HashMap<usize, MemoryStatus> = HashMap::new();
         let mut iter = self.operation_history.iter();
-        for _ in 0..=time {
+        for i in 0..=time {
             if let Some(operation) = iter.next() {
                 match operation {
                     MemoryUpdate::Allocation(absolute_address, size, callstack) => {
