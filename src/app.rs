@@ -13,6 +13,7 @@ pub struct App {
     pub running: bool,
     /// Damselfly
     pub damselfly_viewer: DamselflyViewer,
+
     pub graph_highlight: Option<usize>,
     pub map_highlight: Option<usize>,
     pub map_grid: Vec<Vec<usize>>,
@@ -50,6 +51,27 @@ impl App {
     /// Handles the tick event of the terminal.
     pub fn tick(&mut self) {
 
+    }
+
+    pub fn jump_to_next_block(&mut self) {
+        if self.map_highlight.is_none() {
+            return;
+        }
+        let current_block = self.map_highlight.unwrap();
+        let (current_map, _) = self.damselfly_viewer
+            .get_map_state(
+                self.damselfly_viewer
+                    .get_timespan().0 + self.graph_highlight
+                    .unwrap_or(0));
+        let next_key = current_map.keys()
+            .find(|key| **key > current_block);
+        if next_key.is_none() {
+            return;
+        }
+        let next_key = next_key.unwrap();
+        self.map_span.0 = next_key.saturating_sub(DEFAULT_MEMORYSPAN);
+        self.map_span.1 = next_key.saturating_add(DEFAULT_MEMORYSPAN);
+        self.map_highlight = Some(*next_key);
     }
 
     /// Set running to false to quit the application.

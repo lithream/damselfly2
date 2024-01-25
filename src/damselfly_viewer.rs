@@ -9,6 +9,8 @@ use log::debug;
 use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_TIMESPAN};
 use crate::damselfly_viewer::instruction::Instruction;
 use crate::memory::{MemoryStatus, MemoryUpdate};
+use crate::map_manipulator;
+use crate::map_manipulator::MapManipulator;
 
 
 #[derive(Debug, Default, Clone)]
@@ -156,7 +158,7 @@ impl DamselflyViewer {
         let memory_usage = MemoryUsage {
             memory_used_percentage: (memory_used_absolute / consts::DEFAULT_MEMORY_SIZE as f64) * 100.0,
             memory_used_absolute,
-            total_memory: consts::DEFAULT_MEMORY_SIZE
+            total_memory: consts::DEFAULT_MEMORY_SIZE,
         };
 
         self.memory_usage_snapshots.push(memory_usage);
@@ -164,11 +166,10 @@ impl DamselflyViewer {
 
     fn update_memory_map(&mut self, instruction: &Instruction) {
         match instruction.get_operation() {
-            MemoryUpdate::Allocation(address, size, callstack) => {
-
-                self.memory_map.insert(address, MemoryStatus::Allocated(size, callstack))
-            },
-            MemoryUpdate::Free(address, callstack) => self.memory_map.insert(address, MemoryStatus::Free(callstack)),
+            MemoryUpdate::Allocation(address, size, callstack) =>
+                MapManipulator::allocate_memory(&mut self.memory_map, address, size, callstack.clone()),
+            MemoryUpdate::Free(address, callstack) =>
+                MapManipulator::free_memory(&mut self.memory_map, address, callstack.clone()),
         };
     }
 
@@ -210,11 +211,11 @@ impl DamselflyViewer {
         for _ in 0..=time {
             if let Some(operation) = iter.next() {
                 match operation {
-                    MemoryUpdate::Allocation(address, size, callstack) => {
-                        self.allocate_memory(&mut map, *address, *size, callstack);
+                    MemoryUpdate::Allocation(absolute_address, size, callstack) => {
+                        Self::allocate_memory(&mut map, *absolute_address, *size, callstack);
                     }
-                    MemoryUpdate::Free(address, callstack) => {
-                        self.free_memory(&mut map, *address, callstack);
+                    MemoryUpdate::Free(absolute_address, callstack) => {
+                        Self::free_memory(&mut map, *absolute_address, callstack);
                     }
                 }
             }
@@ -222,52 +223,53 @@ impl DamselflyViewer {
         (map, self.operation_history.get(time))
     }
 
-    fn free_memory(&self, map: &mut HashMap<usize, MemoryStatus>, mut address: usize, callstack: &str) {
-        let local_block = address / DEFAULT_BLOCK_SIZE;
-        if local_block * DEFAULT_BLOCK_SIZE != address {
+    fn free_memory(map: &mut HashMap<usize, MemoryStatus>, absolute_address: usize, callstack: &str) {
+        let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
+        if scaled_address * DEFAULT_BLOCK_SIZE != absolute_address {
             panic!("[DamselflyViewer::free_memory]: Block arithmetic error");
         }
         let mut offset = 0;
         loop {
-            if let Some(status) = map.get(&(local_block + offset)) {
+            if let Some(status) = map.get(&(scaled_address + offset)) {
                 match status {
-                    MemoryStatus::Allocated(parent_block, callstack) => {
-                        if *parent_block != address {
+                    MemoryStatus::Allocated(parent_block, _) => {
+                        if *parent_block != absolute_address {
                             return;
                         }
                     }
-                    MemoryStatus::PartiallyAllocated(parent_block, callstack) => {
-                        if *parent_block != address {
+                    MemoryStatus::PartiallyAllocated(parent_block, _) => {
+                        if *parent_block != absolute_address {
                             return;
                         }
                     }
                     MemoryStatus::Free(_) => return,
                 }
-                map.insert(local_block + offset, MemoryStatus::Free(callstack.to_string()));
+                map.insert(scaled_address + offset, MemoryStatus::Free(callstack.to_string()));
             } else {
-                map.insert(local_block + offset, MemoryStatus::Free(callstack.to_string()));
+                map.insert(scaled_address + offset, MemoryStatus::Free(callstack.to_string()));
                 return;
             }
             offset += 1;
         }
     }
 
-    pub fn allocate_memory(&self, map: &mut HashMap<usize, MemoryStatus>, mut address: usize, mut bytes: usize, callstack: &str) {
+    pub fn allocate_memory(map: &mut HashMap<usize, MemoryStatus>, absolute_address: usize, mut bytes: usize, callstack: &str) {
+        let scaled_address = absolute_address / 4;
         if bytes == 0 {
             return;
         }
         if bytes < DEFAULT_BLOCK_SIZE && bytes > 0 {
-            map.insert(address, MemoryStatus::PartiallyAllocated(address, callstack.to_string()));
+            map.insert(scaled_address / 4, MemoryStatus::PartiallyAllocated(scaled_address, callstack.to_string()));
             return;
         }
 
         let full_blocks = bytes / DEFAULT_BLOCK_SIZE;
         for block_count in 0..full_blocks {
-            map.insert(address + block_count, MemoryStatus::Allocated(address, String::from(callstack)));
+            map.insert(scaled_address + block_count, MemoryStatus::Allocated(scaled_address, String::from(callstack)));
         }
 
         if (full_blocks * DEFAULT_BLOCK_SIZE) < bytes {
-            map.insert(address + full_blocks, MemoryStatus::PartiallyAllocated(address, String::from(callstack)));
+            map.insert(scaled_address + full_blocks, MemoryStatus::PartiallyAllocated(scaled_address, String::from(callstack)));
         }
     }
 
@@ -300,10 +302,10 @@ impl DamselflyViewer {
 
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use crate::damselfly_viewer::{DamselflyViewer, consts::DEFAULT_MEMORY_SIZE, consts};
+    use crate::damselfly_viewer::consts::DEFAULT_TIMESPAN;
     use crate::memory::{MemoryStatus, MemorySysTraceParser, MemoryUpdate};
 
     fn initialise_viewer() -> (DamselflyViewer, MemorySysTraceParser) {
@@ -314,222 +316,57 @@ mod tests {
 
     #[test]
     fn shift_timespan() {
-        let (mut damselfly_viewer, mut memory_stub) = initialise_viewer();
-        for i in 0..100 {
-            memory_stub.force_generate_event(MemoryUpdate::Allocation(i, String::from("force_generate_event_Allocation")));
-        }
-        for _ in 0..100 {
-            damselfly_viewer.update();
-        }
-        damselfly_viewer.timespan.0 = 50;
-        damselfly_viewer.timespan.1 = 75;
-        assert_eq!(damselfly_viewer.timespan.0, 50);
-        assert_eq!(damselfly_viewer.timespan.1, 75);
+        let (mut damselfly_viewer, mut mst_parser) = initialise_viewer();
+        let log = std::fs::read_to_string(consts::TEST_LOG_PATH).unwrap();
+        mst_parser.parse_log(log);
+        damselfly_viewer.gulp_channel();
+        damselfly_viewer.shift_timespan_to_beginning();
+        assert_eq!(damselfly_viewer.timespan.0, 0);
+        assert_eq!(damselfly_viewer.timespan.1, DEFAULT_TIMESPAN);
         damselfly_viewer.shift_timespan_left(1);
-        assert_eq!(damselfly_viewer.timespan.0, 25);
-        assert_eq!(damselfly_viewer.timespan.1, 50);
+        assert_eq!(damselfly_viewer.timespan.0, 0);
+        assert_eq!(damselfly_viewer.timespan.1, DEFAULT_TIMESPAN);
         damselfly_viewer.shift_timespan_right(1);
-        assert_eq!(damselfly_viewer.timespan.0, 50);
-        assert_eq!(damselfly_viewer.timespan.1, 75);
+        assert_eq!(damselfly_viewer.timespan.0, DEFAULT_TIMESPAN);
+        assert_eq!(damselfly_viewer.timespan.1, DEFAULT_TIMESPAN * 2);
     }
 
     #[test]
     fn shift_timespan_left_cap() {
-        let (mut damselfly_viewer, mut memory_stub) = initialise_viewer();
-        for i in 0..250 {
-            memory_stub.force_generate_event(MemoryUpdate::Allocation(i, String::from("force_generate_event_Allocation")));
-        }
-
-        for _ in 0..250 {
-            damselfly_viewer.update();
-        }
+        let (mut damselfly_viewer, mut mst_parser) = initialise_viewer();
+        let log = std::fs::read_to_string(consts::TEST_LOG_PATH).unwrap();
+        mst_parser.parse_log(log);
+        damselfly_viewer.gulp_channel();
+        damselfly_viewer.shift_timespan_to_beginning();
         damselfly_viewer.shift_timespan_left(3);
         assert_eq!(damselfly_viewer.timespan.0, 0);
-        assert_eq!(damselfly_viewer.timespan.1, 100);
+        assert_eq!(damselfly_viewer.timespan.1, DEFAULT_TIMESPAN);
         damselfly_viewer.shift_timespan_right(1);
-        assert_eq!(damselfly_viewer.timespan.0, 100);
-        assert_eq!(damselfly_viewer.timespan.1, 200);
+        assert_eq!(damselfly_viewer.timespan.0, DEFAULT_TIMESPAN);
+        assert_eq!(damselfly_viewer.timespan.1, DEFAULT_TIMESPAN * 2);
         damselfly_viewer.shift_timespan_left(2);
         assert_eq!(damselfly_viewer.timespan.0, 0);
-        assert_eq!(damselfly_viewer.timespan.1, 100);
+        assert_eq!(damselfly_viewer.timespan.1, DEFAULT_TIMESPAN);
     }
 
     #[test]
     fn shift_timespan_right() {
-        let (mut damselfly_viewer, mut memory_stub) = initialise_viewer();
-        for i in 0..250 {
-            memory_stub.force_generate_event(MemoryUpdate::Allocation(i, String::from("force_generate_event_Allocation")));
-        }
-        for _ in 0..250 {
-            damselfly_viewer.update();
-        }
+        let (mut damselfly_viewer, mut mst_parser) = initialise_viewer();
+        let log = std::fs::read_to_string(consts::TEST_LOG_PATH).unwrap();
+        mst_parser.parse_log(log);
+        damselfly_viewer.gulp_channel();
+        damselfly_viewer.shift_timespan_to_beginning();
         damselfly_viewer.shift_timespan_left(3);
         assert_eq!(damselfly_viewer.timespan.0, 0);
-        assert_eq!(damselfly_viewer.timespan.1, 100);
+        assert_eq!(damselfly_viewer.timespan.1, DEFAULT_TIMESPAN);
         damselfly_viewer.shift_timespan_right(1);
-        assert_eq!(damselfly_viewer.timespan.0, 100);
-        assert_eq!(damselfly_viewer.timespan.1, 200);
+        assert_eq!(damselfly_viewer.timespan.0, DEFAULT_TIMESPAN);
+        assert_eq!(damselfly_viewer.timespan.1, DEFAULT_TIMESPAN * 2);
+        damselfly_viewer.shift_timespan_to_end();
         damselfly_viewer.shift_timespan_right(2);
-        assert_eq!(damselfly_viewer.timespan.0, 149);
-        assert_eq!(damselfly_viewer.timespan.1, 249);
-    }
-
-    #[test]
-    fn memory_stub_channel_test() {
-        let (mut memory_stub, instruction_rx) = MemoryStub::new();
-        for i in 0..5 {
-            memory_stub.force_generate_event(MemoryUpdate::Allocation(i, String::from("force_generate_event_Allocation")));
-        }
-        for i in 0..5 {
-            let incoming_instruction = instruction_rx.recv().unwrap();
-            assert_eq!(incoming_instruction.get_timestamp(), i);
-        }
-    }
-
-    #[test]
-    fn damselfly_channel_test() {
-        let (mut memory_stub, instruction_rx) = MemoryStub::new();
-        let mut damselfly_viewer = DamselflyViewer::new(instruction_rx);
-        for i in 0..5 {
-            memory_stub.force_generate_event(MemoryUpdate::Allocation(i, String::from("force_generate_event_Allocation")));
-        }
-        for _ in 0..5 {
-            damselfly_viewer.update()
-        }
-    }
-
-    #[test]
-    fn lock_timespan() {
-        let (mut damselfly_viewer, mut memory_stub) = initialise_viewer();
-        for i in 0..250 {
-            memory_stub.force_generate_event(MemoryUpdate::Allocation(i, String::from("force_generate_event_Allocation")));
-        }
-        for _ in 0..250 {
-            damselfly_viewer.update();
-        }
-        damselfly_viewer.shift_timespan_left(1);
-        assert_eq!(damselfly_viewer.timespan.0, 50);
-        assert_eq!(damselfly_viewer.timespan.1, 150);
-        assert!(damselfly_viewer.timespan_is_unlocked);
-        damselfly_viewer.lock_timespan();
-        assert_eq!(damselfly_viewer.timespan.0, 149);
-        assert_eq!(damselfly_viewer.timespan.1, 249);
-        assert!(!damselfly_viewer.timespan_is_unlocked);
-    }
-    #[test]
-
-    #[allow(clippy::get_first)]
-    #[test]
-    fn stub_to_viewer_channel_test() {
-        let (mut damselfly_viewer, mut memory_stub) = initialise_viewer();
-        for i in 0..3 {
-            memory_stub.force_generate_event(MemoryUpdate::Allocation(i, String::from("force_generate_event_Allocation")));
-        }
-        for i in 3..6 {
-            memory_stub.force_generate_event(MemoryUpdate::PartialAllocation(i, String::from("force_generate_event_PartialAllocation")));
-        }
-        for i in 6..9 {
-            memory_stub.force_generate_event(MemoryUpdate::Free(i - 4, String::from("force_generate_event_Free")));
-        }
-        for _ in 0..9 {
-            damselfly_viewer.update();
-        }
-        for usage in &damselfly_viewer.memory_usage_snapshots {
-            assert_eq!(usage.total_memory, consts::DEFAULT_MEMORY_SIZE);
-        }
-        assert_eq!(damselfly_viewer.memory_usage_snapshots.get(0).unwrap().memory_used_absolute, 1.0);
-        assert_eq!(damselfly_viewer.memory_usage_snapshots.get(1).unwrap().memory_used_absolute, 2.0);
-        assert_eq!(damselfly_viewer.memory_usage_snapshots.get(2).unwrap().memory_used_absolute, 3.0);
-        assert_eq!(damselfly_viewer.memory_usage_snapshots.get(3).unwrap().memory_used_absolute, 3.5);
-        assert_eq!(damselfly_viewer.memory_usage_snapshots.get(4).unwrap().memory_used_absolute, 4.0);
-        assert_eq!(damselfly_viewer.memory_usage_snapshots.get(5).unwrap().memory_used_absolute, 4.5);
-        assert_eq!(damselfly_viewer.memory_usage_snapshots.get(6).unwrap().memory_used_absolute, 3.5);
-        assert_eq!(damselfly_viewer.memory_usage_snapshots.get(7).unwrap().memory_used_absolute, 3.0);
-        assert_eq!(damselfly_viewer.memory_usage_snapshots.get(8).unwrap().memory_used_absolute, 2.5);
-
-        let mut time = 0;
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&0).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        for i in 1..10 {
-            assert!(!damselfly_viewer.get_map_state(time).0.contains_key(&i));
-        }
-
-        time = 1;
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&0).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&1).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        for i in 2..10 {
-            assert!(!damselfly_viewer.get_map_state(time).0.contains_key(&i));
-        }
-
-        time = 2;
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&0).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&1).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&2).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        for i in 3..10 {
-            assert!(!damselfly_viewer.get_map_state(time).0.contains_key(&i));
-        }
-
-        time = 3;
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&0).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&1).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&2).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&3).unwrap(), MemoryStatus::PartiallyAllocated(String::from("force_generate_event_PartialAllocation")));
-        for i in 4..11 {
-            assert!(!damselfly_viewer.get_map_state(time).0.contains_key(&i));
-        }
-
-        time = 4;
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&0).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&1).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&2).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&3).unwrap(), MemoryStatus::PartiallyAllocated(String::from("force_generate_event_PartialAllocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&4).unwrap(), MemoryStatus::PartiallyAllocated(String::from("force_generate_event_PartialAllocation")));
-        for i in 5..11 {
-            assert!(!damselfly_viewer.get_map_state(time).0.contains_key(&i));
-        }
-
-        time = 5;
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&0).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&1).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&2).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&3).unwrap(), MemoryStatus::PartiallyAllocated(String::from("force_generate_event_PartialAllocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&4).unwrap(), MemoryStatus::PartiallyAllocated(String::from("force_generate_event_PartialAllocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&5).unwrap(), MemoryStatus::PartiallyAllocated(String::from("force_generate_event_PartialAllocation")));
-        for i in 6..11 {
-            assert!(!damselfly_viewer.get_map_state(time).0.contains_key(&i));
-        }
-
-        time = 6;
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&0).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&1).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&2).unwrap(), MemoryStatus::Free(String::from("force_generate_event_Free")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&3).unwrap(), MemoryStatus::PartiallyAllocated(String::from("force_generate_event_PartialAllocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&4).unwrap(), MemoryStatus::PartiallyAllocated(String::from("force_generate_event_PartialAllocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&5).unwrap(), MemoryStatus::PartiallyAllocated(String::from("force_generate_event_PartialAllocation")));
-        for i in 6..11 {
-            assert!(!damselfly_viewer.get_map_state(time).0.contains_key(&i));
-        }
-
-        time = 7;
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&0).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&1).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&2).unwrap(), MemoryStatus::Free(String::from("force_generate_event_Free")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&3).unwrap(), MemoryStatus::Free(String::from("force_generate_event_Free")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&4).unwrap(), MemoryStatus::PartiallyAllocated(String::from("force_generate_event_PartialAllocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&5).unwrap(), MemoryStatus::PartiallyAllocated(String::from("force_generate_event_PartialAllocation")));
-        for i in 6..11 {
-            assert!(!damselfly_viewer.get_map_state(time).0.contains_key(&i));
-        }
-
-        time = 8;
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&0).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&1).unwrap(), MemoryStatus::Allocated(String::from("force_generate_event_Allocation")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&2).unwrap(), MemoryStatus::Free(String::from("force_generate_event_Free")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&3).unwrap(), MemoryStatus::Free(String::from("force_generate_event_Free")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&4).unwrap(), MemoryStatus::Free(String::from("force_generate_event_Free")));
-        assert_eq!(*damselfly_viewer.get_map_state(time).0.get(&5).unwrap(), MemoryStatus::PartiallyAllocated(String::from("force_generate_event_PartialAllocation")));
-        for i in 6..11 {
-            assert!(!damselfly_viewer.get_map_state(time).0.contains_key(&i));
-        }
+        let length = damselfly_viewer.memory_usage_snapshots.len();
+        assert_eq!(damselfly_viewer.timespan.0, length - DEFAULT_TIMESPAN - 1);
+        assert_eq!(damselfly_viewer.timespan.1, length - 1);
     }
 }
-*/
+

@@ -18,3 +18,4 @@ pub mod memory;
 
 /// Damselfly
 pub mod damselfly_viewer;
+mod map_manipulator;

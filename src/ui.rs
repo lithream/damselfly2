@@ -72,11 +72,12 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
 fn snap_memoryspan_to_latest_operation(app: &mut App, latest_address: usize) {
     let mut new_map_span = app.map_span;
+    let scaled_address = latest_address / DEFAULT_BLOCK_SIZE;
     if latest_address >= app.map_span.1 {
-        new_map_span.0 = latest_address.saturating_sub(DEFAULT_MEMORYSPAN / 2);
+        new_map_span.0 = scaled_address.saturating_sub(DEFAULT_MEMORYSPAN / 2);
         new_map_span.1 = new_map_span.0 + DEFAULT_MEMORYSPAN;
     } else if latest_address < app.map_span.0 {
-        new_map_span.1 = latest_address + DEFAULT_MEMORYSPAN / 2;
+        new_map_span.1 = scaled_address + DEFAULT_MEMORYSPAN / 2;
         new_map_span.0 = new_map_span.1.saturating_sub(DEFAULT_MEMORYSPAN);
     }
     app.map_span = new_map_span;
@@ -156,6 +157,7 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
         snap_memoryspan_to_latest_operation(app, latest_address);
         app.map_highlight = Some(latest_address);
     }
+
     let grid = generate_rows(DEFAULT_MEMORY_SIZE / DEFAULT_ROW_LENGTH, app.map_span, app.map_highlight, map);
     let widths = [Constraint::Length(1); DEFAULT_ROW_LENGTH];
     let table = Table::new(grid)
@@ -180,7 +182,7 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
 
     frame.render_widget(
         Paragraph::new(format!(
-            "MAP HIGHLIGHT: {}\n\
+            "MAP HIGHLIGHT: {:x}\n\
             CALLSTACK: {}\n\
             VIEW LOCKED: {}", app.map_highlight.unwrap_or(0), callstack, app.is_mapspan_locked
         ))
@@ -211,13 +213,11 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
     for operation in operation_list {
         let style = match operation {
             MemoryUpdate::Allocation(_, size, _) => {
-                let style;
                 if *size < DEFAULT_BLOCK_SIZE {
-                    style = Style::default().yellow();
+                    Style::default().yellow()
                 } else {
-                    style = Style::default().red()
+                    Style::default().red()
                 }
-                style
             },
             MemoryUpdate::Free(_, _) => Style::default().gray(),
         };
@@ -294,41 +294,7 @@ fn generate_rows(rows: usize, map_span: (usize, usize), map_highlight: Option<us
     grid
 }
 
-/*
-fn shrink_hashmap(map: &HashMap<usize, MemoryStatus>, step: usize) -> HashMap<usize, MemoryStatus> {
-    let mut new_map = HashMap::new();
-    let mut new_map_address = 0;
-    for address in (0..DEFAULT_MEMORY_SIZE).step_by(step) {
-        let mut allocated_count = 0;
-        let mut pallocated_count = 0;
-        let mut free_count = 0;
-
-        for i in address..address + step {
-            let weight = match map.get(&i) {
-                Some(block_state) => match block_state {
-                    MemoryStatus::Allocated(_) => allocated_count += 1, // weight for allocated
-                    MemoryStatus::PartiallyAllocated(_) => pallocated_count += 1, // weight for partially allocated
-                    MemoryStatus::Free(_) => free_count += 1, // weight for free
-                },
-                None => free_count += 1, // weight for free
-            };
-        }
-        let mean_status;
-        if allocated_count >= pallocated_count && allocated_count >= free_count {
-            mean_status = MemoryStatus::Allocated(String::from("__placeholder"));
-        } else if pallocated_count >= free_count {
-            mean_status = MemoryStatus::PartiallyAllocated(String::from("__placeholder"));
-        } else {
-            mean_status = MemoryStatus::Free(String::from("__placeholder"));
-        }
-        new_map.insert(new_map_address, mean_status);
-        new_map_address += 1;
-    }
-    new_map
-}
-
- */
-
 #[cfg(test)]
 mod tests {
+
 }

@@ -1,6 +1,6 @@
 use crate::app::{App, AppResult};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use crate::damselfly_viewer::consts::{DEFAULT_ROW_LENGTH, DEFAULT_TIMESPAN};
+use crate::damselfly_viewer::consts::{DEFAULT_MEMORYSPAN, DEFAULT_ROW_LENGTH, DEFAULT_TIMESPAN};
 
 /// Handles the key events and updates the state of [`App`].
 pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
@@ -104,15 +104,32 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         }
 
         KeyCode::PageUp => {
-            app.map_span.0 = app.map_span.0.saturating_sub(64);
-            app.map_span.1 = app.map_span.1.saturating_sub(64);
-            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(DEFAULT_ROW_LENGTH));
+            if key_event.modifiers == KeyModifiers::SHIFT {
+                app.map_span.0 = app.map_span.0.saturating_sub(DEFAULT_MEMORYSPAN);
+                app.map_span.1 = app.map_span.1.saturating_sub(DEFAULT_MEMORYSPAN);
+                app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(DEFAULT_MEMORYSPAN));
+            } else {
+                app.map_span.0 = app.map_span.0.saturating_sub(DEFAULT_ROW_LENGTH);
+                app.map_span.1 = app.map_span.1.saturating_sub(DEFAULT_ROW_LENGTH);
+                app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(DEFAULT_ROW_LENGTH));
+            }
         }
 
         KeyCode::PageDown => {
-            app.map_span.0 = app.map_span.0.saturating_add(64);
-            app.map_span.1 = app.map_span.1.saturating_add(64);
+            if key_event.modifiers == KeyModifiers::SHIFT {
+                app.map_span.0 = app.map_span.0.saturating_add(DEFAULT_MEMORYSPAN);
+                app.map_span.1 = app.map_span.1.saturating_add(DEFAULT_MEMORYSPAN);
+                app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(DEFAULT_MEMORYSPAN));
+            }
+            app.map_span.0 = app.map_span.0.saturating_add(DEFAULT_ROW_LENGTH);
+            app.map_span.1 = app.map_span.1.saturating_add(DEFAULT_ROW_LENGTH);
             app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(DEFAULT_ROW_LENGTH));
+        }
+
+        KeyCode::Char('n') => {
+            if !app.is_mapspan_locked {
+                app.jump_to_next_block();
+            }
         }
 
         KeyCode::Left => {
