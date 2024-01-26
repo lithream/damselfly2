@@ -69,15 +69,18 @@ impl MemorySysTraceParser {
     }
 
     pub fn parse_log(&mut self, log: String) {
-        let mut log_iter = log.split('\n');
-        while let Some(line) = log_iter.next() {
+        let mut log_iter = log.split('\n').peekable();
+        while let Some(line) = log_iter.peek() {
             if self.is_line_useless(line) {
+                log_iter.next();
                 continue;
             }
             let instruction = self.process_instruction(&mut log_iter);
             self.instruction_tx.send(instruction).expect("[MemorySysTraceParser::parse_log]: Failed to send instruction");
         }
         // EOF
+        let instruction = self.bake_instruction();
+        self.instruction_tx.send(instruction).expect("[MemorySysTraceParser::parse_log]: Failed to send final instruction");
     }
 
     fn is_line_useless(&self, next_line: &str) -> bool {
@@ -91,19 +94,23 @@ impl MemorySysTraceParser {
         true
     }
 
-    pub fn process_instruction(&mut self, log_iter: &mut Split<char>) -> Instruction {
+    pub fn process_instruction(&mut self, log_iter: &mut Peekable<Split<char>>) -> Instruction {
         let mut baked_instruction = None;
-        while baked_instruction.is_none() {
-            for line in &mut *log_iter {
-                if self.is_line_useless(line) {
-                    continue;
-                }
-                let record = self.line_to_record(line).expect("[MemorySysTraceParser::process_operation]: Failed to process line");
-                match record {
-                    RecordType::StackTrace(_, _) => self.process_stacktrace(record),
-                    _ => baked_instruction = self.process_alloc_or_free(Some(record)),
-                }
+        for line in &mut *log_iter {
+            if self.is_line_useless(line) {
+                continue;
             }
+            let record = self.line_to_record(line)
+                .expect("[MemorySysTraceParser::process_operation]: Failed to process line");
+            match record {
+                RecordType::StackTrace(_, _) => self.process_stacktrace(record),
+                _ => { baked_instruction = self.process_alloc_or_free(Some(record)) },
+            }
+            if baked_instruction.is_some() { break; }
+        }
+        // EOF but last instruction left in queue
+        if baked_instruction.is_none() && !self.record_queue.is_empty() {
+            baked_instruction = Some(self.bake_instruction());
         }
         baked_instruction.unwrap()
     }

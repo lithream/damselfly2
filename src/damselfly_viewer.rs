@@ -9,7 +9,6 @@ use log::debug;
 use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_TIMESPAN};
 use crate::damselfly_viewer::instruction::Instruction;
 use crate::memory::{MemoryStatus, MemoryUpdate};
-use crate::map_manipulator;
 use crate::map_manipulator::MapManipulator;
 
 
