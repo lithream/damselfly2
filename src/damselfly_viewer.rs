@@ -283,11 +283,14 @@ impl DamselflyViewer {
         self.memory_usage_snapshots.len()
     }
 
-    pub fn get_operation_log_span(&self, start: usize, end: usize) -> &[MemoryUpdate] {
-        if self.operation_history.get(start).is_none() || self.operation_history.get(end - 1).is_none() {
+    pub fn get_operation_log_span(&self, mut start: usize, mut end: usize) -> &[MemoryUpdate] {
+        let operations = self.operation_history.len();
+        start = start.clamp(0, operations);
+        end = end.clamp(0, operations);
+        if self.operation_history.get(start).is_none() || self.operation_history.get(end.saturating_sub(1)).is_none() {
             return &[];
         }
-        &self.operation_history[start..end]
+        &self.operation_history[start..=end]
     }
     
     pub fn is_timespan_locked(&self) -> bool {
@@ -299,7 +302,7 @@ impl DamselflyViewer {
 #[cfg(test)]
 mod tests {
     use crate::damselfly_viewer::{DamselflyViewer, consts::DEFAULT_MEMORY_SIZE, consts};
-    use crate::damselfly_viewer::consts::DEFAULT_TIMESPAN;
+    use crate::damselfly_viewer::consts::{DEFAULT_BINARY_PATH, DEFAULT_GADDR2LINE_PATH, DEFAULT_TIMESPAN};
     use crate::memory::{MemoryStatus, MemorySysTraceParser, MemoryUpdate};
 
     fn initialise_viewer() -> (DamselflyViewer, MemorySysTraceParser) {
@@ -312,7 +315,7 @@ mod tests {
     fn shift_timespan() {
         let (mut damselfly_viewer, mut mst_parser) = initialise_viewer();
         let log = std::fs::read_to_string(consts::TEST_LOG_PATH).unwrap();
-        mst_parser.parse_log(log);
+        mst_parser.parse_log(log, DEFAULT_BINARY_PATH, DEFAULT_GADDR2LINE_PATH);
         damselfly_viewer.gulp_channel();
         damselfly_viewer.shift_timespan_to_beginning();
         assert_eq!(damselfly_viewer.timespan.0, 0);
@@ -329,7 +332,7 @@ mod tests {
     fn shift_timespan_left_cap() {
         let (mut damselfly_viewer, mut mst_parser) = initialise_viewer();
         let log = std::fs::read_to_string(consts::TEST_LOG_PATH).unwrap();
-        mst_parser.parse_log(log);
+        mst_parser.parse_log(log, DEFAULT_BINARY_PATH, DEFAULT_GADDR2LINE_PATH);
         damselfly_viewer.gulp_channel();
         damselfly_viewer.shift_timespan_to_beginning();
         damselfly_viewer.shift_timespan_left(3);
@@ -347,7 +350,7 @@ mod tests {
     fn shift_timespan_right() {
         let (mut damselfly_viewer, mut mst_parser) = initialise_viewer();
         let log = std::fs::read_to_string(consts::TEST_LOG_PATH).unwrap();
-        mst_parser.parse_log(log);
+        mst_parser.parse_log(log, DEFAULT_BINARY_PATH, DEFAULT_GADDR2LINE_PATH);
         damselfly_viewer.gulp_channel();
         damselfly_viewer.shift_timespan_to_beginning();
         damselfly_viewer.shift_timespan_left(3);

@@ -1,6 +1,7 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::iter::Peekable;
+use std::process::Command;
 use std::str::Split;
 use std::sync::{mpsc};
 use std::sync::mpsc::{Receiver, Sender};
@@ -57,21 +58,25 @@ pub struct MemorySnapshot {
 // CALLSTACK TRACING NOT IMPLEMENTED YET!!! TODO!
 pub struct MemorySysTraceParser {
     instruction_tx: Sender<Instruction>,
-    map: HashMap<usize, MemoryStatus>,
     time: usize,
     record_queue: Vec<RecordType>,
+    symbols: HashMap<usize, String>,
+    prefix: String,
 }
 
 impl MemorySysTraceParser {
     pub fn new() -> (MemorySysTraceParser, Receiver<Instruction>) {
         let (tx, rx) = mpsc::channel();
-        (MemorySysTraceParser { instruction_tx: tx, map: HashMap::new(), time: 0, record_queue: Vec::new() }, rx)
+        (MemorySysTraceParser {
+            instruction_tx: tx, time: 0, record_queue: Vec::new(), symbols: HashMap::new(), prefix: String::new()
+        }, rx)
     }
 
-    pub fn parse_log(&mut self, log: String) {
+    pub fn parse_log(&mut self, log: String, binary_path: &str, gaddr2line_path: &str) {
+        self.parse_symbols(&log, binary_path, gaddr2line_path);
         let mut log_iter = log.split('\n').peekable();
         while let Some(line) = log_iter.peek() {
-            if self.is_line_useless(line) {
+            if Self::is_line_useless(line) {
                 log_iter.next();
                 continue;
             }
@@ -83,7 +88,7 @@ impl MemorySysTraceParser {
         self.instruction_tx.send(instruction).expect("[MemorySysTraceParser::parse_log]: Failed to send final instruction");
     }
 
-    fn is_line_useless(&self, next_line: &str) -> bool {
+    fn is_line_useless(next_line: &str) -> bool {
         let split_line = next_line.split('>').collect::<Vec<_>>();
         if let Some(latter_half) = split_line.get(1) {
             let trimmed_string = latter_half.trim();
@@ -94,10 +99,108 @@ impl MemorySysTraceParser {
         true
     }
 
+    fn extract_addresses_from_log(log: &str) -> String {
+        let mut set = HashSet::new();
+        let mut addresses = String::new();
+        let log_iter = log.split('\n');
+        for line in log_iter {
+            if Self::is_line_useless(line) {
+                continue;
+            }
+            if line.contains('^') {
+                set.insert(Self::extract_trace_address(line));
+            }
+        }
+        for address in set {
+            addresses.push_str("0x");
+            addresses.push_str(&address);
+            addresses.push(' ');
+        }
+        addresses.trim().to_string()
+    }
+
+    fn extract_trace_address(line: &str) -> String {
+        let mut address = String::new();
+        if let Some(open_bracket_pos) = line.rfind('[') {
+            if let Some(close_bracket_pos) = line.rfind(']') {
+                if close_bracket_pos > open_bracket_pos {
+                    address = line[open_bracket_pos + 1..close_bracket_pos].to_string();
+                }
+            }
+        }
+        address
+    }
+
+    fn parse_symbols(&mut self, log: &str, binary_path: &str, gaddr2line_path: &str) {
+        let addresses = Self::extract_addresses_from_log(log);
+        let command = format!("{gaddr2line_path} -e {binary_path} {addresses} -f -s");
+        let symbols_string: String = String::from_utf8(Command::new("sh")
+            .arg("-c")
+            .arg(command)
+            .output()
+            .expect("[MemSysTraceParser::parse_symbols]: Failed to read addresses with gaddr2line")
+            .stdout)
+            .expect("[MemSysTraceParser::parse_symbols]: Failed to parse stdout into string");
+
+        let addresses_list: Vec<_> = addresses
+            .split(' ')
+            .map(|address_string| {
+                usize::from_str_radix(address_string.strip_prefix("0x")
+                                          .expect("[MemSysTraceParser::parse_symbols]: Failed to strip 0x prefix from address"),
+                                      16).expect("[MemSysTraceParser::parse_symbols]: Failed to parse hex address string into usize")
+            })
+            .collect();
+
+        let symbols_list: Vec<String> = symbols_string
+            .split('\n')
+            .map(String::from)
+            .collect();
+
+        self.prefix = Self::longest_common_prefix(&symbols_list);
+        let address_symbol_map: HashMap<usize, String> = addresses_list.into_iter().zip(symbols_list).collect();
+        self.symbols = address_symbol_map;
+    }
+
+    fn lookup_symbol_str(&self, query: String) -> Option<String> {
+        self.symbols.get(&usize::from_str_radix(query.as_str(), 16)
+            .expect("[MemorySysTraceParser::lookup_symbol]: Failed to parse hex address string into usize")).cloned()
+    }
+
+    fn lookup_symbol_usize(&self, query: usize) -> Option<String> {
+        self.symbols.get(&query).cloned()
+    }
+
+    fn lookup_symbol_str_short(&self, query: String) -> Option<String> {
+        let full_symbol = self.symbols.get(&usize::from_str_radix(query.as_str(), 16)
+            .expect("[MemorySysTraceParser::lookup_symbol_str_short]: Failed to parse hex address string into usize"));
+        full_symbol?;
+        Some(full_symbol.unwrap().trim_start_matches(&self.prefix).to_string())
+    }
+
+    fn longest_common_prefix(strings: &Vec<String>) -> String {
+        if strings.is_empty() {
+            return String::new();
+        }
+
+        // Identify the shortest string in the vector
+        let shortest = strings.iter().filter(|string| string.starts_with('/')).min_by_key(|s| s.len()).unwrap();
+
+        let mut prefix = String::new();
+        for (i, char) in shortest.char_indices() {
+            if strings.iter().all(|s| s.as_bytes()[i] == char as u8) {
+                prefix.push(char);
+            } else {
+                break;
+            }
+        }
+
+        prefix
+    }
+
     pub fn process_instruction(&mut self, log_iter: &mut Peekable<Split<char>>) -> Instruction {
         let mut baked_instruction = None;
         for line in &mut *log_iter {
-            if self.is_line_useless(line) {
+            if Self::is_line_useless(line) {
                 continue;
             }
             let record = self.line_to_record(line)
@@ -142,14 +245,15 @@ impl MemorySysTraceParser {
                     RecordType::Allocation(alloc_address, _, ref mut allocation_callstack) => {
                         // Check if we are tracing the correct address
                         if *trace_address != alloc_address { panic!("[MemorySysTraceParser::bake_instruction]: Tracing wrong alloc"); }
-                        if !allocation_callstack.is_empty() { allocation_callstack.push('\n'); }
                         allocation_callstack.push_str(trace_callstack);
+                        allocation_callstack.push('\n');
                     },
                     RecordType::Free(free_address, ref mut free_callstack) => {
                         // Check if we are tracing the correct address
                         if *trace_address != free_address { panic!("[MemorySysTraceParser::bake_instruction]: Tracing wrong free"); }
-                        if !free_callstack.is_empty() { free_callstack.push('\n'); }
+                        //if !free_callstack.is_empty() { free_callstack.push('\n'); }
                         free_callstack.push_str(trace_callstack);
+                        free_callstack.push('\n');
                     }
                     RecordType::StackTrace(_, _) => panic!("[MemorySysTraceParser::bake_instruction]: First instruction in instruction queue is a stacktrace, but it should be an alloc/free"),
                 }
@@ -197,7 +301,11 @@ impl MemorySysTraceParser {
         match split_dataline[0] {
             "+" => record = RecordType::Allocation(0, 0, String::new()),
             "-" => record = RecordType::Free(0, String::new()),
-            "^" => record = RecordType::StackTrace(0, String::new()),
+            "^" => record = {
+                let symbol = self.lookup_symbol_str_short(Self::extract_trace_address(split_dataline[2]))
+                    .expect("[MemorySysTraceParser::parse_line]: Failed to lookup symbol");
+                RecordType::StackTrace(0, symbol.to_string())
+            },
             _  => return Err("[MemorySysTraceParser::parse_line]: Invalid operation type"),
         }
 
@@ -220,6 +328,7 @@ impl MemorySysTraceParser {
 #[cfg(test)]
 mod tests {
     use std::arch::x86_64::_mm256_abs_epi8;
+    use crate::damselfly_viewer::consts::{DEFAULT_BINARY_PATH, DEFAULT_GADDR2LINE_PATH, TEST_BINARY_PATH, TEST_GADDR2LINE_PATH};
     use crate::memory::{MemorySysTraceParser, MemoryUpdate, RecordType};
 
     #[test]
@@ -232,13 +341,13 @@ mod tests {
 
         let log = [allocation_record, free_record, stacktrace_record, useless_record];
         let mut iter = log.iter().peekable();
-        assert!(!mst_parser.is_line_useless(iter.peek().unwrap()));
+        assert!(!MemorySysTraceParser::is_line_useless(iter.peek().unwrap()));
         iter.next();
-        assert!(!mst_parser.is_line_useless(iter.peek().unwrap()));
+        assert!(!MemorySysTraceParser::is_line_useless(iter.peek().unwrap()));
         iter.next();
-        assert!(!mst_parser.is_line_useless(iter.peek().unwrap()));
+        assert!(!MemorySysTraceParser::is_line_useless(iter.peek().unwrap()));
         iter.next();
-        assert!(mst_parser.is_line_useless(iter.peek().unwrap()));
+        assert!(MemorySysTraceParser::is_line_useless(iter.peek().unwrap()));
     }
 
     #[test]
@@ -505,7 +614,7 @@ mod tests {
 00001105: 039dd04f |V|A|005|        0 us   0003.677 s    < DT:0xE1504B54> + e15020a4 6c
  ";
 
-        mst_parser.parse_log(log.to_string());
+        mst_parser.parse_log(log.to_string(), TEST_BINARY_PATH, TEST_GADDR2LINE_PATH);
         let alloc = instruction_rx.recv().unwrap();
         if let MemoryUpdate::Allocation(address, size, callstack) = alloc.get_operation() {
             assert_eq!(address, 3780124716);
@@ -542,7 +651,45 @@ mod tests {
 00057608: 0b197a34 |V|B|002|        0 us   0011.712 s    < DT:0xE14DEEBC> sched_switch from pid <0xe14e6d94> (priority 235) to pid <0xe14deebc> (priority 235)
 00057609: 0b197a70 |V|B|002|        3 us   0011.712 s    < DT:0xE14E6D94> sched_switch from pid <0xe14deebc> (priority 255) to pid <0xe14e6d94> (priority 235)
  ";
-        mst_parser.parse_log(log.to_string());
+        mst_parser.parse_log(log.to_string(), TEST_BINARY_PATH, TEST_GADDR2LINE_PATH);
         let free = instruction_rx.recv().unwrap();
+        assert!(matches!(free.get_operation(), MemoryUpdate::Free(..)));
+    }
+
+    #[test]
+    fn extract_addresses_test() {
+        let log = "\
+00000811: 039da1f3 |V|A|005|        0 us   0003.676 s    < DT:0xE14DEEBC> + e150202c 14
+00000812: 039da1f3 |V|A|005|        0 us   0003.676 s    < DT:0xE14DEEBC> ^ e150202c [e045d83b]
+00000827: 039da2f5 |V|A|005|       11 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e04865ef]
+00000828: 039da2f5 |V|A|002|        0 us   0003.677 s    < DT:0xE14DEEBC> SSC::Received Activity Monitor State 2 Change Event
+00000830: 039da3f2 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> - e150204c 14
+0 ";
+        let addresses = MemorySysTraceParser::extract_addresses_from_log(log);
+        assert_eq!(addresses, "0xe045d83b 0xe04865ef");
+    }
+
+    #[test]
+    fn parse_log_symbols_test() {
+        let (mut mst_parser, instruction_rx) = MemorySysTraceParser::new();
+        let log = "\
+00000811: 039da1f3 |V|A|005|        0 us   0003.676 s    < DT:0xE14DEEBC> + e150202c 14
+00000812: 039da1f3 |V|A|005|        0 us   0003.676 s    < DT:0xE14DEEBC> ^ e150202c [e045d83b]
+00000827: 039da2f5 |V|A|005|       11 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e04865ef]
+00000828: 039da2f5 |V|A|002|        0 us   0003.677 s    < DT:0xE14DEEBC> SSC::Received Activity Monitor State 2 Change Event
+00000830: 039da3f2 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> - e150204c 14
+0 ";
+        mst_parser.parse_symbols(log, TEST_BINARY_PATH, TEST_GADDR2LINE_PATH);
+            "/work/hpdev/dune/src/fw/framework/threadx/5.8.1/src/tx_thread_shell_entry.c:171";
+
+        assert_eq!(mst_parser.symbols.get(&usize::from_str_radix("e045d83b", 16).unwrap()).unwrap(),
+                   &String::from("/work/hpdev/dune/src/fw/sox_adapters/framework/mem/src/mem_mgr.cpp:1056"));
+    }
+
+    #[test]
+    fn longest_common_prefix_test() {
+        let strings = vec![String::from("/work/hpdev/dune/src/fw/sox_adapters/framework/mem/src/mem_mgr.cpp:1056"),
+        String::from("/work/hpdev/dune/src/fw/framework/threadx/5.8.1/src/tx_thread_shell_entry.c:171")];
+        assert_eq!(MemorySysTraceParser::longest_common_prefix(&strings), String::from("/work/hpdev/dune/src/fw/"));
     }
 }

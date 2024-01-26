@@ -1,3 +1,4 @@
+use std::cmp::{max, min};
 use crate::app::{App, AppResult};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crate::damselfly_viewer::consts::{DEFAULT_MEMORYSPAN, DEFAULT_ROW_LENGTH, DEFAULT_TIMESPAN};
@@ -25,11 +26,7 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         }
 
         KeyCode::Char('\'') => {
-            app.is_mapspan_locked = false;
-        }
-
-        KeyCode::Char('\"') => {
-            app.is_mapspan_locked = true;
+            app.is_mapspan_locked = !app.is_mapspan_locked;
         }
 
         KeyCode::Char('H') => {
@@ -154,6 +151,16 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
 
         KeyCode::Char('K') => {
             app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(DEFAULT_ROW_LENGTH));
+        }
+
+        KeyCode::Char('(') => {
+            app.left_width = max(app.left_width.saturating_sub(10), 10);
+            app.right_width = min(app.right_width + 10, 100);
+        }
+
+        KeyCode::Char(')') => {
+            app.left_width = min(app.left_width + 10, 100);
+            app.right_width = max(app.right_width.saturating_sub(10), 10);
         }
 
         // Other handlers you could add here.

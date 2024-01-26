@@ -4,6 +4,7 @@ use std::rc::Rc;
 use ratatui::{layout::Alignment, style::{Color, Style}, widgets::{Block, BorderType, Borders, Paragraph, canvas::*}, Frame};
 use ratatui::prelude::{Constraint, Direction, Layout, Rect, Stylize};
 use ratatui::style::Styled;
+use ratatui::text::Span;
 use ratatui::widgets::{Cell, Row, Table};
 use ratatui::widgets::block::Title;
 
@@ -21,8 +22,8 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     let main_layout = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage(30),
-            Constraint::Percentage(70)
+            Constraint::Percentage(app.left_width),
+            Constraint::Percentage(app.right_width)
         ])
         .split(frame.size());
 
@@ -96,7 +97,7 @@ fn draw_graph(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, data: &[(f64,
     }
     let canvas = Canvas::default()
         .block(Block::default()
-            .title(Title::from(format!("MEMORY USAGE {:.1}", app.graph_scale)))
+            .title(Title::from(format!("MEMORY USAGE [ZOOM: {:.1}]", app.graph_scale)))
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded))
         .x_bounds([0.0, 100.0])
@@ -144,8 +145,8 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
     let right_inner_layout_upper = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage(80),
-            Constraint::Percentage(20),
+            Constraint::Percentage(100),
+            Constraint::Percentage(0),
         ])
         .split(area[0]);
 
@@ -163,13 +164,26 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
 
     let grid = generate_rows(DEFAULT_MEMORY_SIZE / DEFAULT_ROW_LENGTH, app.map_span, app.map_highlight, map);
     let widths = [Constraint::Length(1); DEFAULT_ROW_LENGTH];
+    let locked_status;
+    let title_style;
+    match app.is_mapspan_locked {
+        true => {
+            locked_status = "LOCKED";
+            title_style = Style::default().red();
+        },
+        false => {
+            locked_status = "UNLOCKED";
+            title_style = Style::default().green();
+        }
+    };
     let table = Table::new(grid)
         .widths(&widths)
         .column_spacing(0)
         .block(Block::default()
-            .title("MEMORY MAP")
+            .title(format!("MEMORY MAP [{:x}] [VIEW: {locked_status}]", MapManipulator::scale_address_up(app.map_highlight.unwrap_or(0))))
             .borders(Borders::ALL)
-            .border_type(BorderType::Rounded));
+            .border_type(BorderType::Rounded)
+            .title_style(title_style));
     frame.render_widget(table, right_inner_layout_upper[0]);
 
     let callstack = match map.get(&app.map_highlight.unwrap_or(0)) {
@@ -184,11 +198,7 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
     };
 
     frame.render_widget(
-        Paragraph::new(format!(
-            "MAP HIGHLIGHT: {:x}\n\
-            CALLSTACK: {}\n\
-            VIEW LOCKED: {}", MapManipulator::scale_address_up(app.map_highlight.unwrap_or(0)), callstack, app.is_mapspan_locked
-        ))
+        Paragraph::new(callstack.to_string())
             .block(
                 Block::default()
                     .title("MAP")
@@ -205,15 +215,20 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
     let operation_list;
     if app.damselfly_viewer.is_timespan_locked() {
         operation_count = app.damselfly_viewer.get_total_operations();
-        operation_list = app.damselfly_viewer.get_operation_log_span(operation_count.saturating_sub(7), operation_count);
-    } else {
-        let timespan = app.damselfly_viewer.get_timespan();
         operation_list = app.damselfly_viewer
-            .get_operation_log_span(timespan.0 + app.graph_highlight.unwrap_or(DEFAULT_TIMESPAN),
-        timespan.0 + app.graph_highlight.unwrap_or(DEFAULT_TIMESPAN) + 7);
+            .get_operation_log_span(operation_count.saturating_sub(7), operation_count);
+    } else {
+        let mut timespan = app.damselfly_viewer.get_timespan();
+        timespan.0 = timespan.0.saturating_sub(7);
+        match app.graph_highlight {
+            None => {}
+            Some(highlight) => timespan.1 = timespan.0 + highlight,
+        }
+        operation_list = app.damselfly_viewer
+            .get_operation_log_span(timespan.0, timespan.1);
     }
     let mut rows = Vec::new();
-    for operation in operation_list {
+    for operation in operation_list.iter().rev() {
         let style = match operation {
             MemoryUpdate::Allocation(_, size, _) => {
                 if *size < DEFAULT_BLOCK_SIZE {

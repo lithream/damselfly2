@@ -23,14 +23,17 @@ pub struct App {
     pub row_length: usize,
     pub map_span: (usize, usize),
     pub is_mapspan_locked: bool,
+
+    pub left_width: u16,
+    pub right_width: u16
 }
 
 impl App {
     /// Constructs a new instance of [`App`].
-    pub fn new() -> Self {
+    pub fn new(trace_path: &str, binary_path: &str, gaddr2line_path: &str) -> Self {
         let (mut mst_parser, instruction_rx) = MemorySysTraceParser::new();
-        let log = std::fs::read_to_string("trace.log").unwrap();
-        mst_parser.parse_log(log);
+        let log = std::fs::read_to_string(trace_path).unwrap();
+        mst_parser.parse_log(log, binary_path, gaddr2line_path);
         let mut damselfly_viewer = DamselflyViewer::new(instruction_rx);
         damselfly_viewer.gulp_channel();
         App {
@@ -44,6 +47,8 @@ impl App {
             row_length: DEFAULT_ROW_LENGTH,
             map_span: (0, DEFAULT_MEMORYSPAN),
             is_mapspan_locked: true,
+            left_width: 30,
+            right_width: 70,
         }
     }
 
