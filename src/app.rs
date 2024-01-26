@@ -29,10 +29,9 @@ impl App {
     /// Constructs a new instance of [`App`].
     pub fn new() -> Self {
         let (mut mst_parser, instruction_rx) = MemorySysTraceParser::new();
-        let log = std::fs::read_to_string("brokenshort.log").unwrap();
+        let log = std::fs::read_to_string("trace.log").unwrap();
         mst_parser.parse_log(log);
         let mut damselfly_viewer = DamselflyViewer::new(instruction_rx);
-        println!("gulping");
         damselfly_viewer.gulp_channel();
         App {
             running: true,

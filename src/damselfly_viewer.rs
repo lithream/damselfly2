@@ -134,10 +134,7 @@ impl DamselflyViewer {
     }
 
     pub fn gulp_channel(&mut self) {
-        let mut counter = 0;
         while let Ok(instruction) = self.instruction_rx.recv_timeout(Duration::from_nanos(1)) {
-            eprintln!("gulping {counter}");
-            counter += 1;
             self.update_memory_map(&instruction);
             self.calculate_memory_usage();
             self.log_operation(instruction);
@@ -192,7 +189,7 @@ impl DamselflyViewer {
 
     pub fn get_memory_usage_view(&self) -> Vec<(f64, f64)> {
         let mut vector = Vec::new();
-        for i in self.timespan.0..self.timespan.1 {
+        for i in self.timespan.0..min(self.memory_usage_snapshots.len(), self.timespan.1) {
             vector.push(((i - self.timespan.0) as f64, self.memory_usage_snapshots.get(i)
                 .expect("[DamselflyViewer::get_memory_usage_view]: Error getting timestamp {i} from memory_usage_snapshots")
                 .memory_used_percentage));
@@ -231,23 +228,21 @@ impl DamselflyViewer {
         if map.get(&scaled_address).is_none() {
             map.insert(scaled_address, MemoryStatus::Free(callstack.to_string()));
         }
-        loop {
-            if let Some(status) = map.get(&(scaled_address + offset)) {
-                match status {
-                    MemoryStatus::Allocated(parent_block, _) => {
-                        if *parent_block != scaled_address {
-                            return;
-                        }
+        while let Some(status) = map.get(&(scaled_address + offset)) {
+            match status {
+                MemoryStatus::Allocated(parent_block, _) => {
+                    if *parent_block != scaled_address {
+                        return;
                     }
-                    MemoryStatus::PartiallyAllocated(parent_block, _) => {
-                        if *parent_block != scaled_address {
-                            return;
-                        }
-                    }
-                    MemoryStatus::Free(_) => return,
                 }
-                map.insert(scaled_address + offset, MemoryStatus::Free(callstack.to_string()));
+                MemoryStatus::PartiallyAllocated(parent_block, _) => {
+                    if *parent_block != scaled_address {
+                        return;
+                    }
+                }
+                MemoryStatus::Free(_) => return,
             }
+            map.insert(scaled_address + offset, MemoryStatus::Free(callstack.to_string()));
             offset += 1;
         }
     }
