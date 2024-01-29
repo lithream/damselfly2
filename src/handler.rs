@@ -1,7 +1,7 @@
 use std::cmp::{max, min};
 use crate::app::{App, AppResult};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use crate::damselfly_viewer::consts::{DEFAULT_MEMORYSPAN, DEFAULT_ROW_LENGTH, DEFAULT_TIMESPAN};
+use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORYSPAN, DEFAULT_TIMESPAN, MIN_ROW_LENGTH};
 
 /// Handles the key events and updates the state of [`App`].
 pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
@@ -65,23 +65,23 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         }
 
         KeyCode::Char('i') => {
+            app.graph_highlight = Some(0);
+        }
+
+        KeyCode::Char('o') => {
+            let span = app.damselfly_viewer.get_timespan();
+            app.graph_highlight = Some(span.1 - span.0 - 1);
+        }
+
+        KeyCode::Char('[') => {
             app.damselfly_viewer.unlock_timespan();
             app.damselfly_viewer.shift_timespan_to_beginning();
         }
 
-        KeyCode::Char('o') => {
+        KeyCode::Char(']') => {
             app.damselfly_viewer.lock_timespan();
             app.damselfly_viewer.unlock_timespan();
             app.damselfly_viewer.shift_timespan_to_end();
-        }
-
-        KeyCode::Char('[') => {
-            app.graph_highlight = Some(0);
-        }
-
-        KeyCode::Char(']') => {
-            let span = app.damselfly_viewer.get_timespan();
-            app.graph_highlight = Some(span.1 - span.0 - 1);
         }
 
         KeyCode::Char('=') => {
@@ -106,9 +106,9 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                 app.map_span.1 = app.map_span.1.saturating_sub(DEFAULT_MEMORYSPAN);
                 app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(DEFAULT_MEMORYSPAN));
             } else {
-                app.map_span.0 = app.map_span.0.saturating_sub(DEFAULT_ROW_LENGTH);
-                app.map_span.1 = app.map_span.1.saturating_sub(DEFAULT_ROW_LENGTH);
-                app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(DEFAULT_ROW_LENGTH));
+                app.map_span.0 = app.map_span.0.saturating_sub(app.row_length);
+                app.map_span.1 = app.map_span.1.saturating_sub(app.row_length);
+                app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(app.row_length));
             }
         }
 
@@ -118,9 +118,9 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                 app.map_span.1 = app.map_span.1.saturating_add(DEFAULT_MEMORYSPAN);
                 app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(DEFAULT_MEMORYSPAN));
             }
-            app.map_span.0 = app.map_span.0.saturating_add(DEFAULT_ROW_LENGTH);
-            app.map_span.1 = app.map_span.1.saturating_add(DEFAULT_ROW_LENGTH);
-            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(DEFAULT_ROW_LENGTH));
+            app.map_span.0 = app.map_span.0.saturating_add(app.row_length);
+            app.map_span.1 = app.map_span.1.saturating_add(app.row_length);
+            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(app.row_length));
         }
 
         KeyCode::Char('n') => {
@@ -138,11 +138,11 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         }
 
         KeyCode::Up => {
-            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(DEFAULT_ROW_LENGTH));
+            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(app.row_length));
         }
 
         KeyCode::Down => {
-            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(DEFAULT_ROW_LENGTH));
+            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(app.row_length));
         }
 
         KeyCode::Char('k') => {
@@ -150,17 +150,27 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         }
 
         KeyCode::Char('K') => {
-            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(DEFAULT_ROW_LENGTH));
+            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(app.row_length));
         }
 
         KeyCode::Char('(') => {
-            app.left_width = max(app.left_width.saturating_sub(10), 10);
-            app.right_width = min(app.right_width + 10, 100);
+            app.left_width = max(app.left_width.saturating_sub(DEFAULT_BLOCK_SIZE as u16 * 3), DEFAULT_BLOCK_SIZE as u16 * 3);
+            app.right_width = min(app.right_width + DEFAULT_BLOCK_SIZE as u16 * 3, 100);
+            app.row_length = app.row_length.saturating_add(DEFAULT_BLOCK_SIZE * 3);
         }
 
         KeyCode::Char(')') => {
-            app.left_width = min(app.left_width + 10, 100);
-            app.right_width = max(app.right_width.saturating_sub(10), 10);
+            app.left_width = min(app.left_width + DEFAULT_BLOCK_SIZE as u16 * 3, 100);
+            app.right_width = max(app.right_width.saturating_sub(DEFAULT_BLOCK_SIZE as u16 * 3), 10);
+            app.row_length = app.row_length.saturating_sub(DEFAULT_BLOCK_SIZE * 3).clamp(MIN_ROW_LENGTH, usize::MAX);
+        }
+
+        KeyCode::Char('0') => {
+            app.row_length = app.row_length.saturating_add(DEFAULT_BLOCK_SIZE);
+        }
+
+        KeyCode::Char('9') => {
+            app.row_length = app.row_length.saturating_sub(DEFAULT_BLOCK_SIZE).clamp(MIN_ROW_LENGTH, usize::MAX);
         }
 
         // Other handlers you could add here.

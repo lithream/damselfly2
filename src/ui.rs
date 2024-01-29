@@ -4,12 +4,11 @@ use std::rc::Rc;
 use ratatui::{layout::Alignment, style::{Color, Style}, widgets::{Block, BorderType, Borders, Paragraph, canvas::*}, Frame};
 use ratatui::prelude::{Constraint, Direction, Layout, Rect, Stylize};
 use ratatui::style::Styled;
-use ratatui::text::Span;
 use ratatui::widgets::{Cell, Row, Table, Wrap};
 use ratatui::widgets::block::Title;
 
 use crate::app::App;
-use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORY_SIZE, DEFAULT_MEMORYSPAN, DEFAULT_ROW_LENGTH, DEFAULT_TIMESPAN};
+use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORY_SIZE, DEFAULT_MEMORYSPAN};
 use crate::map_manipulator::MapManipulator;
 use crate::memory::{MemoryStatus, MemoryUpdate};
 
@@ -75,7 +74,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 fn snap_memoryspan_to_latest_operation(app: &mut App, latest_address: usize) {
     let mut new_map_span = app.map_span;
     let relative_address = MapManipulator::scale_address_down(latest_address);
-    let address_of_row = MapManipulator::get_address_of_row(relative_address);
+    let address_of_row = MapManipulator::get_address_of_row(app.row_length, relative_address);
     if relative_address >= app.map_span.1 {
         new_map_span.0 = address_of_row.saturating_sub(DEFAULT_MEMORYSPAN / 2);
         new_map_span.1 = new_map_span.0 + DEFAULT_MEMORYSPAN;
@@ -115,25 +114,6 @@ fn draw_graph(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, data: &[(f64,
             }
         });
     frame.render_widget(canvas, area[0]);
-
-
-    frame.render_widget(
-        Paragraph::new(format!(
-            "OPERATIONS: {}\n\
-            TIME      : {}\n\
-            USAGE %   : {}\n", app.damselfly_viewer.get_total_operations(), true_x, true_y
-        ))
-            .block(
-                Block::default()
-                    .title("USAGE STATS")
-                    .title_alignment(Alignment::Left)
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded),
-            )
-            .style(Style::default())
-            .alignment(Alignment::Left),
-        area[1]
-    );
 }
 
 fn draw_memorymap(app: &mut App, map_area: &Rect, stats_area: &Rc<[Rect]>, frame: &mut Frame, map: &HashMap<usize, MemoryStatus>, latest_operation: Option<MemoryUpdate>) {
@@ -149,8 +129,9 @@ fn draw_memorymap(app: &mut App, map_area: &Rect, stats_area: &Rc<[Rect]>, frame
         app.map_highlight = Some(latest_address / DEFAULT_BLOCK_SIZE);
     }
 
-    let grid = generate_rows(DEFAULT_MEMORY_SIZE / DEFAULT_ROW_LENGTH, app.map_span, app.map_highlight, map);
-    let widths = [Constraint::Length(1); DEFAULT_ROW_LENGTH];
+    let grid = generate_rows(DEFAULT_MEMORY_SIZE / app.row_length, app.row_length, app.map_span, app.map_highlight, map);
+    let widths = vec![Constraint::Length(1); app.row_length];
+//        [Constraint::Length(1); app.row_length];
     let locked_status;
     let title_style;
     match app.is_mapspan_locked {
@@ -243,7 +224,7 @@ fn draw_memorymap(app: &mut App, map_area: &Rect, stats_area: &Rc<[Rect]>, frame
     frame.render_widget(table, stats_area[1]);
 }
 
-fn generate_rows(rows: usize, map_span: (usize, usize), map_highlight: Option<usize>, map: &HashMap<usize, MemoryStatus>) -> Vec<Row> {
+fn generate_rows(rows: usize, row_length: usize, map_span: (usize, usize), map_highlight: Option<usize>, map: &HashMap<usize, MemoryStatus>) -> Vec<Row> {
     let mut address = map_span.0;
     let mut grid: Vec<Row> = Vec::new();
     let push_cell = |row: &mut Vec<Cell>, block_state: &MemoryStatus, force_bg: Option<Color>| {
@@ -281,7 +262,7 @@ fn generate_rows(rows: usize, map_span: (usize, usize), map_highlight: Option<us
 
     for _row in 0..rows {
         let mut current_row: Vec<Cell> = Vec::new();
-        for _col in 0..DEFAULT_ROW_LENGTH {
+        for _col in 0..row_length {
             match map_highlight {
                 None => {
                     push_cell_or_default(&mut current_row, map, address, None);
