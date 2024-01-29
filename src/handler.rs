@@ -1,6 +1,7 @@
 use std::cmp::{max, min};
 use crate::app::{App, AppResult};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crate::app::Mode::{DEFAULT, STACKTRACE};
 use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORYSPAN, DEFAULT_TIMESPAN, MIN_ROW_LENGTH};
 
 /// Handles the key events and updates the state of [`App`].
@@ -46,7 +47,13 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                     app.graph_highlight = Some((span.1 - span.0) / 2);
                 }
                 Some(highlight) => {
-                    app.graph_highlight = Some(highlight.saturating_sub(1));
+                    let span = app.damselfly_viewer.get_timespan();
+                    if app.graph_highlight.unwrap() + span.0 == span.0 {
+                        app.damselfly_viewer.shift_timespan_left(1);
+                        app.graph_highlight = Some(DEFAULT_TIMESPAN);
+                    } else {
+                        app.graph_highlight = Some(highlight.saturating_sub(1));
+                    }
                 }
             }
         }
@@ -59,7 +66,12 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                 }
                 Some(highlight) => {
                     let span = app.damselfly_viewer.get_timespan();
-                    app.graph_highlight = Some((highlight + 1).clamp(0, span.1 - span.0 - 1));
+                    if app.graph_highlight.unwrap() + span.0 == span.1 - 1 {
+                        app.damselfly_viewer.shift_timespan_right(1);
+                        app.graph_highlight = Some(0);
+                    } else {
+                        app.graph_highlight = Some((highlight + 1).clamp(0, span.1 - span.0 - 1));
+                    }
                 }
             }
         }
@@ -129,6 +141,12 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
             }
         }
 
+        KeyCode::Char('N') => {
+            if !app.is_mapspan_locked {
+                app.jump_to_prev_block();
+            }
+        }
+
         KeyCode::Left => {
             app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(1));
         }
@@ -171,6 +189,14 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
 
         KeyCode::Char('9') => {
             app.row_length = app.row_length.saturating_sub(DEFAULT_BLOCK_SIZE).clamp(MIN_ROW_LENGTH, usize::MAX);
+        }
+
+        KeyCode::Char('1') => {
+            app.mode = DEFAULT;
+        }
+
+        KeyCode::Char('2') => {
+            app.mode = STACKTRACE;
         }
 
         // Other handlers you could add here.

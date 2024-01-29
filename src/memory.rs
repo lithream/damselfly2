@@ -39,7 +39,7 @@ impl Display for MemoryUpdate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
             MemoryUpdate::Allocation(address, size, _) => format!("ALLOC: {:x} {}", address, size),
-            MemoryUpdate::Free(address, callstack) => format!("FREE: {:x} {}", address, callstack),
+            MemoryUpdate::Free(address, callstack) => format!("FREE: {:x}", address),
         };
         write!(f, "{}", str)
     }

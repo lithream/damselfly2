@@ -1,3 +1,4 @@
+use crate::app::Mode;
 use std::cmp::{min};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -18,37 +19,49 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     // See the following resources:
     // - https://docs.rs/ratatui/latest/ratatui/widgets/index.html
     // - https://github.com/ratatui-org/ratatui/tree/master/examples
-    let main_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Percentage(app.up_height),
-            Constraint::Percentage(app.down_height)
-        ])
-        .split(frame.size());
+    match app.mode {
+        Mode::DEFAULT => {
+            let main_layout = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Percentage(app.up_height),
+                    Constraint::Percentage(app.down_height)
+                ])
+                .split(frame.size());
 
-    let up_inner_layout = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(app.left_width),
-            Constraint::Percentage(app.right_width),
-        ])
-        .split(main_layout[0]);
-    let down_inner_layout = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(80),
-            Constraint::Percentage(20),
-        ])
-        .split(main_layout[1]);
+            let up_inner_layout = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Percentage(app.left_width),
+                    Constraint::Percentage(app.right_width),
+                ])
+                .split(main_layout[0]);
+            let down_inner_layout = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Percentage(80),
+                    Constraint::Percentage(20),
+                ])
+                .split(main_layout[1]);
 
-    let mut graph_binding = app.damselfly_viewer.get_memory_usage_view();
-    graph_binding.iter_mut().for_each(|point| point.1 *= app.graph_scale);
-    let graph_data = graph_binding.as_slice();
-    if let Some(highlight) = app.graph_highlight {
-        app.graph_highlight = Some(min(highlight, graph_data.len() - 1));
+            let graph_data = get_graph_data(app);
+            draw_graph(app, &up_inner_layout, frame, graph_data);
+
+            let (map_data, latest_operation) = get_map_and_latest_op(app);
+            draw_memorymap(app, &up_inner_layout[1], &down_inner_layout, frame, &map_data, latest_operation);
+        }
+        Mode::STACKTRACE => {
+            let main_layout = Layout::default()
+                .constraints([
+                    Constraint::Percentage(100)
+                ]).split(frame.size());
+            let (map_data, _) = get_map_and_latest_op(app);
+            draw_stacktrace(&app, &main_layout, frame, &map_data);
+        }
     }
-    draw_graph(app, &up_inner_layout, frame, graph_data);
+}
 
+fn get_map_and_latest_op(app: &mut App) -> (HashMap<usize, MemoryStatus>, Option<MemoryUpdate>) {
     let (map_data, latest_operation) = {
         match app.graph_highlight {
             None => {
@@ -60,15 +73,23 @@ pub fn render(app: &mut App, frame: &mut Frame) {
             Some(graph_highlight) => {
                 let span = app.damselfly_viewer.get_timespan();
                 let map_state = app.damselfly_viewer.get_map_state(span.0 + graph_highlight);
-                //let map_state = app.damselfly_viewer.get_map_state(span.0 + graph_highlight.clone());
                 let map = map_state.0.clone();
                 let operation = map_state.1.cloned();
                 (map, operation)
             }
         }
     };
+    (map_data, latest_operation)
+}
 
-    draw_memorymap(app, &up_inner_layout[1], &down_inner_layout, frame, &map_data, latest_operation);
+fn get_graph_data(app: &mut App) -> Vec<(f64, f64)> {
+    let mut graph_binding = app.damselfly_viewer.get_memory_usage_view();
+    graph_binding.iter_mut().for_each(|point| point.1 *= app.graph_scale);
+    let graph_data = graph_binding.as_slice();
+    if let Some(highlight) = app.graph_highlight {
+        app.graph_highlight = Some(min(highlight, graph_data.len() - 1));
+    }
+    Vec::from(graph_data)
 }
 
 fn snap_memoryspan_to_latest_operation(app: &mut App, latest_address: usize) {
@@ -86,7 +107,7 @@ fn snap_memoryspan_to_latest_operation(app: &mut App, latest_address: usize) {
     app.map_span = new_map_span;
 }
 
-fn draw_graph(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, data: &[(f64, f64)]) {
+fn draw_graph(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, data: Vec<(f64, f64)>) {
     if data.is_empty() { return; }
     let graph_highlight;
     if let Some(highlight) = app.graph_highlight {
@@ -100,14 +121,14 @@ fn draw_graph(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, data: &[(f64,
     let canvas = Canvas::default()
         .block(Block::default()
             .title(Title::from(format!("[ZOOM: {:.1}] [OPERATION: {} / {}] [USAGE: {:.2}]",
-                                       app.graph_scale, true_x, app.damselfly_viewer.get_total_operations(),
+                                       app.graph_scale, true_x, app.damselfly_viewer.get_total_operations() - 1,
                                         true_y)))
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded))
         .x_bounds([0.0, 100.0])
         .y_bounds([0.0, 90.0])
         .paint(|ctx| {
-            ctx.draw(&Points { coords: data, color: Color::Red });
+            ctx.draw(&Points { coords: &data, color: Color::Red });
             if !data.is_empty() {
                 let (x, y) = data[graph_highlight];
                 ctx.draw(&Points { coords: &[(x, y)], color: Color::White });
@@ -131,7 +152,6 @@ fn draw_memorymap(app: &mut App, map_area: &Rect, stats_area: &Rc<[Rect]>, frame
 
     let grid = generate_rows(DEFAULT_MEMORY_SIZE / app.row_length, app.row_length, app.map_span, app.map_highlight, map);
     let widths = vec![Constraint::Length(1); app.row_length];
-//        [Constraint::Length(1); app.row_length];
     let locked_status;
     let title_style;
     match app.is_mapspan_locked {
@@ -144,42 +164,22 @@ fn draw_memorymap(app: &mut App, map_area: &Rect, stats_area: &Rc<[Rect]>, frame
             title_style = Style::default().green();
         }
     };
+    let address_bounds = app.damselfly_viewer.get_address_bounds();
     let table = Table::new(grid)
         .widths(&widths)
         .column_spacing(0)
         .block(Block::default()
-            .title(format!("MEMORY MAP [{:x}] [VIEW: {locked_status}]",
-                           MapManipulator::scale_address_up(app.map_highlight.unwrap_or(0))))
+            .title(format!("MEMORY MAP [{:x}] [VIEW: {locked_status}] [{:x} - {:x}]",
+                           MapManipulator::scale_address_up(app.map_highlight.unwrap_or(0)),
+                           (address_bounds.0),
+                           (address_bounds.1))
+            )
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
             .title_style(title_style));
     frame.render_widget(table, *map_area);
 
-    let callstack = match map.get(&app.map_highlight.unwrap_or(0)) {
-        None => "",
-        Some(memory_status) => {
-            match memory_status {
-                MemoryStatus::Allocated(_, callstack) => callstack,
-                MemoryStatus::PartiallyAllocated(_, callstack) => callstack,
-                MemoryStatus::Free(callstack) => callstack
-            }
-        }
-    };
-
-    frame.render_widget(
-        Paragraph::new(callstack.to_string())
-            .block(
-                Block::default()
-                    .title("MAP")
-                    .title_alignment(Alignment::Left)
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded),
-            )
-            .style(Style::default())
-            .alignment(Alignment::Left)
-            .wrap(Wrap::default()),
-        stats_area[0]
-    );
+    draw_stacktrace(&app, stats_area, frame, map);
 
     let operation_count;
     let operation_list;
@@ -188,14 +188,16 @@ fn draw_memorymap(app: &mut App, map_area: &Rect, stats_area: &Rc<[Rect]>, frame
         operation_list = app.damselfly_viewer
             .get_operation_log_span(operation_count.saturating_sub(7), operation_count);
     } else {
-        let mut timespan = app.damselfly_viewer.get_timespan();
-        timespan.0 = timespan.0.saturating_sub(7);
+        let timespan = app.damselfly_viewer.get_timespan();
+        let mut upper_limit = timespan.1;
         match app.graph_highlight {
             None => {}
-            Some(highlight) => timespan.1 = timespan.0 + highlight,
+            Some(highlight) => {
+                upper_limit = timespan.0 + highlight;
+            },
         }
         operation_list = app.damselfly_viewer
-            .get_operation_log_span(timespan.0, timespan.1);
+            .get_operation_log_span(0, upper_limit);
     }
     let mut rows = Vec::new();
     for operation in operation_list.iter().rev() {
@@ -222,6 +224,34 @@ fn draw_memorymap(app: &mut App, map_area: &Rect, stats_area: &Rc<[Rect]>, frame
             .border_type(BorderType::Rounded));
 
     frame.render_widget(table, stats_area[1]);
+}
+
+fn draw_stacktrace(app: &&mut App, stats_area: &Rc<[Rect]>, frame: &mut Frame, map: &HashMap<usize, MemoryStatus>) {
+    let callstack = match map.get(&app.map_highlight.unwrap_or(0)) {
+        None => "",
+        Some(memory_status) => {
+            match memory_status {
+                MemoryStatus::Allocated(_, callstack) => callstack,
+                MemoryStatus::PartiallyAllocated(_, callstack) => callstack,
+                MemoryStatus::Free(callstack) => callstack
+            }
+        }
+    };
+
+    frame.render_widget(
+        Paragraph::new(callstack.to_string())
+            .block(
+                Block::default()
+                    .title("MAP")
+                    .title_alignment(Alignment::Left)
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded),
+            )
+            .style(Style::default())
+            .alignment(Alignment::Left)
+            .wrap(Wrap::default()),
+        stats_area[0]
+    );
 }
 
 fn generate_rows(rows: usize, row_length: usize, map_span: (usize, usize), map_highlight: Option<usize>, map: &HashMap<usize, MemoryStatus>) -> Vec<Row> {
@@ -280,6 +310,28 @@ fn generate_rows(rows: usize, row_length: usize, map_span: (usize, usize), map_h
         grid.push(Row::new(current_row));
     }
     grid
+}
+
+pub fn jump_to_next_block(app: &mut App) {
+    let (map_data, _) = get_map_and_latest_op(app);
+    let keys = map_data.keys();
+    let current_address = app.map_highlight.unwrap_or(0);
+    for key in keys {
+        if *key > current_address {
+            app.map_highlight = Some(*key);
+        }
+    }
+}
+
+pub fn jump_to_prev_block(app: &mut App) {
+    let (map_data, _) = get_map_and_latest_op(app);
+    let keys = map_data.keys();
+    let current_address = app.map_highlight.unwrap_or(0);
+    for key in keys {
+        if *key < current_address {
+            app.map_highlight = Some(*key);
+        }
+    }
 }
 
 #[cfg(test)]

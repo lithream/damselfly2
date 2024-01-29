@@ -29,6 +29,8 @@ pub struct DamselflyViewer {
     memory_usage_snapshots: Vec<MemoryUsage>,
     operation_history: Vec<MemoryUpdate>,
     memory_map: HashMap<usize, MemoryStatus>,
+    min_address: usize,
+    max_address: usize,
 }
 
 impl DamselflyViewer {
@@ -42,6 +44,8 @@ impl DamselflyViewer {
             memory_usage_snapshots: Vec::new(),
             operation_history: Vec::new(),
             memory_map: HashMap::new(),
+            min_address: usize::MAX,
+            max_address: usize::MIN,
         }
     }
 
@@ -56,10 +60,16 @@ impl DamselflyViewer {
         debug_assert!(*right > *left);
         let span = *right - *left;
         if span < DEFAULT_TIMESPAN { return; }
-        let absolute_shift = units * span;
+        let absolute_shift = units * DEFAULT_TIMESPAN;
+
+        if *right + absolute_shift > self.memory_usage_snapshots.len() - 1 {
+            *left = *right;
+            *right = *left + DEFAULT_TIMESPAN;
+            return;
+        }
 
         *right = min((*right).saturating_add(absolute_shift), self.memory_usage_snapshots.len() - 1);
-        *left = min((*left).saturating_add(absolute_shift), *right - span);
+        *left = min((*left).saturating_add(absolute_shift), *right - DEFAULT_TIMESPAN);
         debug_assert!(right > left);
     }
 
@@ -77,9 +87,10 @@ impl DamselflyViewer {
         let absolute_shift = units * span;
 
         *left = (*left).saturating_sub(absolute_shift);
-        *right = max((*right).saturating_sub(absolute_shift), *left + span);
+        *right = *left + DEFAULT_TIMESPAN;
         debug_assert!(*right > *left);
     }
+
 
     pub fn shift_timespan_to_beginning(&mut self) {
         let span = self.get_timespan();
@@ -119,7 +130,6 @@ impl DamselflyViewer {
                 return;
             }
         }
-
 
         if !self.timespan_is_unlocked {
             self.timespan.1 += 1;
@@ -169,8 +179,21 @@ impl DamselflyViewer {
         };
     }
 
+    fn update_min_max_address(&mut self, address: usize) {
+        self.min_address = min(address, self.min_address);
+        self.max_address = max(address, self.max_address);
+    }
+
     fn log_operation(&mut self, instruction: Instruction) {
+        match instruction.get_operation() {
+            MemoryUpdate::Allocation(address, _, _) => self.update_min_max_address(address),
+            MemoryUpdate::Free(address, _) => self.update_min_max_address(address),
+        }
         self.operation_history.push(instruction.get_operation());
+    }
+
+    pub fn get_address_bounds(&self) -> (usize, usize) {
+        (self.min_address, self.max_address)
     }
 
     pub fn get_memory_usage(&self) -> MemoryUsage {
@@ -204,7 +227,7 @@ impl DamselflyViewer {
     pub fn get_map_state(&self, time: usize) -> (HashMap<usize, MemoryStatus>, Option<&MemoryUpdate>) {
         let mut map: HashMap<usize, MemoryStatus> = HashMap::new();
         let mut iter = self.operation_history.iter();
-        for i in 0..=time {
+        for _ in 0..=time {
             if let Some(operation) = iter.next() {
                 match operation {
                     MemoryUpdate::Allocation(absolute_address, size, callstack) => {
@@ -285,8 +308,8 @@ impl DamselflyViewer {
 
     pub fn get_operation_log_span(&self, mut start: usize, mut end: usize) -> &[MemoryUpdate] {
         let operations = self.operation_history.len();
-        start = start.clamp(0, operations);
-        end = end.clamp(0, operations);
+        start = start.clamp(0, operations - 1);
+        end = end.clamp(0, operations - 1);
         if self.operation_history.get(start).is_none() || self.operation_history.get(end.saturating_sub(1)).is_none() {
             return &[];
         }

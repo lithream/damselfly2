@@ -6,15 +6,6 @@ pub struct MapManipulator {
 }
 
 impl MapManipulator {
-    pub fn process_instruction(map: &mut HashMap<usize, MemoryStatus>, update: MemoryUpdate) {
-        match update {
-            MemoryUpdate::Allocation(absolute_address, absolute_size, callstack) =>
-                Self::allocate_memory(map, absolute_address, absolute_size, callstack),
-            MemoryUpdate::Free(absolute_address, callstack) =>
-                Self::free_memory(map, absolute_address, callstack),
-        }
-    }
-
     pub fn allocate_memory(map: &mut HashMap<usize, MemoryStatus>, absolute_address: usize, absolute_size: usize, callstack: String) {
         let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
         let scaled_size = absolute_size / DEFAULT_BLOCK_SIZE;

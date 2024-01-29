@@ -1,11 +1,17 @@
 use std::{error};
 use ratatui::widgets::TableState;
+use crate::app::Mode::DEFAULT;
 use crate::damselfly_viewer::consts::{DEFAULT_MEMORYSPAN, DEFAULT_ROW_LENGTH};
 use crate::damselfly_viewer::DamselflyViewer;
 use crate::memory::MemorySysTraceParser;
 
 /// Application result type.
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
+
+pub enum Mode {
+    DEFAULT,
+    STACKTRACE,
+}
 
 /// Application.
 pub struct App {
@@ -15,12 +21,13 @@ pub struct App {
     pub damselfly_viewer: DamselflyViewer,
 
     pub graph_highlight: Option<usize>,
+    // Always between 0 - 100
     pub map_highlight: Option<usize>,
     pub map_grid: Vec<Vec<usize>>,
     pub graph_scale: f64,
-    pub table_state: TableState,
 
     pub row_length: usize,
+    // Actual mapspan (e.g. becomes 100 - 200 after shifting right once)
     pub map_span: (usize, usize),
     pub is_mapspan_locked: bool,
 
@@ -28,6 +35,8 @@ pub struct App {
     pub right_width: u16,
     pub up_height: u16,
     pub down_height: u16,
+
+    pub mode: Mode
 }
 
 impl App {
@@ -45,7 +54,6 @@ impl App {
             map_highlight: None,
             map_grid: Vec::new(),
             graph_scale: 1.0,
-            table_state: TableState::default(),
             row_length: DEFAULT_ROW_LENGTH,
             map_span: (0, DEFAULT_MEMORYSPAN),
             is_mapspan_locked: true,
@@ -53,6 +61,7 @@ impl App {
             right_width: 70,
             up_height: 70,
             down_height: 30,
+            mode: DEFAULT,
         }
     }
 
@@ -71,15 +80,53 @@ impl App {
                 self.damselfly_viewer
                     .get_timespan().0 + self.graph_highlight
                     .unwrap_or(0));
+        let mut next_key = None;
+        for key in current_map.keys() {
+            if *key > current_block {
+                next_key = Some(*key);
+                break;
+            }
+        }
+        /*
         let next_key = current_map.keys()
             .find(|key| **key > current_block);
+
+         */
         if next_key.is_none() {
             return;
         }
         let next_key = next_key.unwrap();
-        self.map_span.0 = next_key.saturating_sub(DEFAULT_MEMORYSPAN);
-        self.map_span.1 = next_key.saturating_add(DEFAULT_MEMORYSPAN);
-        self.map_highlight = Some(*next_key);
+        self.map_span.0 = next_key.saturating_sub(DEFAULT_MEMORYSPAN / 2);
+        self.map_span.1 = next_key.saturating_add(DEFAULT_MEMORYSPAN / 2);
+        self.map_highlight = Some(next_key);
+    }
+
+    pub fn jump_to_prev_block(&mut self) {
+        if self.map_highlight.is_none() {
+            return;
+        }
+        let current_block = self.map_highlight.unwrap();
+        let (current_map, _) = self.damselfly_viewer
+            .get_map_state(
+                self.damselfly_viewer
+                    .get_timespan().0 + self.graph_highlight
+                    .unwrap_or(0));
+        let mut next_key = None;
+        for key in current_map.keys() {
+            if *key < current_block {
+                next_key = Some(*key);
+            }
+            if *key >= current_block {
+                break;
+            }
+        }
+        if next_key.is_none() {
+            return;
+        }
+        let next_key = next_key.unwrap();
+        self.map_span.0 = next_key.saturating_sub(DEFAULT_MEMORYSPAN / 2);
+        self.map_span.1 = next_key.saturating_add(DEFAULT_MEMORYSPAN / 2);
+        self.map_highlight = Some(next_key);
     }
 
     /// Set running to false to quit the application.
