@@ -2,7 +2,7 @@ pub mod instruction;
 pub mod consts;
 
 use std::cmp::{max, min};
-use std::collections::HashMap;
+use std::collections::{BinaryHeap, HashMap};
 use std::sync::{mpsc};
 use std::time::Duration;
 use log::debug;
@@ -17,6 +17,15 @@ pub struct MemoryUsage {
     pub memory_used_percentage: f64,
     pub memory_used_absolute: f64,
     pub total_memory: usize
+}
+
+pub struct Ranking {
+    function: String,
+    memory_used: usize,
+}
+
+pub struct Leaderboard {
+    heap: BinaryHeap<Ranking>
 }
 
 #[derive(Debug)]
