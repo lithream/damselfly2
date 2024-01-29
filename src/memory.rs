@@ -157,8 +157,7 @@ impl MemorySysTraceParser {
             .collect();
 
         self.prefix = Self::longest_common_prefix(&symbols_list);
-        let address_symbol_map: HashMap<usize, String> = addresses_list.into_iter().zip(symbols_list).collect();
-        self.symbols = address_symbol_map;
+        self.symbols = addresses_list.into_iter().zip(symbols_list).collect();
     }
 
     fn lookup_symbol_str(&self, query: String) -> Option<String> {
@@ -174,7 +173,9 @@ impl MemorySysTraceParser {
         let full_symbol = self.symbols.get(&usize::from_str_radix(query.as_str(), 16)
             .expect("[MemorySysTraceParser::lookup_symbol_str_short]: Failed to parse hex address string into usize"));
         full_symbol?;
-        Some(full_symbol.unwrap().trim_start_matches(&self.prefix).to_string())
+        Some(full_symbol.unwrap()
+            .trim_start_matches(&self.prefix)
+            .to_string())
     }
 
     fn longest_common_prefix(strings: &Vec<String>) -> String {
@@ -183,11 +184,17 @@ impl MemorySysTraceParser {
         }
 
         // Identify the shortest string in the vector
-        let shortest = strings.iter().filter(|string| string.starts_with('/')).min_by_key(|s| s.len()).unwrap();
+        let shortest = strings
+            .iter()
+            .filter(|string| string.starts_with('/'))
+            .min_by_key(|s| s.len())
+            .expect("[MemorySysTraceParser::longest_common_prefix]: Failed to identify shortest stacktrace path (log might be empty)");
 
         let mut prefix = String::new();
         for (i, char) in shortest.char_indices() {
-            if strings.iter().all(|s| s.as_bytes()[i] == char as u8) {
+            if strings.iter()
+                .filter(|string| string.starts_with('/'))
+                .all(|s| s.as_bytes()[i] == char as u8) {
                 prefix.push(char);
             } else {
                 break;

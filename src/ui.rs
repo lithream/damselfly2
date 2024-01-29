@@ -5,7 +5,7 @@ use ratatui::{layout::Alignment, style::{Color, Style}, widgets::{Block, BorderT
 use ratatui::prelude::{Constraint, Direction, Layout, Rect, Stylize};
 use ratatui::style::Styled;
 use ratatui::text::Span;
-use ratatui::widgets::{Cell, Row, Table};
+use ratatui::widgets::{Cell, Row, Table, Wrap};
 use ratatui::widgets::block::Title;
 
 use crate::app::App;
@@ -20,22 +20,22 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     // - https://docs.rs/ratatui/latest/ratatui/widgets/index.html
     // - https://github.com/ratatui-org/ratatui/tree/master/examples
     let main_layout = Layout::default()
-        .direction(Direction::Horizontal)
+        .direction(Direction::Vertical)
         .constraints([
-            Constraint::Percentage(app.left_width),
-            Constraint::Percentage(app.right_width)
+            Constraint::Percentage(app.up_height),
+            Constraint::Percentage(app.down_height)
         ])
         .split(frame.size());
 
-    let left_inner_layout = Layout::default()
-        .direction(Direction::Vertical)
+    let up_inner_layout = Layout::default()
+        .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage(80),
-            Constraint::Percentage(20),
+            Constraint::Percentage(app.left_width),
+            Constraint::Percentage(app.right_width),
         ])
         .split(main_layout[0]);
-    let right_inner_layout = Layout::default()
-        .direction(Direction::Vertical)
+    let down_inner_layout = Layout::default()
+        .direction(Direction::Horizontal)
         .constraints([
             Constraint::Percentage(80),
             Constraint::Percentage(20),
@@ -48,7 +48,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     if let Some(highlight) = app.graph_highlight {
         app.graph_highlight = Some(min(highlight, graph_data.len() - 1));
     }
-    draw_graph(app, &left_inner_layout, frame, graph_data);
+    draw_graph(app, &up_inner_layout, frame, graph_data);
 
     let (map_data, latest_operation) = {
         match app.graph_highlight {
@@ -69,7 +69,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         }
     };
 
-    draw_memorymap(app, &right_inner_layout, frame, &map_data, latest_operation);
+    draw_memorymap(app, &up_inner_layout, &down_inner_layout, frame, &map_data, latest_operation);
 }
 
 fn snap_memoryspan_to_latest_operation(app: &mut App, latest_address: usize) {
@@ -95,9 +95,14 @@ fn draw_graph(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, data: &[(f64,
     } else {
         graph_highlight = data.len().saturating_sub(1);
     }
+
+    let true_x = app.damselfly_viewer.get_timespan().0 + graph_highlight;
+    let true_y = data[graph_highlight].1 / app.graph_scale;
     let canvas = Canvas::default()
         .block(Block::default()
-            .title(Title::from(format!("MEMORY USAGE [ZOOM: {:.1}]", app.graph_scale)))
+            .title(Title::from(format!("[ZOOM: {:.1}] [OPERATION: {} / {}] [USAGE: {:.2}]",
+                                       app.graph_scale, true_x, app.damselfly_viewer.get_total_operations(),
+                                        true_y)))
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded))
         .x_bounds([0.0, 100.0])
@@ -111,8 +116,6 @@ fn draw_graph(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, data: &[(f64,
         });
     frame.render_widget(canvas, area[0]);
 
-    let true_x = app.damselfly_viewer.get_timespan().0 + graph_highlight;
-    let true_y = data[graph_highlight].1 / app.graph_scale;
 
     frame.render_widget(
         Paragraph::new(format!(
@@ -133,15 +136,7 @@ fn draw_graph(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, data: &[(f64,
     );
 }
 
-fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &HashMap<usize, MemoryStatus>, latest_operation: Option<MemoryUpdate>) {
-    let right_inner_layout_bottom = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(70),
-            Constraint::Percentage(30)
-        ])
-        .split(area[1]);
-
+fn draw_memorymap(app: &mut App, map_area: &Rc<[Rect]>, stats_area: &Rc<[Rect]>, frame: &mut Frame, map: &HashMap<usize, MemoryStatus>, latest_operation: Option<MemoryUpdate>) {
     let right_inner_layout_upper = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
@@ -180,7 +175,8 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
         .widths(&widths)
         .column_spacing(0)
         .block(Block::default()
-            .title(format!("MEMORY MAP [{:x}] [VIEW: {locked_status}]", MapManipulator::scale_address_up(app.map_highlight.unwrap_or(0))))
+            .title(format!("MEMORY MAP [{:x}] [VIEW: {locked_status}]",
+                           MapManipulator::scale_address_up(app.map_highlight.unwrap_or(0))))
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
             .title_style(title_style));
@@ -207,7 +203,8 @@ fn draw_memorymap(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, map: &Has
                     .border_type(BorderType::Rounded),
             )
             .style(Style::default())
-            .alignment(Alignment::Left),
+            .alignment(Alignment::Left)
+            .wrap(Wrap::default()),
         right_inner_layout_bottom[0]
     );
 

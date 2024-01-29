@@ -25,7 +25,9 @@ pub struct App {
     pub is_mapspan_locked: bool,
 
     pub left_width: u16,
-    pub right_width: u16
+    pub right_width: u16,
+    pub up_height: u16,
+    pub down_height: u16,
 }
 
 impl App {
@@ -49,6 +51,8 @@ impl App {
             is_mapspan_locked: true,
             left_width: 30,
             right_width: 70,
+            up_height: 70,
+            down_height: 30,
         }
     }
 
