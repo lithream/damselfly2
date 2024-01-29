@@ -69,7 +69,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         }
     };
 
-    draw_memorymap(app, &up_inner_layout, &down_inner_layout, frame, &map_data, latest_operation);
+    draw_memorymap(app, &up_inner_layout[1], &down_inner_layout, frame, &map_data, latest_operation);
 }
 
 fn snap_memoryspan_to_latest_operation(app: &mut App, latest_address: usize) {
@@ -136,15 +136,7 @@ fn draw_graph(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, data: &[(f64,
     );
 }
 
-fn draw_memorymap(app: &mut App, map_area: &Rc<[Rect]>, stats_area: &Rc<[Rect]>, frame: &mut Frame, map: &HashMap<usize, MemoryStatus>, latest_operation: Option<MemoryUpdate>) {
-    let right_inner_layout_upper = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(100),
-            Constraint::Percentage(0),
-        ])
-        .split(area[0]);
-
+fn draw_memorymap(app: &mut App, map_area: &Rect, stats_area: &Rc<[Rect]>, frame: &mut Frame, map: &HashMap<usize, MemoryStatus>, latest_operation: Option<MemoryUpdate>) {
     let latest_address = match latest_operation {
         None => 0,
         Some(operation) => match operation {
@@ -180,7 +172,7 @@ fn draw_memorymap(app: &mut App, map_area: &Rc<[Rect]>, stats_area: &Rc<[Rect]>,
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
             .title_style(title_style));
-    frame.render_widget(table, right_inner_layout_upper[0]);
+    frame.render_widget(table, *map_area);
 
     let callstack = match map.get(&app.map_highlight.unwrap_or(0)) {
         None => "",
@@ -205,7 +197,7 @@ fn draw_memorymap(app: &mut App, map_area: &Rc<[Rect]>, stats_area: &Rc<[Rect]>,
             .style(Style::default())
             .alignment(Alignment::Left)
             .wrap(Wrap::default()),
-        right_inner_layout_bottom[0]
+        stats_area[0]
     );
 
     let operation_count;
@@ -248,7 +240,7 @@ fn draw_memorymap(app: &mut App, map_area: &Rc<[Rect]>, stats_area: &Rc<[Rect]>,
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded));
 
-    frame.render_widget(table, right_inner_layout_bottom[1]);
+    frame.render_widget(table, stats_area[1]);
 }
 
 fn generate_rows(rows: usize, map_span: (usize, usize), map_highlight: Option<usize>, map: &HashMap<usize, MemoryStatus>) -> Vec<Row> {

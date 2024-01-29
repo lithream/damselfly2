@@ -75,11 +75,11 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
             app.damselfly_viewer.shift_timespan_to_end();
         }
 
-        KeyCode::Char('0') => {
+        KeyCode::Char('[') => {
             app.graph_highlight = Some(0);
         }
 
-        KeyCode::Char('$') => {
+        KeyCode::Char(']') => {
             let span = app.damselfly_viewer.get_timespan();
             app.graph_highlight = Some(span.1 - span.0 - 1);
         }
@@ -97,7 +97,7 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         }
 
         KeyCode::Char('J') => {
-            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(DEFAULT_ROW_LENGTH));
+            app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(app.row_length));
         }
 
         KeyCode::PageUp => {
