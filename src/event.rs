@@ -22,9 +22,9 @@ pub enum Event {
 #[derive(Debug)]
 pub struct EventHandler {
     /// Event sender channel.
-    sender: mpsc::Sender<Event>,
+    sender: crossbeam_channel::Sender<Event>,
     /// Event receiver channel.
-    receiver: mpsc::Receiver<Event>,
+    receiver: crossbeam_channel::Receiver<Event>,
     /// Event handler thread.
     handler: thread::JoinHandle<()>,
 }
@@ -33,7 +33,7 @@ impl EventHandler {
     /// Constructs a new instance of [`EventHandler`].
     pub fn new(tick_rate: u64) -> Self {
         let tick_rate = Duration::from_millis(tick_rate);
-        let (sender, receiver) = mpsc::channel();
+        let (sender, receiver) = crossbeam_channel::unbounded();
         let handler = {
             let sender = sender.clone();
             thread::spawn(move || {

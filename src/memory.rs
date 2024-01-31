@@ -3,6 +3,7 @@ use std::fmt::Display;
 use std::fs::File;
 use std::io::Read;
 use std::iter::Peekable;
+use std::rc::Rc;
 use std::str::Split;
 use std::sync::{mpsc};
 use std::sync::mpsc::{Receiver, Sender};
@@ -12,9 +13,9 @@ use crate::damselfly_viewer::instruction::Instruction;
 #[derive(PartialEq, Debug, Clone)]
 pub enum MemoryUpdate {
     // (address, size, callstack)
-    Allocation(usize, usize, String),
+    Allocation(usize, usize, Rc<String>),
     // (address, callstack)
-    Free(usize, String),
+    Free(usize, Rc<String>),
 }
 
 #[derive(Clone)]
@@ -30,10 +31,10 @@ pub enum RecordType {
 #[derive(PartialEq, Debug, Clone)]
 pub enum MemoryStatus {
     // parent block, callstack
-    Allocated(usize, String),
+    Allocated(usize, Rc<String>),
     // parent block, callstack
-    PartiallyAllocated(usize, String),
-    Free(String),
+    PartiallyAllocated(usize, Rc<String>),
+    Free(Rc<String>),
 }
 
 impl Display for MemoryUpdate {
@@ -56,9 +57,8 @@ pub struct MemorySnapshot {
     pub operation: MemoryUpdate,
 }
 
-// CALLSTACK TRACING NOT IMPLEMENTED YET!!! TODO!
 pub struct MemorySysTraceParser {
-    instruction_tx: Sender<Instruction>,
+    instruction_tx: crossbeam_channel::Sender<Instruction>,
     time: usize,
     record_queue: Vec<RecordType>,
     symbols: HashMap<usize, String>,
@@ -66,8 +66,8 @@ pub struct MemorySysTraceParser {
 }
 
 impl MemorySysTraceParser {
-    pub fn new() -> (MemorySysTraceParser, Receiver<Instruction>) {
-        let (tx, rx) = mpsc::channel();
+    pub fn new() -> (MemorySysTraceParser, crossbeam_channel::Receiver<Instruction>) {
+        let (tx, rx) = crossbeam_channel::unbounded();
         (MemorySysTraceParser {
             instruction_tx: tx, time: 0, record_queue: Vec::new(), symbols: HashMap::new(), prefix: String::new()
         }, rx)
@@ -76,7 +76,7 @@ impl MemorySysTraceParser {
     pub fn parse_log(&mut self, log: String, binary_path: &str) {
         self.parse_symbols(&log, binary_path);
         let mut log_iter = log.split('\n').peekable();
-        let mut counter = 0;
+        let mut counter: i32 = 0;
         while let Some(line) = log_iter.peek() {
             counter += 1;
             if Self::is_line_useless(line) {
@@ -257,12 +257,12 @@ impl MemorySysTraceParser {
         let instruction;
         match first_rec {
             RecordType::Allocation(address, size, callstack) => {
-                let memory_update = MemoryUpdate::Allocation(address, size, callstack.clone());
+                let memory_update = MemoryUpdate::Allocation(address, size, Rc::new(callstack));
                 instruction = Instruction::new(self.time, memory_update);
                 self.time += 1;
             },
             RecordType::Free(address, callstack) => {
-                let memory_update = MemoryUpdate::Free(address, callstack.clone());
+                let memory_update = MemoryUpdate::Free(address, Rc::new(callstack));
                 instruction = Instruction::new(self.time, memory_update);
                 self.time += 1;
             }
@@ -298,7 +298,7 @@ impl MemorySysTraceParser {
             "^" => record = {
                 let symbol = self.lookup_symbol(Self::extract_trace_address(split_dataline[2]))
                     .expect("[MemorySysTraceParser::parse_line]: Failed to lookup symbol");
-                RecordType::StackTrace(0, symbol.to_string())
+                RecordType::StackTrace(0, symbol)
             },
             _  => return Err("[MemorySysTraceParser::parse_line]: Invalid operation type"),
         }

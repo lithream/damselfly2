@@ -2,6 +2,7 @@ pub mod instruction;
 pub mod consts;
 use std::cmp::{max, min};
 use std::collections::{BinaryHeap, HashMap};
+use std::rc::Rc;
 use std::sync::{mpsc};
 use std::time::Duration;
 use log::debug;
@@ -32,7 +33,7 @@ pub struct Leaderboard {
 
 #[derive(Debug)]
 pub struct DamselflyViewer {
-    instruction_rx: mpsc::Receiver<Instruction>,
+    instruction_rx: crossbeam_channel::Receiver<Instruction>,
     timespan: (usize, usize),
     timespan_is_unlocked: bool,
     memoryspan: (usize, usize),
@@ -45,7 +46,7 @@ pub struct DamselflyViewer {
 }
 
 impl DamselflyViewer {
-    pub fn new(instruction_rx: mpsc::Receiver<Instruction>) -> DamselflyViewer {
+    pub fn new(instruction_rx: crossbeam_channel::Receiver<Instruction>) -> DamselflyViewer {
         DamselflyViewer {
             instruction_rx,
             timespan: (0, DEFAULT_TIMESPAN),
@@ -155,7 +156,10 @@ impl DamselflyViewer {
     }
 
     pub fn gulp_channel(&mut self) {
+        let mut counter = 0;
         while let Ok(instruction) = self.instruction_rx.recv_timeout(Duration::from_nanos(1)) {
+            eprintln!("{counter}");
+            counter += 1;
             self.update_memory_map(&instruction);
             self.calculate_memory_usage();
             self.log_operation(instruction);
@@ -184,9 +188,9 @@ impl DamselflyViewer {
     fn update_memory_map(&mut self, instruction: &Instruction) {
         match instruction.get_operation() {
             MemoryUpdate::Allocation(address, size, callstack) =>
-                MapManipulator::allocate_memory(&mut self.memory_map, address, size, callstack.clone()),
+                MapManipulator::allocate_memory(&mut self.memory_map, address, size, Rc::clone(&callstack)),
             MemoryUpdate::Free(address, callstack) =>
-                MapManipulator::free_memory(&mut self.memory_map, address, callstack.clone()),
+                MapManipulator::free_memory(&mut self.memory_map, address, Rc::clone(&callstack)),
         };
     }
 
@@ -242,10 +246,10 @@ impl DamselflyViewer {
             if let Some(operation) = iter.next() {
                 match operation {
                     MemoryUpdate::Allocation(absolute_address, size, callstack) => {
-                        Self::allocate_memory(&mut map, *absolute_address, *size, callstack);
+                        Self::allocate_memory(&mut map, *absolute_address, *size, Rc::clone(callstack));
                     }
                     MemoryUpdate::Free(absolute_address, callstack) => {
-                        Self::free_memory(&mut map, *absolute_address, callstack);
+                        Self::free_memory(&mut map, *absolute_address, Rc::clone(callstack));
                     }
                 }
             }
@@ -253,14 +257,14 @@ impl DamselflyViewer {
         (map, self.operation_history.get(time))
     }
 
-    fn free_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, callstack: &str) {
+    fn free_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, callstack: Rc<String>) {
         let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
         if scaled_address * DEFAULT_BLOCK_SIZE != absolute_address {
             panic!("[DamselflyViewer::free_memory]: Block arithmetic error");
         }
         let mut offset = 0;
         if map.get(&scaled_address).is_none() {
-            map.insert(scaled_address, MemoryStatus::Free(callstack.to_string()));
+            map.insert(scaled_address, MemoryStatus::Free(Rc::clone(&callstack)));
         }
         while let Some(status) = map.get(&(scaled_address + offset)) {
             match status {
@@ -276,28 +280,28 @@ impl DamselflyViewer {
                 }
                 MemoryStatus::Free(_) => return,
             }
-            map.insert(scaled_address + offset, MemoryStatus::Free(callstack.to_string()));
+            map.insert(scaled_address + offset, MemoryStatus::Free(Rc::clone(&callstack)));
             offset += 1;
         }
     }
 
-    pub fn allocate_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, bytes: usize, callstack: &str) {
+    pub fn allocate_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, bytes: usize, callstack: Rc<String>) {
         let scaled_address = MapManipulator::scale_address_down(absolute_address);
         if bytes == 0 {
             return;
         }
         if bytes < DEFAULT_BLOCK_SIZE && bytes > 0 {
-            map.insert(scaled_address / 4, MemoryStatus::PartiallyAllocated(scaled_address, callstack.to_string()));
+            map.insert(scaled_address / 4, MemoryStatus::PartiallyAllocated(scaled_address, callstack));
             return;
         }
 
         let full_blocks = bytes / DEFAULT_BLOCK_SIZE;
         for block_count in 0..full_blocks {
-            map.insert(scaled_address + block_count, MemoryStatus::Allocated(scaled_address, String::from(callstack)));
+            map.insert(scaled_address + block_count, MemoryStatus::Allocated(scaled_address, Rc::clone(&callstack)));
         }
 
         if (full_blocks * DEFAULT_BLOCK_SIZE) < bytes {
-            map.insert(scaled_address + full_blocks, MemoryStatus::PartiallyAllocated(scaled_address, String::from(callstack)));
+            map.insert(scaled_address + full_blocks, MemoryStatus::PartiallyAllocated(scaled_address, Rc::clone(&callstack)));
         }
     }
 
@@ -335,9 +339,9 @@ impl DamselflyViewer {
 
 #[cfg(test)]
 mod tests {
-    use crate::damselfly_viewer::{DamselflyViewer, consts::DEFAULT_MEMORY_SIZE, consts};
+    use crate::damselfly_viewer::{DamselflyViewer, consts};
     use crate::damselfly_viewer::consts::{DEFAULT_BINARY_PATH, DEFAULT_GADDR2LINE_PATH, DEFAULT_TIMESPAN};
-    use crate::memory::{MemoryStatus, MemorySysTraceParser, MemoryUpdate};
+    use crate::memory::{MemorySysTraceParser};
 
     fn initialise_viewer() -> (DamselflyViewer, MemorySysTraceParser) {
         let (memory_stub, instruction_rx) = MemorySysTraceParser::new();
@@ -349,7 +353,7 @@ mod tests {
     fn shift_timespan() {
         let (mut damselfly_viewer, mut mst_parser) = initialise_viewer();
         let log = std::fs::read_to_string(consts::TEST_LOG_PATH).unwrap();
-        mst_parser.parse_log(log, DEFAULT_BINARY_PATH, DEFAULT_GADDR2LINE_PATH);
+        mst_parser.parse_log(log, DEFAULT_BINARY_PATH);
         damselfly_viewer.gulp_channel();
         damselfly_viewer.shift_timespan_to_beginning();
         assert_eq!(damselfly_viewer.timespan.0, 0);
@@ -366,7 +370,7 @@ mod tests {
     fn shift_timespan_left_cap() {
         let (mut damselfly_viewer, mut mst_parser) = initialise_viewer();
         let log = std::fs::read_to_string(consts::TEST_LOG_PATH).unwrap();
-        mst_parser.parse_log(log, DEFAULT_BINARY_PATH, DEFAULT_GADDR2LINE_PATH);
+        mst_parser.parse_log(log, DEFAULT_BINARY_PATH);
         damselfly_viewer.gulp_channel();
         damselfly_viewer.shift_timespan_to_beginning();
         damselfly_viewer.shift_timespan_left(3);
@@ -384,7 +388,7 @@ mod tests {
     fn shift_timespan_right() {
         let (mut damselfly_viewer, mut mst_parser) = initialise_viewer();
         let log = std::fs::read_to_string(consts::TEST_LOG_PATH).unwrap();
-        mst_parser.parse_log(log, DEFAULT_BINARY_PATH, DEFAULT_GADDR2LINE_PATH);
+        mst_parser.parse_log(log, DEFAULT_BINARY_PATH);
         damselfly_viewer.gulp_channel();
         damselfly_viewer.shift_timespan_to_beginning();
         damselfly_viewer.shift_timespan_left(3);
