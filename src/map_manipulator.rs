@@ -16,10 +16,12 @@ impl MapManipulator {
         }
     }
 
-    pub fn free_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, callstack: Rc<String>) {
+    pub fn free_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, callstack: Rc<String>) -> usize {
+        let mut freed_memory = 1;
         let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
         let mut adjacent_address = scaled_address + 1;
-        while map.get(&adjacent_address).is_some_and(|block_state| {
+        while map.get(&adjacent_address)
+            .is_some_and(|block_state| {
             match block_state {
                 MemoryStatus::Allocated(parent_block, _) =>
                     *parent_block == scaled_address,
@@ -27,11 +29,14 @@ impl MapManipulator {
                     *parent_block == scaled_address,
                 MemoryStatus::Free(_) => false,
             }
-        }) {
+        })
+        {
             map.insert(adjacent_address, MemoryStatus::Free(callstack.clone()));
             adjacent_address += 1;
+            freed_memory += 1;
         }
         map.insert(scaled_address, MemoryStatus::Free(callstack.clone()));
+        freed_memory
     }
 
     pub fn view_memory(map: &mut HashMap<usize, MemoryStatus>, absolute_address: usize) -> (Option<&MemoryStatus>, usize) {

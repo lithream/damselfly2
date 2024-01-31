@@ -133,8 +133,8 @@ impl DamselflyViewer {
         let update = self.instruction_rx.recv();
         match update {
             Ok(instruction) => {
-                self.update_memory_map(&instruction);
-                self.calculate_memory_usage();
+                let modified_blocks = self.update_memory_map(&instruction);
+                self.calculate_memory_usage(&instruction, modified_blocks);
                 self.log_operation(instruction);
             }
             Err(_) => {
@@ -160,38 +160,39 @@ impl DamselflyViewer {
         while let Ok(instruction) = self.instruction_rx.recv_timeout(Duration::from_nanos(1)) {
             eprintln!("{counter}");
             counter += 1;
-            self.update_memory_map(&instruction);
-            self.calculate_memory_usage();
+            let modified_blocks = self.update_memory_map(&instruction);
+            self.calculate_memory_usage(&instruction, modified_blocks);
             self.log_operation(instruction);
         }
     }
 
-    pub fn calculate_memory_usage(&mut self) {
-        let mut memory_used_absolute: f64 = 0.0;
-        for (_, status) in self.memory_map.iter() {
-            match status {
-                MemoryStatus::Allocated(_, _) => memory_used_absolute += 1.0,
-                MemoryStatus::PartiallyAllocated(_, _) => memory_used_absolute += 0.5,
-                MemoryStatus::Free(_) => {}
+    pub fn calculate_memory_usage(&mut self, instruction: &Instruction, modified_blocks: usize) {
+        unsafe {
+            static mut MEMORY_USED_ABSOLUTE: usize = 0;
+            match instruction.get_operation() {
+                MemoryUpdate::Allocation(..) => MEMORY_USED_ABSOLUTE += modified_blocks,
+                MemoryUpdate::Free(..) => MEMORY_USED_ABSOLUTE -= modified_blocks,
             }
+
+            let memory_usage = MemoryUsage {
+                memory_used_percentage: (MEMORY_USED_ABSOLUTE as f64 / consts::DEFAULT_MEMORY_SIZE as f64) * 100.0,
+                memory_used_absolute: MEMORY_USED_ABSOLUTE as f64,
+                total_memory: consts::DEFAULT_MEMORY_SIZE,
+            };
+            self.memory_usage_snapshots.push(memory_usage);
         }
-
-        let memory_usage = MemoryUsage {
-            memory_used_percentage: (memory_used_absolute / consts::DEFAULT_MEMORY_SIZE as f64) * 100.0,
-            memory_used_absolute,
-            total_memory: consts::DEFAULT_MEMORY_SIZE,
-        };
-
-        self.memory_usage_snapshots.push(memory_usage);
     }
 
-    fn update_memory_map(&mut self, instruction: &Instruction) {
+    fn update_memory_map(&mut self, instruction: &Instruction) -> usize {
         match instruction.get_operation() {
-            MemoryUpdate::Allocation(address, size, callstack) =>
-                MapManipulator::allocate_memory(&mut self.memory_map, address, size, Rc::clone(&callstack)),
-            MemoryUpdate::Free(address, callstack) =>
-                MapManipulator::free_memory(&mut self.memory_map, address, Rc::clone(&callstack)),
-        };
+            MemoryUpdate::Allocation(address, size, callstack) => {
+                MapManipulator::allocate_memory(&mut self.memory_map, address, size, Rc::clone(&callstack));
+                size
+            }
+            MemoryUpdate::Free(address, callstack) => {
+                MapManipulator::free_memory(&mut self.memory_map, address, Rc::clone(&callstack))
+            }
+        }
     }
 
     fn update_min_max_address(&mut self, address: usize) {
