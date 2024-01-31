@@ -1,5 +1,4 @@
 use std::{error};
-use ratatui::widgets::TableState;
 use crate::app::Mode::DEFAULT;
 use crate::damselfly_viewer::consts::{DEFAULT_MEMORYSPAN, DEFAULT_ROW_LENGTH};
 use crate::damselfly_viewer::DamselflyViewer;
@@ -41,10 +40,10 @@ pub struct App {
 
 impl App {
     /// Constructs a new instance of [`App`].
-    pub fn new(trace_path: &str, binary_path: &str, gaddr2line_path: &str) -> Self {
+    pub fn new(trace_path: &str, binary_path: &str) -> Self {
         let (mut mst_parser, instruction_rx) = MemorySysTraceParser::new();
         let log = std::fs::read_to_string(trace_path).unwrap();
-        mst_parser.parse_log(log, binary_path, gaddr2line_path);
+        mst_parser.parse_log(log, binary_path);
         let mut damselfly_viewer = DamselflyViewer::new(instruction_rx);
         damselfly_viewer.gulp_channel();
         App {

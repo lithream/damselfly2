@@ -1,11 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
+use std::fs::File;
+use std::io::Read;
 use std::iter::Peekable;
-use std::process::Command;
 use std::str::Split;
 use std::sync::{mpsc};
 use std::sync::mpsc::{Receiver, Sender};
-use crate::damselfly_viewer::consts::DEFAULT_BLOCK_SIZE;
+use addr2line::Context;
 use crate::damselfly_viewer::instruction::Instruction;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -39,7 +40,7 @@ impl Display for MemoryUpdate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
             MemoryUpdate::Allocation(address, size, _) => format!("ALLOC: {:x} {}", address, size),
-            MemoryUpdate::Free(address, callstack) => format!("FREE: {:x}", address),
+            MemoryUpdate::Free(address, _) => format!("FREE: {:x}", address),
         };
         write!(f, "{}", str)
     }
@@ -72,8 +73,8 @@ impl MemorySysTraceParser {
         }, rx)
     }
 
-    pub fn parse_log(&mut self, log: String, binary_path: &str, gaddr2line_path: &str) {
-        self.parse_symbols(&log, binary_path, gaddr2line_path);
+    pub fn parse_log(&mut self, log: String, binary_path: &str) {
+        self.parse_symbols(&log, binary_path);
         let mut log_iter = log.split('\n').peekable();
         while let Some(line) = log_iter.peek() {
             if Self::is_line_useless(line) {
@@ -99,9 +100,8 @@ impl MemorySysTraceParser {
         true
     }
 
-    fn extract_addresses_from_log(log: &str) -> String {
+    fn extract_addresses_from_log(log: &str) -> Vec<usize> {
         let mut set = HashSet::new();
-        let mut addresses = String::new();
         let log_iter = log.split('\n');
         for line in log_iter {
             if Self::is_line_useless(line) {
@@ -111,12 +111,13 @@ impl MemorySysTraceParser {
                 set.insert(Self::extract_trace_address(line));
             }
         }
-        for address in set {
-            addresses.push_str("0x");
-            addresses.push_str(&address);
-            addresses.push(' ');
-        }
-        addresses.trim().to_string()
+        set
+            .into_iter()
+            .map(|address_string| {
+                usize::from_str_radix(address_string.as_str(), 16)
+                    .expect("[MemorySysTraceParser::extract_addresses_from_log]: Failed to cast address from String to u64")
+            })
+            .collect()
     }
 
     fn extract_trace_address(line: &str) -> String {
@@ -131,45 +132,29 @@ impl MemorySysTraceParser {
         address
     }
 
-    fn parse_symbols(&mut self, log: &str, binary_path: &str, gaddr2line_path: &str) {
+    fn parse_symbols(&mut self, log: &str, binary_path: &str) {
         let addresses = Self::extract_addresses_from_log(log);
-        let command = format!("{gaddr2line_path} -e {binary_path} {addresses} -f -s");
-        let symbols_string: String = String::from_utf8(Command::new("sh")
-            .arg("-c")
-            .arg(command)
-            .output()
-            .expect("[MemSysTraceParser::parse_symbols]: Failed to read addresses with gaddr2line")
-            .stdout)
-            .expect("[MemSysTraceParser::parse_symbols]: Failed to parse stdout into string");
+        let mut file = File::open(binary_path).unwrap();
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).unwrap();
+        let object = object::File::parse(&*buffer).unwrap();
+        let ctx = Context::new(&object).unwrap();
 
-        let addresses_list: Vec<_> = addresses
-            .split(' ')
-            .map(|address_string| {
-                usize::from_str_radix(address_string.strip_prefix("0x")
-                                          .expect("[MemSysTraceParser::parse_symbols]: Failed to strip 0x prefix from address"),
-                                      16).expect("[MemSysTraceParser::parse_symbols]: Failed to parse hex address string into usize")
-            })
-            .collect();
+        let mut symbols = Vec::new();
+        for address in &addresses {
+            let mut symbol = String::new();
+            let location = ctx.find_location(*address as u64).unwrap().unwrap();
+            symbol.push_str(location.file.unwrap());
+            symbol.push(':');
+            symbol.push_str(location.line.unwrap().to_string().as_str());
+            symbols.push(symbol);
+        }
 
-        let symbols_list: Vec<String> = symbols_string
-            .split('\n')
-            .map(String::from)
-            .collect();
-
-        self.prefix = Self::longest_common_prefix(&symbols_list);
-        self.symbols = addresses_list.into_iter().zip(symbols_list).collect();
+        self.prefix = Self::longest_common_prefix(&symbols);
+        self.symbols = addresses.into_iter().zip(symbols).collect();
     }
 
-    fn lookup_symbol_str(&self, query: String) -> Option<String> {
-        self.symbols.get(&usize::from_str_radix(query.as_str(), 16)
-            .expect("[MemorySysTraceParser::lookup_symbol]: Failed to parse hex address string into usize")).cloned()
-    }
-
-    fn lookup_symbol_usize(&self, query: usize) -> Option<String> {
-        self.symbols.get(&query).cloned()
-    }
-
-    fn lookup_symbol_str_short(&self, query: String) -> Option<String> {
+    fn lookup_symbol(&self, query: String) -> Option<String> {
         let full_symbol = self.symbols.get(&usize::from_str_radix(query.as_str(), 16)
             .expect("[MemorySysTraceParser::lookup_symbol_str_short]: Failed to parse hex address string into usize"));
         full_symbol?;
@@ -309,7 +294,7 @@ impl MemorySysTraceParser {
             "+" => record = RecordType::Allocation(0, 0, String::new()),
             "-" => record = RecordType::Free(0, String::new()),
             "^" => record = {
-                let symbol = self.lookup_symbol_str_short(Self::extract_trace_address(split_dataline[2]))
+                let symbol = self.lookup_symbol(Self::extract_trace_address(split_dataline[2]))
                     .expect("[MemorySysTraceParser::parse_line]: Failed to lookup symbol");
                 RecordType::StackTrace(0, symbol.to_string())
             },
@@ -334,8 +319,7 @@ impl MemorySysTraceParser {
 
 #[cfg(test)]
 mod tests {
-    use std::arch::x86_64::_mm256_abs_epi8;
-    use crate::damselfly_viewer::consts::{DEFAULT_BINARY_PATH, DEFAULT_GADDR2LINE_PATH, TEST_BINARY_PATH, TEST_GADDR2LINE_PATH};
+    use crate::damselfly_viewer::consts::{TEST_BINARY_PATH, TEST_GADDR2LINE_PATH};
     use crate::memory::{MemorySysTraceParser, MemoryUpdate, RecordType};
 
     #[test]

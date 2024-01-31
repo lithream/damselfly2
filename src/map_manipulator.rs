@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE};
-use crate::memory::{MemoryStatus, MemoryUpdate};
+use crate::memory::{MemoryStatus};
 
 pub struct MapManipulator {
 }

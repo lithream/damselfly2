@@ -1,16 +1,18 @@
 pub mod instruction;
 pub mod consts;
-
 use std::cmp::{max, min};
 use std::collections::{BinaryHeap, HashMap};
 use std::sync::{mpsc};
 use std::time::Duration;
 use log::debug;
+use nohash_hasher::BuildNoHashHasher;
 use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_TIMESPAN};
 use crate::damselfly_viewer::instruction::Instruction;
 use crate::memory::{MemoryStatus, MemoryUpdate};
 use crate::map_manipulator::MapManipulator;
 
+
+type NoHashMap<K, V> = HashMap<K, V, BuildNoHashHasher<K>>;
 
 #[derive(Debug, Default, Clone)]
 pub struct MemoryUsage {
