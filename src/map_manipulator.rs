@@ -11,7 +11,6 @@ impl MapManipulator {
         let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
         let scaled_size = absolute_size / DEFAULT_BLOCK_SIZE;
         for i in 0..scaled_size {
-            eprintln!("{i} {scaled_size}");
             map.insert(scaled_address + i, MemoryStatus::Allocated(scaled_address, callstack.clone()));
         }
     }

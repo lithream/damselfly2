@@ -67,14 +67,14 @@ fn get_map_and_latest_op(app: &mut App) -> (NoHashMap<usize, MemoryStatus>, Opti
         match app.graph_highlight {
             None => {
                 let map_state = app.damselfly_viewer.get_latest_map_state();
-                let map = map_state.0.clone();
+                let map = map_state.0;
                 let operation = map_state.1.cloned();
                 (map, operation)
             }
             Some(graph_highlight) => {
                 let span = app.damselfly_viewer.get_timespan();
                 let map_state = app.damselfly_viewer.get_map_state(span.0 + graph_highlight);
-                let map = map_state.0.clone();
+                let map = map_state.0;
                 let operation = map_state.1.cloned();
                 (map, operation)
             }
