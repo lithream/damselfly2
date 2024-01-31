@@ -12,7 +12,7 @@ use crate::memory::{MemoryStatus, MemoryUpdate};
 use crate::map_manipulator::MapManipulator;
 
 
-type NoHashMap<K, V> = HashMap<K, V, BuildNoHashHasher<K>>;
+pub type NoHashMap<K, V> = HashMap<K, V, BuildNoHashHasher<K>>;
 
 #[derive(Debug, Default, Clone)]
 pub struct MemoryUsage {
@@ -39,7 +39,7 @@ pub struct DamselflyViewer {
     memoryspan_is_unlocked: bool,
     memory_usage_snapshots: Vec<MemoryUsage>,
     operation_history: Vec<MemoryUpdate>,
-    memory_map: HashMap<usize, MemoryStatus>,
+    memory_map: NoHashMap<usize, MemoryStatus>,
     min_address: usize,
     max_address: usize,
 }
@@ -54,7 +54,7 @@ impl DamselflyViewer {
             memoryspan_is_unlocked: false,
             memory_usage_snapshots: Vec::new(),
             operation_history: Vec::new(),
-            memory_map: HashMap::new(),
+            memory_map: NoHashMap::default(),
             min_address: usize::MAX,
             max_address: usize::MIN,
         }
@@ -231,12 +231,12 @@ impl DamselflyViewer {
         vector
     }
 
-    pub fn get_latest_map_state(&self) -> (HashMap<usize, MemoryStatus>, Option<&MemoryUpdate>) {
+    pub fn get_latest_map_state(&self) -> (NoHashMap<usize, MemoryStatus>, Option<&MemoryUpdate>) {
         (self.memory_map.clone(), self.operation_history.get(self.get_total_operations().saturating_sub(1)))
     }
 
-    pub fn get_map_state(&self, time: usize) -> (HashMap<usize, MemoryStatus>, Option<&MemoryUpdate>) {
-        let mut map: HashMap<usize, MemoryStatus> = HashMap::new();
+    pub fn get_map_state(&self, time: usize) -> (NoHashMap<usize, MemoryStatus>, Option<&MemoryUpdate>) {
+        let mut map: NoHashMap<usize, MemoryStatus> = NoHashMap::default();
         let mut iter = self.operation_history.iter();
         for _ in 0..=time {
             if let Some(operation) = iter.next() {
@@ -253,7 +253,7 @@ impl DamselflyViewer {
         (map, self.operation_history.get(time))
     }
 
-    fn free_memory(map: &mut HashMap<usize, MemoryStatus>, absolute_address: usize, callstack: &str) {
+    fn free_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, callstack: &str) {
         let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
         if scaled_address * DEFAULT_BLOCK_SIZE != absolute_address {
             panic!("[DamselflyViewer::free_memory]: Block arithmetic error");
@@ -281,7 +281,7 @@ impl DamselflyViewer {
         }
     }
 
-    pub fn allocate_memory(map: &mut HashMap<usize, MemoryStatus>, absolute_address: usize, bytes: usize, callstack: &str) {
+    pub fn allocate_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, bytes: usize, callstack: &str) {
         let scaled_address = MapManipulator::scale_address_down(absolute_address);
         if bytes == 0 {
             return;

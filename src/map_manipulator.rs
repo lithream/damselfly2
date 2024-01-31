@@ -1,20 +1,22 @@
 use std::collections::HashMap;
 use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE};
 use crate::memory::{MemoryStatus};
+use crate::damselfly_viewer::NoHashMap;
 
 pub struct MapManipulator {
 }
 
 impl MapManipulator {
-    pub fn allocate_memory(map: &mut HashMap<usize, MemoryStatus>, absolute_address: usize, absolute_size: usize, callstack: String) {
+    pub fn allocate_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, absolute_size: usize, callstack: String) {
         let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
         let scaled_size = absolute_size / DEFAULT_BLOCK_SIZE;
         for i in 0..scaled_size {
+            eprintln!("{i} {scaled_size}");
             map.insert(scaled_address + i, MemoryStatus::Allocated(scaled_address, callstack.clone()));
         }
     }
 
-    pub fn free_memory(map: &mut HashMap<usize, MemoryStatus>, absolute_address: usize, callstack: String) {
+    pub fn free_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, callstack: String) {
         let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
         let mut adjacent_address = scaled_address + 1;
         while map.get(&adjacent_address).is_some_and(|block_state| {

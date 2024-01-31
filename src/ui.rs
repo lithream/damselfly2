@@ -10,6 +10,7 @@ use ratatui::widgets::block::Title;
 
 use crate::app::App;
 use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORY_SIZE, DEFAULT_MEMORYSPAN};
+use crate::damselfly_viewer::NoHashMap;
 use crate::map_manipulator::MapManipulator;
 use crate::memory::{MemoryStatus, MemoryUpdate};
 
@@ -61,7 +62,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     }
 }
 
-fn get_map_and_latest_op(app: &mut App) -> (HashMap<usize, MemoryStatus>, Option<MemoryUpdate>) {
+fn get_map_and_latest_op(app: &mut App) -> (NoHashMap<usize, MemoryStatus>, Option<MemoryUpdate>) {
     let (map_data, latest_operation) = {
         match app.graph_highlight {
             None => {
@@ -137,7 +138,7 @@ fn draw_graph(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, data: Vec<(f6
     frame.render_widget(canvas, area[0]);
 }
 
-fn draw_memorymap(app: &mut App, map_area: &Rect, stats_area: &Rc<[Rect]>, frame: &mut Frame, map: &HashMap<usize, MemoryStatus>, latest_operation: Option<MemoryUpdate>) {
+fn draw_memorymap(app: &mut App, map_area: &Rect, stats_area: &Rc<[Rect]>, frame: &mut Frame, map: &NoHashMap<usize, MemoryStatus>, latest_operation: Option<MemoryUpdate>) {
     let latest_address = match latest_operation {
         None => 0,
         Some(operation) => match operation {
@@ -226,7 +227,7 @@ fn draw_memorymap(app: &mut App, map_area: &Rect, stats_area: &Rc<[Rect]>, frame
     frame.render_widget(table, stats_area[1]);
 }
 
-fn draw_stacktrace(app: &&mut App, stats_area: &Rc<[Rect]>, frame: &mut Frame, map: &HashMap<usize, MemoryStatus>) {
+fn draw_stacktrace(app: &&mut App, stats_area: &Rc<[Rect]>, frame: &mut Frame, map: &NoHashMap<usize, MemoryStatus>) {
     let callstack = match map.get(&app.map_highlight.unwrap_or(0)) {
         None => "",
         Some(memory_status) => {
@@ -254,7 +255,7 @@ fn draw_stacktrace(app: &&mut App, stats_area: &Rc<[Rect]>, frame: &mut Frame, m
     );
 }
 
-fn generate_rows(rows: usize, row_length: usize, map_span: (usize, usize), map_highlight: Option<usize>, map: &HashMap<usize, MemoryStatus>) -> Vec<Row> {
+fn generate_rows(rows: usize, row_length: usize, map_span: (usize, usize), map_highlight: Option<usize>, map: &NoHashMap<usize, MemoryStatus>) -> Vec<Row> {
     let mut address = map_span.0;
     let mut grid: Vec<Row> = Vec::new();
     let push_cell = |row: &mut Vec<Cell>, block_state: &MemoryStatus, force_bg: Option<Color>| {
@@ -280,7 +281,7 @@ fn generate_rows(rows: usize, row_length: usize, map_span: (usize, usize), map_h
         }
         row.push(Cell::from(content).style(Style::default().bg(bg).fg(fg)));
     };
-    let push_cell_or_default = |current_row: &mut Vec<Cell>, map: &HashMap<usize, MemoryStatus>, address: usize, force_bg: Option<Color>| {
+    let push_cell_or_default = |current_row: &mut Vec<Cell>, map: &NoHashMap<usize, MemoryStatus>, address: usize, force_bg: Option<Color>| {
         if let Some(block_state) = map.get(&address) {
             push_cell(current_row, block_state, force_bg);
         } else if let Some(bg) = force_bg {

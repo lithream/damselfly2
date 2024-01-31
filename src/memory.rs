@@ -76,7 +76,9 @@ impl MemorySysTraceParser {
     pub fn parse_log(&mut self, log: String, binary_path: &str) {
         self.parse_symbols(&log, binary_path);
         let mut log_iter = log.split('\n').peekable();
+        let mut counter = 0;
         while let Some(line) = log_iter.peek() {
+            counter += 1;
             if Self::is_line_useless(line) {
                 log_iter.next();
                 continue;
