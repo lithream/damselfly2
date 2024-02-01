@@ -169,18 +169,6 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
             }
         }
 
-        KeyCode::Char('n') => {
-            if key_event.kind == KeyEventKind::Press && !app.is_mapspan_locked {
-                app.jump_to_next_block();
-            }
-        }
-
-        KeyCode::Char('N') => {
-            if key_event.kind == KeyEventKind::Press && !app.is_mapspan_locked {
-                app.jump_to_prev_block();
-            }
-        }
-
         KeyCode::Left => {
             if key_event.kind == KeyEventKind::Press {
                 app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(1));

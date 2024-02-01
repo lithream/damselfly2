@@ -355,7 +355,7 @@ mod tests {
         if let MemoryUpdate::Allocation(address, size, callstack) = instruction.get_operation() {
             assert_eq!(address, 0);
             assert_eq!(size, 4);
-            assert_eq!(callstack, "callstack\n1\n2\n3");
+            assert_eq!(*callstack, "callstack\n1\n2\n3");
         }
     }
 
@@ -370,7 +370,7 @@ mod tests {
         assert!(matches!(instruction.get_operation(), MemoryUpdate::Free(_, _)));
         if let MemoryUpdate::Free(address, callstack) = instruction.get_operation() {
             assert_eq!(address, 0);
-            assert_eq!(callstack, "callstack\n1\n2\n3");
+            assert_eq!(*callstack, "callstack\n1\n2\n3");
         }
     }
 
@@ -462,7 +462,7 @@ mod tests {
             MemoryUpdate::Allocation(address, size, callstack) => {
                 assert_eq!(address, 0);
                 assert_eq!(size, 4);
-                assert_eq!(callstack, "callstack\n1\n2\n3");
+                assert_eq!(*callstack, "callstack\n1\n2\n3");
             }
             MemoryUpdate::Free(_, _) => panic!("Wrong type: Free"),
         }
@@ -488,7 +488,7 @@ mod tests {
             MemoryUpdate::Allocation(address, size, callstack) => {
                 assert_eq!(address, 4);
                 assert_eq!(size, 4);
-                assert_eq!(callstack, "callstack2\n4\n5\n6");
+                assert_eq!(*callstack, "callstack2\n4\n5\n6");
             }
             MemoryUpdate::Free(_, _) => panic!("Wrong type: Free"),
         }
@@ -502,7 +502,7 @@ mod tests {
             MemoryUpdate::Allocation(_, _, _) => panic!("Wrong type: Allocation"),
             MemoryUpdate::Free(address, callstack) => {
                 assert_eq!(address, 0);
-                assert_eq!(callstack, "callstack3");
+                assert_eq!(*callstack, "callstack3");
             }
         }
     }
@@ -607,7 +607,7 @@ mod tests {
 00001105: 039dd04f |V|A|005|        0 us   0003.677 s    < DT:0xE1504B54> + e15020a4 6c
  ";
 
-        mst_parser.parse_log(log.to_string(), TEST_BINARY_PATH, TEST_GADDR2LINE_PATH);
+        mst_parser.parse_log(log.to_string(), TEST_BINARY_PATH);
         let alloc = instruction_rx.recv().unwrap();
         if let MemoryUpdate::Allocation(address, size, callstack) = alloc.get_operation() {
             assert_eq!(address, 3780124716);
@@ -644,7 +644,7 @@ mod tests {
 00057608: 0b197a34 |V|B|002|        0 us   0011.712 s    < DT:0xE14DEEBC> sched_switch from pid <0xe14e6d94> (priority 235) to pid <0xe14deebc> (priority 235)
 00057609: 0b197a70 |V|B|002|        3 us   0011.712 s    < DT:0xE14E6D94> sched_switch from pid <0xe14deebc> (priority 255) to pid <0xe14e6d94> (priority 235)
  ";
-        mst_parser.parse_log(log.to_string(), TEST_BINARY_PATH, TEST_GADDR2LINE_PATH);
+        mst_parser.parse_log(log.to_string(), TEST_BINARY_PATH);
         let free = instruction_rx.recv().unwrap();
         assert!(matches!(free.get_operation(), MemoryUpdate::Free(..)));
     }
@@ -659,7 +659,7 @@ mod tests {
 00000830: 039da3f2 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> - e150204c 14
 0 ";
         let addresses = MemorySysTraceParser::extract_addresses_from_log(log);
-        assert_eq!(addresses, "0xe045d83b 0xe04865ef");
+        assert_eq!(addresses, vec![0xe045d83b, 0xe04865ef]);
     }
 
     #[test]
@@ -672,7 +672,7 @@ mod tests {
 00000828: 039da2f5 |V|A|002|        0 us   0003.677 s    < DT:0xE14DEEBC> SSC::Received Activity Monitor State 2 Change Event
 00000830: 039da3f2 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> - e150204c 14
 0 ";
-        mst_parser.parse_symbols(log, TEST_BINARY_PATH, TEST_GADDR2LINE_PATH);
+        mst_parser.parse_symbols(log, TEST_BINARY_PATH);
             "/work/hpdev/dune/src/fw/framework/threadx/5.8.1/src/tx_thread_shell_entry.c:171";
 
         assert_eq!(mst_parser.symbols.get(&usize::from_str_radix("e045d83b", 16).unwrap()).unwrap(),

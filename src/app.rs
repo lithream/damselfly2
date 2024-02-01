@@ -69,65 +69,6 @@ impl App {
 
     }
 
-    pub fn jump_to_next_block(&mut self) {
-        if self.map_highlight.is_none() {
-            return;
-        }
-        let current_block = self.map_highlight.unwrap();
-        let (current_map, _) = self.damselfly_viewer
-            .get_map_state(
-                self.damselfly_viewer
-                    .get_timespan().0 + self.graph_highlight
-                    .unwrap_or(0));
-        let mut next_key = None;
-        for key in current_map.keys() {
-            if *key > current_block {
-                next_key = Some(*key);
-                break;
-            }
-        }
-        /*
-        let next_key = current_map.keys()
-            .find(|key| **key > current_block);
-
-         */
-        if next_key.is_none() {
-            return;
-        }
-        let next_key = next_key.unwrap();
-        self.map_span.0 = next_key.saturating_sub(DEFAULT_MEMORYSPAN / 2);
-        self.map_span.1 = next_key.saturating_add(DEFAULT_MEMORYSPAN / 2);
-        self.map_highlight = Some(next_key);
-    }
-
-    pub fn jump_to_prev_block(&mut self) {
-        if self.map_highlight.is_none() {
-            return;
-        }
-        let current_block = self.map_highlight.unwrap();
-        let (current_map, _) = self.damselfly_viewer
-            .get_map_state(
-                self.damselfly_viewer
-                    .get_timespan().0 + self.graph_highlight
-                    .unwrap_or(0));
-        let mut next_key = None;
-        for key in current_map.keys() {
-            if *key < current_block {
-                next_key = Some(*key);
-            }
-            if *key >= current_block {
-                break;
-            }
-        }
-        if next_key.is_none() {
-            return;
-        }
-        let next_key = next_key.unwrap();
-        self.map_span.0 = next_key.saturating_sub(DEFAULT_MEMORYSPAN / 2);
-        self.map_span.1 = next_key.saturating_add(DEFAULT_MEMORYSPAN / 2);
-        self.map_highlight = Some(next_key);
-    }
-
     /// Set running to false to quit the application.
     pub fn quit(&mut self) {
         self.running = false;
