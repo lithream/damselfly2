@@ -7,7 +7,9 @@ use std::rc::Rc;
 use std::str::Split;
 use std::sync::{mpsc};
 use std::sync::mpsc::{Receiver, Sender};
-use addr2line::Context;
+use addr2line::{Context, LookupContinuation, LookupResult};
+use addr2line::fallible_iterator::FallibleIterator;
+use addr2line::gimli::{EndianRcSlice, Reader};
 use crate::damselfly_viewer::instruction::Instruction;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -78,11 +80,11 @@ impl MemorySysTraceParser {
         let mut log_iter = log.split('\n').peekable();
         let mut counter: i32 = 0;
         while let Some(line) = log_iter.peek() {
-            counter += 1;
             if Self::is_line_useless(line) {
                 log_iter.next();
                 continue;
             }
+            counter += 1;
             let instruction = self.process_instruction(&mut log_iter);
             self.instruction_tx.send(instruction).expect("[MemorySysTraceParser::parse_log]: Failed to send instruction");
         }
@@ -145,10 +147,12 @@ impl MemorySysTraceParser {
         let mut symbols = Vec::new();
         for address in &addresses {
             let mut symbol = String::new();
+            /*
             let location = ctx.find_location(*address as u64).unwrap().unwrap();
             symbol.push_str(location.file.unwrap());
             symbol.push(':');
             symbol.push_str(location.line.unwrap().to_string().as_str());
+             */
             symbols.push(symbol);
         }
 

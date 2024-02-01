@@ -266,7 +266,7 @@ impl DamselflyViewer {
     }
 
     pub fn bytes_allocated_within_span(op_address: usize, size: usize, span_start: usize, span_end: usize) -> Option<(usize, usize)> {
-        let span_size = span_end - span_start;
+        let span_size = (span_end - span_start) * DEFAULT_BLOCK_SIZE;
         // allocation starts before span and does not continue into it
         if op_address + size < span_start {
             return None;
@@ -387,7 +387,7 @@ impl DamselflyViewer {
             return;
         }
         if bytes < DEFAULT_BLOCK_SIZE && bytes > 0 {
-            map.insert(scaled_address / 4, MemoryStatus::PartiallyAllocated(absolute_address, callstack));
+            map.insert(scaled_address, MemoryStatus::PartiallyAllocated(absolute_address, callstack));
             return;
         }
 

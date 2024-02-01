@@ -154,7 +154,7 @@ fn draw_memorymap(app: &mut App, map_area: &Rect, stats_area: &Rc<[Rect]>, frame
         app.map_highlight = Some(latest_address / DEFAULT_BLOCK_SIZE);
     }
 
-    let grid = generate_rows(DEFAULT_MEMORY_SIZE / app.row_length, app.row_length, app.map_span, app.map_highlight, map);
+    let grid = generate_rows(DEFAULT_MEMORYSPAN / app.row_length, app.row_length, app.map_span, app.map_highlight, map);
     let widths = vec![Constraint::Length(1); app.row_length];
     let locked_status;
     let title_style;
