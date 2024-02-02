@@ -1,7 +1,7 @@
 pub mod instruction;
 pub mod consts;
 use std::cmp::{max, min};
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::mem;
 use std::rc::Rc;
 use std::sync::{mpsc};
@@ -22,7 +22,8 @@ pub type NoHashMap<K, V> = HashMap<K, V, BuildNoHashHasher<K>>;
 pub struct MemoryUsage {
     pub memory_used_percentage: f64,
     pub memory_used_absolute: f64,
-    pub total_memory: usize
+    pub total_memory: usize,
+    pub blocks: usize,
 }
 
 pub struct Ranking {
@@ -160,17 +161,24 @@ impl DamselflyViewer {
 
     pub fn gulp_channel(&mut self) {
         let mut counter = 0;
+        let mut start_addresses = HashSet::new();
+        let mut end_addresses = HashSet::new();
+        let mut blocks = 0;
         while let Ok(instruction) = self.instruction_rx.recv_timeout(Duration::from_nanos(1)) {
             eprintln!("{counter}");
             counter += 1;
             let modified_blocks = self.update_memory_map(&instruction);
-            self.calculate_memory_usage(&instruction, modified_blocks);
+            let mut usage = self.calculate_memory_usage(&instruction, modified_blocks);
+            Self::count_blocks_in_memory(&instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
+            usage.blocks = blocks;
+            self.memory_usage_snapshots.push(usage);
             self.log_operation(instruction);
         }
     }
 
-    pub fn calculate_memory_usage(&mut self, instruction: &Instruction, modified_blocks: usize) {
+    pub fn calculate_memory_usage(&mut self, instruction: &Instruction, modified_blocks: usize) -> MemoryUsage {
         unsafe {
+            // calculate total usage
             static mut MEMORY_USED_ABSOLUTE: usize = 0;
             match instruction.get_operation() {
                 MemoryUpdate::Allocation(..) => MEMORY_USED_ABSOLUTE += modified_blocks,
@@ -181,9 +189,60 @@ impl DamselflyViewer {
                 memory_used_percentage: (MEMORY_USED_ABSOLUTE as f64 / consts::DEFAULT_MEMORY_SIZE as f64) * 100.0,
                 memory_used_absolute: MEMORY_USED_ABSOLUTE as f64,
                 total_memory: consts::DEFAULT_MEMORY_SIZE,
+                blocks: 0,
             };
-            self.memory_usage_snapshots.push(memory_usage);
+
+            memory_usage
         }
+    }
+
+    fn count_modified_bytes(&self, instruction: &MemoryUpdate) {
+        /*
+        match instruction {
+            MemoryUpdate::Allocation(size, ..) => size,
+            MemoryUpdate::Free(address, ..) => {}
+        }
+
+         */
+    }
+
+    fn count_blocks_in_memory(latest_operation: &MemoryUpdate, start_addresses: &mut HashSet<usize>, end_addresses: &mut HashSet<usize>, blocks: &mut usize) {
+        let mut count_blocks = |operation: &MemoryUpdate| {
+            let start_address;
+            let end_address;
+            match operation {
+                MemoryUpdate::Allocation(address, size, ..) => {
+                    start_address = *address;
+                    end_address = start_address + size;
+                    if !start_addresses.contains(&end_address) && !end_addresses.contains(&start_address) {
+                        // distinct block
+                        *blocks += 1;
+                    } else if start_addresses.contains(&end_address) && end_addresses.contains(&start_address) {
+                        // block connects two other blocks
+                        *blocks -= 1;
+                    }
+                    // block is prepended or appended to another block, so no fragmentation results
+                    start_addresses.insert(start_address);
+                    end_addresses.insert(end_address);
+                }
+                MemoryUpdate::Free(start_address, ..) => {
+                    let mut sorted_end_addresses: Vec<usize> = end_addresses.iter().cloned().collect();
+                    sorted_end_addresses.sort_unstable();
+                    let end_address = sorted_end_addresses.iter().find(|address| **address > *start_address)
+                        .expect("[DamselflyViewer::count_blocks_in_memory]: Failed to find end address corresponding to free");
+                    if end_addresses.contains(start_address) && start_addresses.contains(end_address) {
+                        // fragment created
+                        *blocks += 1;
+                    } else if !end_addresses.contains(start_address) && !start_addresses.contains(end_address) {
+                        // lone block removed
+                        *blocks -= 1;
+                    }
+                    start_addresses.remove(start_address);
+                    end_addresses.remove(end_address);
+                }
+            };
+        };
+        count_blocks(latest_operation);
     }
 
     fn update_memory_map(&mut self, instruction: &Instruction) -> usize {
@@ -223,9 +282,22 @@ impl DamselflyViewer {
                     memory_used_percentage: 0.0,
                     memory_used_absolute: 0.0,
                     total_memory: consts::DEFAULT_MEMORY_SIZE,
+                    blocks: 0,
                 }
             }
             Some(memory_usage) => (*memory_usage).clone()
+        }
+    }
+
+    pub fn get_memory_usage_at(&self, time: usize) -> MemoryUsage {
+        if let Some(memory_usage) = self.memory_usage_snapshots.get(time) {
+            return memory_usage.clone();
+        }
+        MemoryUsage{
+            memory_used_percentage: 0.0,
+            memory_used_absolute: 0.0,
+            total_memory: consts::DEFAULT_MEMORY_SIZE,
+            blocks: 0,
         }
     }
 
@@ -435,12 +507,14 @@ impl DamselflyViewer {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
     use std::iter::Map;
     use std::rc::Rc;
     use crate::damselfly_viewer::{DamselflyViewer, consts};
     use crate::damselfly_viewer::consts::{DEFAULT_BINARY_PATH, DEFAULT_GADDR2LINE_PATH, DEFAULT_TIMESPAN};
+    use crate::damselfly_viewer::instruction::Instruction;
     use crate::map_manipulator::MapManipulator;
-    use crate::memory::{MemorySysTraceParser};
+    use crate::memory::{MemorySysTraceParser, MemoryUpdate};
 
     fn initialise_viewer() -> (DamselflyViewer, MemorySysTraceParser) {
         let (memory_stub, instruction_rx) = MemorySysTraceParser::new();
@@ -517,6 +591,66 @@ mod tests {
         MapManipulator::allocate_memory(&mut damselfly_viewer.memory_map, 0, 128, Rc::new(String::from("test")));
         let count = DamselflyViewer::count_adjacent_allocated_blocks(64, 128, 0, &damselfly_viewer.memory_map);
         assert_eq!(count, 16);
+    }
+
+    #[test]
+    fn count_blocks_in_memory_one_block_test() {
+        let instruction = Instruction::new(0, MemoryUpdate::Allocation(0, 128, Rc::new(String::from("test"))));
+        let mut start_addresses = HashSet::new();
+        let mut end_addresses = HashSet::new();
+        let mut blocks = 0;
+        DamselflyViewer::count_blocks_in_memory(&instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
+        assert_eq!(blocks, 1);
+    }
+
+    #[test]
+    fn count_blocks_in_memory_multiple_blocks_test() {
+        let mut operation_history: Vec<MemoryUpdate> = Vec::new();
+        let mut blocks = 0;
+        // one block
+        let mut start_addresses = HashSet::new();
+        let mut end_addresses = HashSet::new();
+        let latest_instruction = Instruction::new(0, MemoryUpdate::Allocation(0, 128, Rc::new(String::from("test"))));
+        operation_history.push(latest_instruction.get_operation());
+        DamselflyViewer::count_blocks_in_memory(&latest_instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
+        assert_eq!(blocks, 1);
+
+        // two blocks
+        let latest_instruction = Instruction::new(1, MemoryUpdate::Allocation(256, 128, Rc::new(String::from("test"))));
+        DamselflyViewer::count_blocks_in_memory(&latest_instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
+        assert_eq!(blocks, 2);
+        operation_history.push(latest_instruction.get_operation());
+
+        // still two blocks
+        let latest_instruction = Instruction::new(2, MemoryUpdate::Allocation(128, 64, Rc::new(String::from("test"))));
+        DamselflyViewer::count_blocks_in_memory(&latest_instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
+        assert_eq!(blocks, 2);
+        operation_history.push(latest_instruction.get_operation());
+
+        // merge into one block
+        let latest_instruction = Instruction::new(3, MemoryUpdate::Allocation(192, 64, Rc::new(String::from("test"))));
+        operation_history.push(latest_instruction.get_operation());
+        DamselflyViewer::count_blocks_in_memory(&latest_instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
+        assert_eq!(blocks, 1);
+        operation_history.push(latest_instruction.get_operation());
+
+        // split into two blocks
+        let latest_instruction = Instruction::new(4, MemoryUpdate::Free(192, Rc::new(String::from("test"))));
+        DamselflyViewer::count_blocks_in_memory(&latest_instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
+        assert_eq!(blocks, 2);
+        operation_history.push(latest_instruction.get_operation());
+
+        // remove one block, leaving one
+        let latest_instruction = Instruction::new(5, MemoryUpdate::Free(256, Rc::new(String::from("test"))));
+        DamselflyViewer::count_blocks_in_memory(&latest_instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
+        assert_eq!(blocks, 1);
+        operation_history.push(latest_instruction.get_operation());
+
+        /*
+        // zero blocks
+        let latest_instruction = Instruction::new(2, MemoryUpdate::Free(64, Rc::new(String::from("test"))));
+        assert_eq!(DamselflyViewer::count_blocks_in_memory(&latest_instruction.get_operation(), &operation_history), 1);
+         */
     }
 }
 

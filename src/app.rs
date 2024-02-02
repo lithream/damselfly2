@@ -30,8 +30,9 @@ pub struct App {
     pub map_span: (usize, usize),
     pub is_mapspan_locked: bool,
 
-    pub left_width: u16,
-    pub right_width: u16,
+    pub up_left_width: u16,
+    pub up_right_width: u16,
+    pub up_middle_width: u16,
     pub up_height: u16,
     pub down_height: u16,
 
@@ -56,8 +57,9 @@ impl App {
             row_length: DEFAULT_ROW_LENGTH,
             map_span: (0, DEFAULT_MEMORYSPAN),
             is_mapspan_locked: true,
-            left_width: 30,
-            right_width: 70,
+            up_left_width: 30,
+            up_middle_width: 60,
+            up_right_width: 30,
             up_height: 70,
             down_height: 30,
             mode: DEFAULT,

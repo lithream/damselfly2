@@ -33,8 +33,8 @@ pub fn render(app: &mut App, frame: &mut Frame) {
             let up_inner_layout = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints([
-                    Constraint::Percentage(app.left_width),
-                    Constraint::Percentage(app.right_width),
+                    Constraint::Percentage(app.up_left_width),
+                    Constraint::Percentage(app.up_right_width),
                 ])
                 .split(main_layout[0]);
             let down_inner_layout = Layout::default()
@@ -46,10 +46,13 @@ pub fn render(app: &mut App, frame: &mut Frame) {
                 .split(main_layout[1]);
 
             let graph_data = get_graph_data(app);
-            draw_graph(app, &up_inner_layout, frame, graph_data);
+            draw_graph(app, &up_inner_layout[0], frame, graph_data);
 
             let (map_data, latest_operation) = get_map_and_latest_op(app);
             draw_memorymap(app, &up_inner_layout[1], &down_inner_layout, frame, &map_data, latest_operation);
+
+            let blocks_data = get_blocks_data(app);
+            draw_stats(app, &up_inner_layout[2], frame, &blocks_data);
         }
         Mode::STACKTRACE => {
             let main_layout = Layout::default()
@@ -96,6 +99,12 @@ fn get_graph_data(app: &mut App) -> Vec<(f64, f64)> {
     Vec::from(graph_data)
 }
 
+fn get_blocks_data(app: &mut App) -> usize {
+    if app.graph_highlight.is_none() { return 0; }
+    let usage = app.damselfly_viewer.get_memory_usage_at(app.graph_highlight.unwrap());
+    usage.blocks
+}
+
 fn snap_memoryspan_to_latest_operation(app: &mut App, latest_address: usize) {
     let mut new_map_span = app.map_span;
     let relative_address = MapManipulator::scale_address_down(latest_address);
@@ -111,7 +120,7 @@ fn snap_memoryspan_to_latest_operation(app: &mut App, latest_address: usize) {
     app.map_span = new_map_span;
 }
 
-fn draw_graph(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, data: Vec<(f64, f64)>) {
+fn draw_graph(app: &mut App, area: &Rect, frame: &mut Frame, data: Vec<(f64, f64)>) {
     if data.is_empty() { return; }
     let graph_highlight;
     if let Some(highlight) = app.graph_highlight {
@@ -138,7 +147,7 @@ fn draw_graph(app: &mut App, area: &Rc<[Rect]>, frame: &mut Frame, data: Vec<(f6
                 ctx.draw(&Points { coords: &[(x, y)], color: Color::White });
             }
         });
-    frame.render_widget(canvas, area[0]);
+    frame.render_widget(canvas, *area);
 }
 
 fn draw_memorymap(app: &mut App, map_area: &Rect, stats_area: &Rc<[Rect]>, frame: &mut Frame, map: &NoHashMap<usize, MemoryStatus>, latest_operation: Option<MemoryUpdate>) {
@@ -235,7 +244,7 @@ fn draw_stacktrace(app: &&mut App, stats_area: &Rc<[Rect]>, frame: &mut Frame, m
         None => "",
         Some(memory_status) => {
             match memory_status {
-                MemoryStatus::Allocated(_, callstack) => callstack,
+                MemoryStatus::Allocated(_, _, callstack) => callstack,
                 MemoryStatus::PartiallyAllocated(_, callstack) => callstack,
                 MemoryStatus::Free(callstack) => callstack
             }
@@ -255,6 +264,23 @@ fn draw_stacktrace(app: &&mut App, stats_area: &Rc<[Rect]>, frame: &mut Frame, m
             .alignment(Alignment::Left)
             .wrap(Wrap::default()),
         stats_area[0]
+    );
+}
+
+fn draw_stats(app: &mut App, area: &Rect, frame: &mut Frame, blocks_data: &usize) {
+    frame.render_widget(
+        Paragraph::new(format!("Blocks: {blocks_data}"))
+            .block(
+                Block::default()
+                    .title("STATS")
+                    .title_alignment(Alignment::Left)
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded),
+            )
+            .style(Style::default())
+            .alignment(Alignment::Left)
+            .wrap(Wrap::default()),
+        *area
     );
 }
 

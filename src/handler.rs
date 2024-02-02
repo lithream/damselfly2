@@ -208,16 +208,16 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
 
         KeyCode::Char('(') => {
             if key_event.kind == KeyEventKind::Press {
-                app.left_width = max(app.left_width.saturating_sub(DEFAULT_BLOCK_SIZE as u16 * 3), DEFAULT_BLOCK_SIZE as u16 * 3);
-                app.right_width = min(app.right_width + DEFAULT_BLOCK_SIZE as u16 * 3, 100);
+                app.up_left_width = max(app.up_left_width.saturating_sub(DEFAULT_BLOCK_SIZE as u16 * 3), DEFAULT_BLOCK_SIZE as u16 * 3);
+                app.up_right_width = min(app.up_right_width + DEFAULT_BLOCK_SIZE as u16 * 3, 100);
                 app.row_length = app.row_length.saturating_add(DEFAULT_BLOCK_SIZE * 3);
             }
         }
 
         KeyCode::Char(')') => {
             if key_event.kind == KeyEventKind::Press {
-                app.left_width = min(app.left_width + DEFAULT_BLOCK_SIZE as u16 * 3, 100);
-                app.right_width = max(app.right_width.saturating_sub(DEFAULT_BLOCK_SIZE as u16 * 3), 10);
+                app.up_left_width = min(app.up_left_width + DEFAULT_BLOCK_SIZE as u16 * 3, 100);
+                app.up_right_width = max(app.up_right_width.saturating_sub(DEFAULT_BLOCK_SIZE as u16 * 3), 10);
                 app.row_length = app.row_length.saturating_sub(DEFAULT_BLOCK_SIZE * 3).clamp(MIN_ROW_LENGTH, usize::MAX);
             }
         }

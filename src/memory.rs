@@ -32,8 +32,8 @@ pub enum RecordType {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum MemoryStatus {
-    // parent block, callstack
-    Allocated(usize, Rc<String>),
+    // parent block, allocation size from parent, callstack
+    Allocated(usize, usize, Rc<String>),
     // parent block, callstack
     PartiallyAllocated(usize, Rc<String>),
     Free(Rc<String>),
@@ -147,12 +147,10 @@ impl MemorySysTraceParser {
         let mut symbols = Vec::new();
         for address in &addresses {
             let mut symbol = String::new();
-            /*
             let location = ctx.find_location(*address as u64).unwrap().unwrap();
             symbol.push_str(location.file.unwrap());
             symbol.push(':');
             symbol.push_str(location.line.unwrap().to_string().as_str());
-             */
             symbols.push(symbol);
         }
 
