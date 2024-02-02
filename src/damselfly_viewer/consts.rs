@@ -10,3 +10,4 @@ pub const DEFAULT_BINARY_PATH: &str = "./build/output/threadx-cortexa7-debug/are
 pub const DEFAULT_LOG_PATH: &str = "./trace.log";
 pub const TEST_BINARY_PATH: &str = "/work/hpdev/dune/build/output/threadx-cortexa7-debug/ares/dragonfly-lp1/debug/defaultProductGroup/threadxApp";
 pub const TEST_GADDR2LINE_PATH: &str = "./gaddr2line";
+pub const GRAPH_VERTICAL_SCALE_OFFSET: f64 = 1.2;

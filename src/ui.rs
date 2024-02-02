@@ -8,7 +8,7 @@ use ratatui::widgets::{Cell, Row, Table, Wrap};
 use ratatui::widgets::block::Title;
 
 use crate::app::App;
-use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORY_SIZE, DEFAULT_MEMORYSPAN};
+use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORY_SIZE, DEFAULT_MEMORYSPAN, GRAPH_VERTICAL_SCALE_OFFSET};
 use crate::damselfly_viewer::NoHashMap;
 use crate::map_manipulator::MapManipulator;
 use crate::memory::{MemoryStatus, MemoryUpdate};
@@ -52,7 +52,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
             draw_memorymap(app, &up_inner_layout[1], &down_inner_layout, frame, &map_data, latest_operation);
 
             let blocks_data = get_blocks_data(app);
-            draw_stats(app, &up_inner_layout[2], frame, &blocks_data);
+            draw_stats(&up_inner_layout[2], frame, &blocks_data);
         }
         Mode::STACKTRACE => {
             let main_layout = Layout::default()
@@ -91,7 +91,10 @@ fn get_map_and_latest_op(app: &mut App) -> (NoHashMap<usize, MemoryStatus>, Opti
 
 fn get_graph_data(app: &mut App) -> Vec<(f64, f64)> {
     let mut graph_binding = app.damselfly_viewer.get_memory_usage_view();
-    graph_binding.iter_mut().for_each(|point| point.1 *= app.graph_scale);
+    graph_binding.iter_mut().for_each(|point| {
+        point.1 *= app.graph_scale;
+        point.1 /= GRAPH_VERTICAL_SCALE_OFFSET;
+    });
     let graph_data = graph_binding.as_slice();
     if let Some(highlight) = app.graph_highlight {
         app.graph_highlight = Some(min(highlight, graph_data.len().saturating_sub(1)));
@@ -130,7 +133,7 @@ fn draw_graph(app: &mut App, area: &Rect, frame: &mut Frame, data: Vec<(f64, f64
     }
 
     let true_x = app.damselfly_viewer.get_timespan().0 + graph_highlight;
-    let true_y = data[graph_highlight].1 / app.graph_scale;
+    let true_y = (data[graph_highlight].1 / app.graph_scale) * GRAPH_VERTICAL_SCALE_OFFSET;
     let canvas = Canvas::default()
         .block(Block::default()
             .title(Title::from(format!("[ZOOM: {:.1}] [OPERATION: {} / {}] [USAGE: {:.2}]",
@@ -267,7 +270,7 @@ fn draw_stacktrace(app: &&mut App, stats_area: &Rc<[Rect]>, frame: &mut Frame, m
     );
 }
 
-fn draw_stats(app: &mut App, area: &Rect, frame: &mut Frame, blocks_data: &usize) {
+fn draw_stats(area: &Rect, frame: &mut Frame, blocks_data: &usize) {
     frame.render_widget(
         Paragraph::new(format!("Blocks: {blocks_data}"))
             .block(
