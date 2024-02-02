@@ -20,8 +20,7 @@ pub type NoHashMap<K, V> = HashMap<K, V, BuildNoHashHasher<K>>;
 
 #[derive(Debug, Default, Clone)]
 pub struct MemoryUsage {
-    pub memory_used_percentage: f64,
-    pub memory_used_absolute: f64,
+    pub memory_used_absolute: usize,
     pub total_memory: usize,
     pub blocks: usize,
 }
@@ -76,24 +75,25 @@ impl DamselflyViewer {
     /// The absolute distance shifted is computed by multiplying units with the
     /// current timespan.
     ///
-    pub fn shift_timespan_right(&mut self, units: usize) {
+    pub fn shift_timespan_right(&mut self, units: usize) -> bool {
         let right = &mut self.timespan.1;
         let left = &mut self.timespan.0;
         debug_assert!(*right > *left);
         let span = *right - *left;
-        if span < DEFAULT_TIMESPAN { return; }
+        if span < DEFAULT_TIMESPAN { return false; }
         let absolute_shift = units * DEFAULT_TIMESPAN;
 
         if *right + absolute_shift > self.memory_usage_snapshots.len() - 1 {
-            *left = *right;
-            *right = *left + DEFAULT_TIMESPAN;
-            return;
+            *right = self.memory_usage_snapshots.len() - 1;
+            *left = *right - DEFAULT_TIMESPAN;
+            return false;
         }
 
         *right = min((*right).saturating_add(absolute_shift), self.memory_usage_snapshots.len() - 1);
         *left = min((*left).saturating_add(absolute_shift), *right - DEFAULT_TIMESPAN);
 
         debug_assert!(right > left);
+        true
     }
 
     /// Shifts timespan to the left.
@@ -184,12 +184,15 @@ impl DamselflyViewer {
             Self::count_blocks_in_memory(&instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
             usage.blocks = blocks;
 
-            max_usage = max(usage.memory_used_absolute as usize, max_usage);
+            max_usage = max(usage.memory_used_absolute, max_usage);
             max_blocks = max(usage.blocks, max_blocks);
 
             self.memory_usage_snapshots.push(usage);
             self.log_operation(instruction);
         }
+
+        self.max_usage = max_usage;
+        self.max_blocks = max_blocks;
     }
 
     pub fn calculate_memory_usage(&mut self, instruction: &Instruction, modified_blocks: usize) -> MemoryUsage {
@@ -202,8 +205,7 @@ impl DamselflyViewer {
             }
 
             let memory_usage = MemoryUsage {
-                memory_used_percentage: (MEMORY_USED_ABSOLUTE as f64 / consts::DEFAULT_MEMORY_SIZE as f64) * 100.0,
-                memory_used_absolute: MEMORY_USED_ABSOLUTE as f64,
+                memory_used_absolute: MEMORY_USED_ABSOLUTE,
                 total_memory: consts::DEFAULT_MEMORY_SIZE,
                 blocks: 0,
             };
@@ -309,8 +311,7 @@ impl DamselflyViewer {
         match memory_usage {
             None => {
                 MemoryUsage{
-                    memory_used_percentage: 0.0,
-                    memory_used_absolute: 0.0,
+                    memory_used_absolute: 0,
                     total_memory: consts::DEFAULT_MEMORY_SIZE,
                     blocks: 0,
                 }
@@ -324,8 +325,7 @@ impl DamselflyViewer {
             return memory_usage.clone();
         }
         MemoryUsage{
-            memory_used_percentage: 0.0,
-            memory_used_absolute: 0.0,
+            memory_used_absolute: 0,
             total_memory: consts::DEFAULT_MEMORY_SIZE,
             blocks: 0,
         }
@@ -334,9 +334,11 @@ impl DamselflyViewer {
     pub fn get_memory_usage_view(&self) -> Vec<(f64, f64)> {
         let mut vector = Vec::new();
         for i in self.timespan.0..min(self.memory_usage_snapshots.len(), self.timespan.1) {
-            vector.push(((i - self.timespan.0) as f64, self.memory_usage_snapshots.get(i)
-                .expect("[DamselflyViewer::get_memory_usage_view]: Error getting timestamp {i} from memory_usage_snapshots")
-                .memory_used_percentage));
+            let memory_used_absolute = self.memory_usage_snapshots.get(i)
+                .expect("[DamselflyViewer::get_memory_usage_view]: Error getting timestamp from memory_usage_snapshots")
+                .memory_used_absolute;
+            let memory_used_percentage = memory_used_absolute as f64 * 100.0 / self.max_usage as f64;
+            vector.push(((i - self.timespan.0) as f64, memory_used_percentage));
         }
         vector
     }

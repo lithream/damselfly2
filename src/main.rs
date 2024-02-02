@@ -5,7 +5,6 @@ use map::tui::Tui;
 use std::{env, io};
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
-use thread_priority::ThreadPriority;
 use map::damselfly_viewer::consts::{DEFAULT_BINARY_PATH, DEFAULT_LOG_PATH};
 
 fn main() -> AppResult<()> {

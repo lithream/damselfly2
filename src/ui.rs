@@ -1,6 +1,5 @@
 use crate::app::Mode;
 use std::cmp::{min};
-use std::collections::HashMap;
 use std::rc::Rc;
 use ratatui::{layout::Alignment, style::{Color, Style}, widgets::{Block, BorderType, Borders, Paragraph, canvas::*}, Frame};
 use ratatui::prelude::{Constraint, Direction, Layout, Rect, Stylize};

@@ -44,8 +44,7 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         }
 
         KeyCode::Char('L') => {
-            if key_event.kind == KeyEventKind::Press {
-                app.damselfly_viewer.shift_timespan_right(1);
+            if key_event.kind == KeyEventKind::Press && app.damselfly_viewer.shift_timespan_right(1) {
                 app.graph_highlight = Some(0);
             }
         }
