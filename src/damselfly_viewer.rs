@@ -201,7 +201,7 @@ impl DamselflyViewer {
     fn count_modified_bytes(&self, operation: &MemoryUpdate, operation_history_map: &HashMap<usize, MemoryUpdate>) -> usize {
         let mut modified_bytes = 0;
         match operation {
-            MemoryUpdate::Allocation(size, ..) => {
+            MemoryUpdate::Allocation(_, size, _) => {
                 modified_bytes = *size;
             },
             MemoryUpdate::Free(address, ..) => {

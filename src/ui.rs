@@ -102,7 +102,7 @@ fn get_graph_data(app: &mut App) -> Vec<(f64, f64)> {
 
 fn get_blocks_data(app: &mut App) -> usize {
     if app.graph_highlight.is_none() { return 0; }
-    let usage = app.damselfly_viewer.get_memory_usage_at(app.graph_highlight.unwrap());
+    let usage = app.damselfly_viewer.get_memory_usage_at(app.damselfly_viewer.get_timespan().0 + app.graph_highlight.unwrap());
     usage.blocks
 }
 
