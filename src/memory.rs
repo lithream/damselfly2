@@ -240,16 +240,18 @@ impl MemorySysTraceParser {
                 match first_rec {
                     RecordType::Allocation(alloc_address, _, ref mut allocation_callstack) => {
                         // Check if we are tracing the correct address
-                        if *trace_address != alloc_address { panic!("[MemorySysTraceParser::bake_instruction]: Tracing wrong alloc"); }
-                        allocation_callstack.push_str(trace_callstack);
-                        allocation_callstack.push('\n');
+                        if *trace_address == alloc_address {
+                            allocation_callstack.push_str(trace_callstack);
+                            allocation_callstack.push('\n');
+                        }
                     },
                     RecordType::Free(free_address, ref mut free_callstack) => {
                         // Check if we are tracing the correct address
-                        if *trace_address != free_address { panic!("[MemorySysTraceParser::bake_instruction]: Tracing wrong free"); }
-                        //if !free_callstack.is_empty() { free_callstack.push('\n'); }
-                        free_callstack.push_str(trace_callstack);
-                        free_callstack.push('\n');
+                        if *trace_address == free_address {
+                            //if !free_callstack.is_empty() { free_callstack.push('\n'); }
+                            free_callstack.push_str(trace_callstack);
+                            free_callstack.push('\n');
+                        }
                     }
                     RecordType::StackTrace(_, _) => panic!("[MemorySysTraceParser::bake_instruction]: First instruction in instruction queue is a stacktrace, but it should be an alloc/free"),
                 }

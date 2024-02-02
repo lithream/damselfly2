@@ -48,6 +48,8 @@ pub struct DamselflyViewer {
     memory_map: NoHashMap<usize, MemoryStatus>,
     min_address: usize,
     max_address: usize,
+    max_usage: usize,
+    max_blocks: usize,
 }
 
 impl DamselflyViewer {
@@ -64,6 +66,8 @@ impl DamselflyViewer {
             memory_map: NoHashMap::default(),
             min_address: usize::MAX,
             max_address: usize::MIN,
+            max_usage: usize::MIN,
+            max_blocks: usize::MIN,
         }
     }
 
@@ -88,6 +92,7 @@ impl DamselflyViewer {
 
         *right = min((*right).saturating_add(absolute_shift), self.memory_usage_snapshots.len() - 1);
         *left = min((*left).saturating_add(absolute_shift), *right - DEFAULT_TIMESPAN);
+
         debug_assert!(right > left);
     }
 
@@ -162,10 +167,15 @@ impl DamselflyViewer {
     }
 
     pub fn gulp_channel(&mut self) {
-        let mut counter = 0;
+        // bookkeeping
+        let mut max_usage = usize::MIN;
+        let mut max_blocks = usize::MIN;
         let mut start_addresses = HashSet::new();
         let mut end_addresses = HashSet::new();
+
+        let mut counter = 0;
         let mut blocks = 0;
+
         while let Ok(instruction) = self.instruction_rx.recv_timeout(Duration::from_nanos(1)) {
             eprintln!("{counter}");
             counter += 1;
@@ -173,6 +183,10 @@ impl DamselflyViewer {
             let mut usage = self.calculate_memory_usage(&instruction, modified_blocks);
             Self::count_blocks_in_memory(&instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
             usage.blocks = blocks;
+
+            max_usage = max(usage.memory_used_absolute as usize, max_usage);
+            max_blocks = max(usage.blocks, max_blocks);
+
             self.memory_usage_snapshots.push(usage);
             self.log_operation(instruction);
         }

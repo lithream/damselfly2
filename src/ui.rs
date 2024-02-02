@@ -95,7 +95,7 @@ fn get_graph_data(app: &mut App) -> Vec<(f64, f64)> {
     graph_binding.iter_mut().for_each(|point| point.1 *= app.graph_scale);
     let graph_data = graph_binding.as_slice();
     if let Some(highlight) = app.graph_highlight {
-        app.graph_highlight = Some(min(highlight, graph_data.len() - 1));
+        app.graph_highlight = Some(min(highlight, graph_data.len().saturating_sub(1)));
     }
     Vec::from(graph_data)
 }
