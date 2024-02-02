@@ -34,6 +34,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
                 .direction(Direction::Horizontal)
                 .constraints([
                     Constraint::Percentage(app.up_left_width),
+                    Constraint::Percentage(app.up_middle_width),
                     Constraint::Percentage(app.up_right_width),
                 ])
                 .split(main_layout[0]);

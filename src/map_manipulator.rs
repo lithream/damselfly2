@@ -7,11 +7,11 @@ pub struct MapManipulator {
 }
 
 impl MapManipulator {
-    pub fn allocate_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, absolute_size: usize, callstack: Rc<String>) {
+    pub fn allocate_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, bytes: usize, callstack: Rc<String>) {
         let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
-        let scaled_size = absolute_size / DEFAULT_BLOCK_SIZE;
+        let scaled_size = bytes / DEFAULT_BLOCK_SIZE;
         for i in 0..scaled_size {
-            map.insert(scaled_address + i, MemoryStatus::Allocated(scaled_address, Rc::clone(&callstack)));
+            map.insert(scaled_address + i, MemoryStatus::Allocated(scaled_address, bytes, Rc::clone(&callstack)));
         }
     }
 
@@ -22,7 +22,7 @@ impl MapManipulator {
         while map.get(&adjacent_address)
             .is_some_and(|block_state| {
             match block_state {
-                MemoryStatus::Allocated(parent_block, _) =>
+                MemoryStatus::Allocated(parent_block, _, _) =>
                     *parent_block == scaled_address,
                 MemoryStatus::PartiallyAllocated(parent_block, _) =>
                     *parent_block == scaled_address,

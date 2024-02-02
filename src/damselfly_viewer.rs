@@ -44,6 +44,7 @@ pub struct DamselflyViewer {
     memoryspan_is_unlocked: bool,
     memory_usage_snapshots: Vec<MemoryUsage>,
     operation_history: Vec<MemoryUpdate>,
+    operation_history_map: HashMap<usize, MemoryUpdate>,
     memory_map: NoHashMap<usize, MemoryStatus>,
     min_address: usize,
     max_address: usize,
@@ -59,6 +60,7 @@ impl DamselflyViewer {
             memoryspan_is_unlocked: false,
             memory_usage_snapshots: Vec::new(),
             operation_history: Vec::new(),
+            operation_history_map: HashMap::new(),
             memory_map: NoHashMap::default(),
             min_address: usize::MAX,
             max_address: usize::MIN,
@@ -167,7 +169,7 @@ impl DamselflyViewer {
         while let Ok(instruction) = self.instruction_rx.recv_timeout(Duration::from_nanos(1)) {
             eprintln!("{counter}");
             counter += 1;
-            let modified_blocks = self.update_memory_map(&instruction);
+            let modified_blocks = self.count_modified_bytes(&instruction.get_operation(), &self.operation_history_map);
             let mut usage = self.calculate_memory_usage(&instruction, modified_blocks);
             Self::count_blocks_in_memory(&instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
             usage.blocks = blocks;
@@ -196,14 +198,19 @@ impl DamselflyViewer {
         }
     }
 
-    fn count_modified_bytes(&self, instruction: &MemoryUpdate) {
-        /*
-        match instruction {
-            MemoryUpdate::Allocation(size, ..) => size,
-            MemoryUpdate::Free(address, ..) => {}
+    fn count_modified_bytes(&self, operation: &MemoryUpdate, operation_history_map: &HashMap<usize, MemoryUpdate>) -> usize {
+        let mut modified_bytes = 0;
+        match operation {
+            MemoryUpdate::Allocation(size, ..) => {
+                modified_bytes = *size;
+            },
+            MemoryUpdate::Free(address, ..) => {
+                if let Some(MemoryUpdate::Allocation(_, size, _)) = operation_history_map.get(&address) {
+                    modified_bytes = *size;
+                }
+            }
         }
-
-         */
+        modified_bytes
     }
 
     fn count_blocks_in_memory(latest_operation: &MemoryUpdate, start_addresses: &mut HashSet<usize>, end_addresses: &mut HashSet<usize>, blocks: &mut usize) {
@@ -263,11 +270,20 @@ impl DamselflyViewer {
     }
 
     fn log_operation(&mut self, instruction: Instruction) {
-        match instruction.get_operation() {
-            MemoryUpdate::Allocation(address, _, _) => self.update_min_max_address(address),
-            MemoryUpdate::Free(address, _) => self.update_min_max_address(address),
+        let operation = instruction.get_operation();
+        let op_address;
+        match operation {
+            MemoryUpdate::Allocation(address, _, _) => {
+                op_address = address;
+                self.update_min_max_address(address)
+            },
+            MemoryUpdate::Free(address, _) => {
+                op_address = address;
+                self.update_min_max_address(address)
+            },
         }
-        self.operation_history.push(instruction.get_operation());
+        self.operation_history.push(operation.clone());
+        self.operation_history_map.insert(op_address, operation);
     }
 
     pub fn get_address_bounds(&self) -> (usize, usize) {
@@ -367,7 +383,7 @@ impl DamselflyViewer {
 
         while let Some(block_status) = MapManipulator::view_memory(map, current_address) {
             match block_status {
-                MemoryStatus::Allocated(allocated_parent_block, _) => {
+                MemoryStatus::Allocated(allocated_parent_block, _, _) => {
                     if *allocated_parent_block != parent_block {
                         return Some((start, current_address - start));
                     }
@@ -425,7 +441,7 @@ impl DamselflyViewer {
         }
         while let Some(status) = map.get(&(scaled_address + offset)) {
             match status {
-                MemoryStatus::Allocated(parent_block, _) => {
+                MemoryStatus::Allocated(parent_block, _, _) => {
                     if *parent_block != scaled_address {
                         return;
                     }
@@ -465,7 +481,7 @@ impl DamselflyViewer {
 
         let full_blocks = bytes / DEFAULT_BLOCK_SIZE;
         for block_count in 0..full_blocks {
-            map.insert(scaled_address + block_count, MemoryStatus::Allocated(absolute_address, Rc::clone(&callstack)));
+            map.insert(scaled_address + block_count, MemoryStatus::Allocated(absolute_address, bytes, Rc::clone(&callstack)));
         }
 
         if (full_blocks * DEFAULT_BLOCK_SIZE) < bytes {
