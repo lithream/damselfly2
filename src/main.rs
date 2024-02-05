@@ -3,11 +3,11 @@ use map::event::{Event, EventHandler};
 use map::handler::handle_key_events;
 use map::tui::Tui;
 use std::{env, fs, io};
-use std::fs::File;
 use std::os::unix::fs::MetadataExt;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
-use map::damselfly_viewer::consts::{DEFAULT_BINARY_PATH, DEFAULT_LOG_PATH, DEFAULT_TICK_RATE, LARGE_FILE_TICK_RATE};
+use map::damselfly_viewer::consts::{DEFAULT_BINARY_PATH, DEFAULT_LOG_PATH, DEFAULT_TICK_RATE, LARGE_FILE_TICK_RATE, MAP_CACHE_SIZE};
+use owo_colors::OwoColorize;
 
 fn main() -> AppResult<()> {
     let args: Vec<String> = env::args().collect();
@@ -26,11 +26,32 @@ fn main() -> AppResult<()> {
             DEFAULT_BINARY_PATH.to_string()
         });
     let metadata = fs::metadata(&log_path).unwrap();
-    let tick_rate: u64 = if metadata.size() > 500000000 {
-        LARGE_FILE_TICK_RATE
-    } else {
-        DEFAULT_TICK_RATE
-    };
+    let mut tick_rate = DEFAULT_TICK_RATE;
+    if metadata.size() > 500000000 {
+        println!("Log size: {} bytes", metadata.size().red());
+        println!("Caching snapshots of the log every {} operations can lower latency at the cost of higher RAM usage.", MAP_CACHE_SIZE.cyan());
+        println!("Slowing the TUI tick rate can prevent CPU throttling at the cost of a slight delay when refreshing the memory map window.");
+        println!("{} to enable these optimisations. {} to ignore.", String::from("y/Y").green(), String::from("n/N").red());
+        let mut input = String::new();
+        loop {
+            input.clear();
+            io::stdin().read_line(&mut input).unwrap();
+            let input = input.trim();
+            match input {
+                "y" => {
+                    tick_rate = LARGE_FILE_TICK_RATE;
+                    break;
+                }
+                "n" => {
+                    tick_rate = DEFAULT_TICK_RATE;
+                    break;
+                }
+                _ => {
+                    println!("Invalid response. Please enter y/Y or n/N.");
+                }
+            }
+        }
+    }
 
     let mut app = App::new(log_path.as_str(), binary_path.as_str());
     app.graph_highlight = Some(0);

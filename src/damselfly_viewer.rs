@@ -5,6 +5,7 @@ use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::rc::Rc;
 use std::time::Duration;
 use nohash_hasher::BuildNoHashHasher;
+use owo_colors::OwoColorize;
 use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_TIMESPAN, MAP_CACHE_SIZE};
 use crate::damselfly_viewer::instruction::Instruction;
 use crate::memory::{MemoryStatus, MemoryUpdate};
@@ -149,7 +150,8 @@ impl DamselflyViewer {
 
         let mut current_map_snapshot = NoHashMap::default();
         while let Ok(instruction) = self.instruction_rx.recv_timeout(Duration::from_nanos(1)) {
-            eprintln!("{counter}");
+            let instruction_string = instruction.get_operation().to_string();
+            eprintln!("Processing instruction {}: {}", counter.cyan(), instruction_string);
             if counter % MAP_CACHE_SIZE == 0 {
                 eprintln!("Caching map...");
                 self.memory_map_snapshots.push(current_map_snapshot.clone());

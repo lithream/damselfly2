@@ -52,11 +52,7 @@ impl<B: Backend> Tui<B> {
     /// [`Draw`]: ratatui::Terminal::draw
     /// [`rendering`]: crate::ui:render
     pub fn draw(&mut self, app: &mut App) -> AppResult<()> {
-        let x;
-        let start = Instant::now();
         self.terminal.draw(|frame| ui::render(app, frame))?;
-        let end = start.elapsed();
-        x = end.as_millis();
         Ok(())
     }
 

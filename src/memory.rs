@@ -10,6 +10,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use addr2line::{Context, LookupContinuation, LookupResult};
 use addr2line::fallible_iterator::FallibleIterator;
 use addr2line::gimli::{EndianRcSlice, Reader};
+use owo_colors::OwoColorize;
 use crate::damselfly_viewer::instruction::Instruction;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -42,8 +43,8 @@ pub enum MemoryStatus {
 impl Display for MemoryUpdate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
-            MemoryUpdate::Allocation(address, size, _) => format!("ALLOC: {:x} {}", address, size),
-            MemoryUpdate::Free(address, _) => format!("FREE: {:x}", address),
+            MemoryUpdate::Allocation(address, size, _) => format!("ALLOC: 0x{:x} {}B", address, size),
+            MemoryUpdate::Free(address, _) => format!("FREE: 0x{:x}", address),
         };
         write!(f, "{}", str)
     }
@@ -84,6 +85,7 @@ impl MemorySysTraceParser {
                 log_iter.next();
                 continue;
             }
+            println!("Processing instruction: {}", line.cyan());
             counter += 1;
             let instruction = self.process_instruction(&mut log_iter);
             self.instruction_tx.send(instruction).expect("[MemorySysTraceParser::parse_log]: Failed to send instruction");
