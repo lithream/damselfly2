@@ -2,7 +2,6 @@ pub mod instruction;
 pub mod consts;
 use std::cmp::{max, min};
 use std::collections::{BinaryHeap, HashMap, HashSet};
-use std::mem::discriminant;
 use std::rc::Rc;
 use std::time::Duration;
 use nohash_hasher::BuildNoHashHasher;
@@ -42,7 +41,6 @@ pub struct DamselflyViewer {
     operation_history_map: HashMap<usize, MemoryUpdate>,
     memory_map: NoHashMap<usize, MemoryStatus>,
     memory_map_snapshots: Vec<NoHashMap<usize, MemoryStatus>>,
-    current_memory_map_snapshot: NoHashMap<usize, MemoryStatus>,
     min_address: usize,
     max_address: usize,
     max_usage: usize,
@@ -61,7 +59,6 @@ impl DamselflyViewer {
             operation_history_map: HashMap::new(),
             memory_map: NoHashMap::default(),
             memory_map_snapshots: Vec::new(),
-            current_memory_map_snapshot: NoHashMap::default(),
             min_address: usize::MAX,
             max_address: usize::MIN,
             max_usage: usize::MIN,
@@ -152,7 +149,7 @@ impl DamselflyViewer {
         let mut current_map_snapshot = NoHashMap::default();
         while let Ok(instruction) = self.instruction_rx.recv_timeout(Duration::from_nanos(1)) {
             let operation = instruction.get_operation();
-            let mut instruction_string = operation.to_string();
+            let instruction_string = operation.to_string();
             match operation {
                 MemoryUpdate::Allocation(..) =>
                     eprintln!("Processing instruction {}: {}", counter.cyan(), instruction_string.red()),
@@ -258,18 +255,6 @@ impl DamselflyViewer {
             };
         };
         count_blocks(latest_operation);
-    }
-
-    fn update_memory_map(&mut self, instruction: &Instruction) -> usize {
-        match instruction.get_operation() {
-            MemoryUpdate::Allocation(address, size, callstack) => {
-                MapManipulator::allocate_memory(&mut self.memory_map, address, size, Rc::clone(&callstack));
-                size
-            }
-            MemoryUpdate::Free(address, callstack) => {
-                MapManipulator::free_memory(&mut self.memory_map, address, Rc::clone(&callstack))
-            }
-        }
     }
 
     fn update_min_max_address(&mut self, address: usize) {

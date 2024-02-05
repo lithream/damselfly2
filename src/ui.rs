@@ -9,7 +9,7 @@ use ratatui::widgets::{Cell, Row, Table, Wrap};
 use ratatui::widgets::block::Title;
 
 use crate::app::App;
-use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORY_SIZE, DEFAULT_MEMORYSPAN, GRAPH_VERTICAL_SCALE_OFFSET};
+use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORY_SIZE, DEFAULT_MEMORYSPAN, DEFAULT_TIMESPAN, GRAPH_VERTICAL_SCALE_OFFSET};
 use crate::damselfly_viewer::NoHashMap;
 use crate::map_manipulator::MapManipulator;
 use crate::memory::{MemoryStatus, MemoryUpdate};
@@ -144,7 +144,7 @@ fn draw_graph(app: &mut App, area: &Rect, frame: &mut Frame, data: Vec<(f64, f64
                                         true_y)))
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded))
-        .x_bounds([0.0, 100.0])
+        .x_bounds([0.0, DEFAULT_TIMESPAN as f64])
         .y_bounds([0.0, 90.0])
         .paint(|ctx| {
             ctx.draw(&Points { coords: &data, color: Color::Red });
