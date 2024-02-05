@@ -40,6 +40,7 @@ pub struct DamselflyViewer {
     operation_history_map: HashMap<usize, MemoryUpdate>,
     memory_map: NoHashMap<usize, MemoryStatus>,
     memory_map_snapshots: Vec<NoHashMap<usize, MemoryStatus>>,
+    current_memory_map_snapshot: NoHashMap<usize, MemoryStatus>,
     min_address: usize,
     max_address: usize,
     max_usage: usize,
@@ -58,6 +59,7 @@ impl DamselflyViewer {
             operation_history_map: HashMap::new(),
             memory_map: NoHashMap::default(),
             memory_map_snapshots: Vec::new(),
+            current_memory_map_snapshot: NoHashMap::default(),
             min_address: usize::MAX,
             max_address: usize::MIN,
             max_usage: usize::MIN,
@@ -328,12 +330,15 @@ impl DamselflyViewer {
         (self.memory_map.clone(), self.operation_history.get(self.get_total_operations().saturating_sub(1)))
     }
 
-    pub fn get_map_state(&self, time: usize, span_start: usize, span_end: usize) -> (NoHashMap<usize, MemoryStatus>, Option<&MemoryUpdate>) {
+    pub fn get_map_state(&mut self, time: usize, span_start: usize, span_end: usize) -> (NoHashMap<usize, MemoryStatus>, Option<&MemoryUpdate>) {
         let starting_snapshot = time / MAP_CACHE_SIZE;
-        let mut map = self.memory_map_snapshots.get(starting_snapshot).unwrap().clone();
+        let mut map =
+            Self::clone_map_partial(self.memory_map_snapshots.get(starting_snapshot).unwrap(),
+                                    MapManipulator::scale_address_down(span_start),
+                                    MapManipulator::scale_address_down(span_end));
 
-        for time in starting_snapshot * MAP_CACHE_SIZE..=time {
-            if let Some(operation) = self.operation_history.get(time) {
+        for cur_time in starting_snapshot * MAP_CACHE_SIZE..=time {
+            if let Some(operation) = self.operation_history.get(cur_time) {
                 match operation {
                     MemoryUpdate::Allocation(absolute_address, size, callstack) => {
                         if let Some((fill_start, bytes_to_fill)) = Self::bytes_allocated_within_span(*absolute_address, *size, span_start, span_end) {
@@ -349,6 +354,16 @@ impl DamselflyViewer {
             }
         }
         (map, self.operation_history.get(time))
+    }
+
+    fn clone_map_partial(map: &NoHashMap<usize, MemoryStatus>, span_start: usize, span_end: usize) -> NoHashMap<usize, MemoryStatus> {
+        let mut new_map = NoHashMap::default();
+        for block in span_start..=span_end {
+            if let Some(status) = map.get(&block) {
+                new_map.insert(block, status.clone());
+            }
+        }
+        new_map
     }
 
     pub fn bytes_allocated_within_span(op_address: usize, size: usize, span_start: usize, span_end: usize) -> Option<(usize, usize)> {

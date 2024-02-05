@@ -11,4 +11,6 @@ pub const DEFAULT_LOG_PATH: &str = "./trace.log";
 pub const TEST_BINARY_PATH: &str = "/work/hpdev/dune/build/output/threadx-cortexa7-debug/ares/dragonfly-lp1/debug/defaultProductGroup/threadxApp";
 pub const TEST_GADDR2LINE_PATH: &str = "./gaddr2line";
 pub const GRAPH_VERTICAL_SCALE_OFFSET: f64 = 1.2;
-pub const MAP_CACHE_SIZE: usize = 10000;
+pub const MAP_CACHE_SIZE: usize = 200000;
+pub const DEFAULT_TICK_RATE: u64 = 100;
+pub const LARGE_FILE_TICK_RATE: u64 = 1000;

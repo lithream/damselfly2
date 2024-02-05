@@ -1,6 +1,7 @@
 use crate::app::Mode;
 use std::cmp::{min};
 use std::rc::Rc;
+use std::time::Instant;
 use ratatui::{layout::Alignment, style::{Color, Style}, widgets::{Block, BorderType, Borders, Paragraph, canvas::*}, Frame};
 use ratatui::prelude::{Constraint, Direction, Layout, Rect, Stylize};
 use ratatui::style::Styled;
@@ -45,6 +46,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
                 ])
                 .split(main_layout[1]);
 
+            let start = Instant::now();
             let graph_data = get_graph_data(app);
             draw_graph(app, &up_inner_layout[0], frame, graph_data);
 
@@ -52,7 +54,8 @@ pub fn render(app: &mut App, frame: &mut Frame) {
             draw_memorymap(app, &up_inner_layout[1], &down_inner_layout, frame, &map_data, latest_operation);
 
             let blocks_data = get_blocks_data(app);
-            draw_stats(&up_inner_layout[2], frame, &blocks_data);
+            let duration = start.elapsed();
+            draw_stats(&up_inner_layout[2], frame, &blocks_data, duration.as_millis() as usize);
         }
         Mode::STACKTRACE => {
             let main_layout = Layout::default()
@@ -270,9 +273,9 @@ fn draw_stacktrace(app: &&mut App, stats_area: &Rc<[Rect]>, frame: &mut Frame, m
     );
 }
 
-fn draw_stats(area: &Rect, frame: &mut Frame, blocks_data: &usize) {
+fn draw_stats(area: &Rect, frame: &mut Frame, blocks_data: &usize, time: usize) {
     frame.render_widget(
-        Paragraph::new(format!("Blocks: {blocks_data}"))
+        Paragraph::new(format!("Blocks: {blocks_data} TIME: {time}"))
             .block(
                 Block::default()
                     .title("STATS")
