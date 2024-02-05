@@ -16,22 +16,24 @@ fn main() -> AppResult<()> {
         .map(|log_path| log_path.to_string())
         .unwrap_or_else(
             || {
-                eprintln!("No log path supplied. Using default: {DEFAULT_LOG_PATH}");
+                eprintln!("{} No log path supplied. Using default: {DEFAULT_LOG_PATH}", String::from("[WARNING]").red());
                 DEFAULT_LOG_PATH.to_string()
             });
     let binary_path = args.get(2)
         .map(|binary_path| binary_path.to_string())
         .unwrap_or_else(|| {
-            eprintln!("No binary path supplied. Using default: {DEFAULT_BINARY_PATH}");
+            eprintln!("{} No binary path supplied. Using default: {DEFAULT_BINARY_PATH}", String::from("[WARNING]").red());
             DEFAULT_BINARY_PATH.to_string()
         });
     let metadata = fs::metadata(&log_path).unwrap();
     let mut tick_rate = DEFAULT_TICK_RATE;
     if metadata.size() > 500000000 {
-        println!("Log size: {} bytes", metadata.size().red());
-        println!("Caching snapshots of the log every {} operations can lower latency at the cost of higher RAM usage.", MAP_CACHE_SIZE.cyan());
-        println!("Slowing the TUI tick rate can prevent CPU throttling at the cost of a slight delay when refreshing the memory map window.");
-        println!("{} to enable these optimisations. {} to ignore.", String::from("y/Y").green(), String::from("n/N").red());
+        let info = String::from("[INFO]");
+        let info = info.yellow();
+        println!("{} Log size: {} bytes. Large logs may degrade performance.", info, metadata.size().red());
+        println!("{} Caching snapshots of the log every {} operations lowers latency at the cost of higher RAM usage.", info, MAP_CACHE_SIZE.cyan());
+        println!("{} Slowing the TUI tick rate from {}ms to {}ms prevents CPU throttling at the cost of a slight delay when refreshing the memory map window.", info, DEFAULT_TICK_RATE.cyan(), LARGE_FILE_TICK_RATE.cyan());
+        println!("{} {} to enable these optimisations. {} to ignore.", info, String::from("y/Y").green(), String::from("n/N").red());
         let mut input = String::new();
         loop {
             input.clear();

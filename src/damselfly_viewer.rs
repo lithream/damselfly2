@@ -2,6 +2,7 @@ pub mod instruction;
 pub mod consts;
 use std::cmp::{max, min};
 use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::mem::discriminant;
 use std::rc::Rc;
 use std::time::Duration;
 use nohash_hasher::BuildNoHashHasher;
@@ -150,8 +151,14 @@ impl DamselflyViewer {
 
         let mut current_map_snapshot = NoHashMap::default();
         while let Ok(instruction) = self.instruction_rx.recv_timeout(Duration::from_nanos(1)) {
-            let instruction_string = instruction.get_operation().to_string();
-            eprintln!("Processing instruction {}: {}", counter.cyan(), instruction_string);
+            let operation = instruction.get_operation();
+            let mut instruction_string = operation.to_string();
+            match operation {
+                MemoryUpdate::Allocation(..) =>
+                    eprintln!("Processing instruction {}: {}", counter.cyan(), instruction_string.red()),
+                MemoryUpdate::Free(..) =>
+                    eprintln!("Processing instruction {}: {}", counter.cyan(), instruction_string.green()),
+            }
             if counter % MAP_CACHE_SIZE == 0 {
                 eprintln!("Caching map...");
                 self.memory_map_snapshots.push(current_map_snapshot.clone());
