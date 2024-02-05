@@ -89,8 +89,10 @@ impl MemorySysTraceParser {
             self.instruction_tx.send(instruction).expect("[MemorySysTraceParser::parse_log]: Failed to send instruction");
         }
         // EOF
+        /*
         let instruction = self.bake_instruction();
         self.instruction_tx.send(instruction).expect("[MemorySysTraceParser::parse_log]: Failed to send final instruction");
+         */
     }
 
     fn is_line_useless(next_line: &str) -> bool {

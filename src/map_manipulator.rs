@@ -30,11 +30,11 @@ impl MapManipulator {
             }
         })
         {
-            map.insert(adjacent_address, MemoryStatus::Free(callstack.clone()));
+            map.insert(adjacent_address, MemoryStatus::Free(Rc::clone(&callstack)));
             adjacent_address += 1;
             freed_memory += 1;
         }
-        map.insert(scaled_address, MemoryStatus::Free(callstack.clone()));
+        map.insert(scaled_address, MemoryStatus::Free(Rc::clone(&callstack)));
         freed_memory
     }
 

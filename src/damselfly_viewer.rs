@@ -2,15 +2,10 @@ pub mod instruction;
 pub mod consts;
 use std::cmp::{max, min};
 use std::collections::{BinaryHeap, HashMap, HashSet};
-use std::mem;
 use std::rc::Rc;
-use std::sync::{mpsc};
 use std::time::Duration;
-use log::debug;
 use nohash_hasher::BuildNoHashHasher;
-use object::bytes_of;
-use crate::app::Mode::DEFAULT;
-use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_TIMESPAN};
+use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_TIMESPAN, MAP_CACHE_SIZE};
 use crate::damselfly_viewer::instruction::Instruction;
 use crate::memory::{MemoryStatus, MemoryUpdate};
 use crate::map_manipulator::MapManipulator;
@@ -40,11 +35,11 @@ pub struct DamselflyViewer {
     timespan: (usize, usize),
     timespan_is_unlocked: bool,
     memoryspan: (usize, usize),
-    memoryspan_is_unlocked: bool,
     memory_usage_snapshots: Vec<MemoryUsage>,
     operation_history: Vec<MemoryUpdate>,
     operation_history_map: HashMap<usize, MemoryUpdate>,
     memory_map: NoHashMap<usize, MemoryStatus>,
+    memory_map_snapshots: Vec<NoHashMap<usize, MemoryStatus>>,
     min_address: usize,
     max_address: usize,
     max_usage: usize,
@@ -58,11 +53,11 @@ impl DamselflyViewer {
             timespan: (0, DEFAULT_TIMESPAN),
             timespan_is_unlocked: true,
             memoryspan: (0, consts::DEFAULT_MEMORYSPAN),
-            memoryspan_is_unlocked: false,
             memory_usage_snapshots: Vec::new(),
             operation_history: Vec::new(),
             operation_history_map: HashMap::new(),
             memory_map: NoHashMap::default(),
+            memory_map_snapshots: Vec::new(),
             min_address: usize::MAX,
             max_address: usize::MIN,
             max_usage: usize::MIN,
@@ -140,32 +135,6 @@ impl DamselflyViewer {
         self.timespan_is_unlocked = true;
     }
 
-    pub fn update(&mut self) {
-        let update = self.instruction_rx.recv();
-        match update {
-            Ok(instruction) => {
-                let modified_blocks = self.update_memory_map(&instruction);
-                self.calculate_memory_usage(&instruction, modified_blocks);
-                self.log_operation(instruction);
-            }
-            Err(_) => {
-                debug!("[damselfly_viewer::update]: Snapshot channel hung up.");
-                return;
-            }
-        }
-
-        if !self.timespan_is_unlocked {
-            self.timespan.1 += 1;
-            if self.timespan.1 > consts::DEFAULT_TIMESPAN {
-                self.timespan.0 += 1;
-            }
-        }
-
-        if !self.memoryspan_is_unlocked {
-            // do nothing, memoryspan locking in tui
-        }
-    }
-
     pub fn gulp_channel(&mut self) {
         // bookkeeping
         let mut max_usage = usize::MIN;
@@ -176,9 +145,15 @@ impl DamselflyViewer {
         let mut counter = 0;
         let mut blocks = 0;
 
+        let mut current_map_snapshot = NoHashMap::default();
         while let Ok(instruction) = self.instruction_rx.recv_timeout(Duration::from_nanos(1)) {
             eprintln!("{counter}");
+            if counter % MAP_CACHE_SIZE == 0 {
+                eprintln!("Caching map...");
+                self.memory_map_snapshots.push(current_map_snapshot.clone());
+            }
             counter += 1;
+
             let modified_blocks = self.count_modified_bytes(&instruction.get_operation(), &self.operation_history_map);
             let mut usage = self.calculate_memory_usage(&instruction, modified_blocks);
             Self::count_blocks_in_memory(&instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
@@ -188,6 +163,13 @@ impl DamselflyViewer {
             max_blocks = max(usage.blocks, max_blocks);
 
             self.memory_usage_snapshots.push(usage);
+            match instruction.get_operation() {
+                MemoryUpdate::Allocation(address, size, callstack) =>
+                    MapManipulator::allocate_memory(&mut current_map_snapshot, address, size, callstack),
+                MemoryUpdate::Free(address, callstack) => {
+                    MapManipulator::free_memory(&mut current_map_snapshot, address, callstack);
+                }
+            }
             self.log_operation(instruction);
         }
 
@@ -204,13 +186,11 @@ impl DamselflyViewer {
                 MemoryUpdate::Free(..) => MEMORY_USED_ABSOLUTE -= modified_blocks,
             }
 
-            let memory_usage = MemoryUsage {
+            MemoryUsage {
                 memory_used_absolute: MEMORY_USED_ABSOLUTE,
                 total_memory: consts::DEFAULT_MEMORY_SIZE,
                 blocks: 0,
-            };
-
-            memory_usage
+            }
         }
     }
 
@@ -221,11 +201,12 @@ impl DamselflyViewer {
                 modified_bytes = *size;
             },
             MemoryUpdate::Free(address, ..) => {
-                if let Some(MemoryUpdate::Allocation(_, size, _)) = operation_history_map.get(&address) {
+                if let Some(MemoryUpdate::Allocation(_, size, _)) = operation_history_map.get(address) {
                     modified_bytes = *size;
                 }
             }
         }
+
         modified_bytes
     }
 
@@ -348,10 +329,11 @@ impl DamselflyViewer {
     }
 
     pub fn get_map_state(&self, time: usize, span_start: usize, span_end: usize) -> (NoHashMap<usize, MemoryStatus>, Option<&MemoryUpdate>) {
-        let mut map: NoHashMap<usize, MemoryStatus> = NoHashMap::default();
-        let mut iter = self.operation_history.iter();
-        for _ in 0..=time {
-            if let Some(operation) = iter.next() {
+        let starting_snapshot = time / MAP_CACHE_SIZE;
+        let mut map = self.memory_map_snapshots.get(starting_snapshot).unwrap().clone();
+
+        for time in starting_snapshot * MAP_CACHE_SIZE..=time {
+            if let Some(operation) = self.operation_history.get(time) {
                 match operation {
                     MemoryUpdate::Allocation(absolute_address, size, callstack) => {
                         if let Some((fill_start, bytes_to_fill)) = Self::bytes_allocated_within_span(*absolute_address, *size, span_start, span_end) {
