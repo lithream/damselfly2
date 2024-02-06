@@ -1,3 +1,4 @@
+use crate::damselfly_viewer::map_manipulator;
 use crate::app::Mode;
 use std::cmp::{min};
 use std::rc::Rc;
@@ -9,10 +10,8 @@ use ratatui::widgets::{Cell, Row, Table, Wrap};
 use ratatui::widgets::block::Title;
 
 use crate::app::App;
-use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORY_SIZE, DEFAULT_MEMORYSPAN, DEFAULT_TIMESPAN, GRAPH_VERTICAL_SCALE_OFFSET};
-use crate::damselfly_viewer::NoHashMap;
-use crate::map_manipulator::MapManipulator;
-use crate::memory::{MemoryStatus, MemoryUpdate};
+use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORYSPAN, DEFAULT_TIMESPAN, GRAPH_VERTICAL_SCALE_OFFSET};
+use crate::damselfly_viewer::memory_structs::{MemoryStatus, MemoryUpdate, NoHashMap};
 
 /// Renders the user interface widgets.
 pub fn render(app: &mut App, frame: &mut Frame) {
@@ -81,8 +80,8 @@ fn get_map_and_latest_op(app: &mut App) -> (NoHashMap<usize, MemoryStatus>, Opti
                 let span = app.damselfly_viewer.get_timespan();
                 let map_state =
                     app.damselfly_viewer.get_map_state(span.0 + graph_highlight,
-                                                       MapManipulator::scale_address_up(app.map_span.0),
-                                                       MapManipulator::scale_address_up(app.map_span.1));
+                                                       map_manipulator::scale_address_up(app.map_span.0),
+                                                       map_manipulator::scale_address_up(app.map_span.1));
                 let map = map_state.0;
                 let operation = map_state.1.cloned();
                 (map, operation)
@@ -113,8 +112,8 @@ fn get_blocks_data(app: &mut App) -> usize {
 
 fn snap_memoryspan_to_latest_operation(app: &mut App, latest_address: usize) {
     let mut new_map_span = app.map_span;
-    let relative_address = MapManipulator::scale_address_down(latest_address);
-    let address_of_row = MapManipulator::get_address_of_row(app.row_length, relative_address);
+    let relative_address = map_manipulator::scale_address_down(latest_address);
+    let address_of_row = map_manipulator::get_address_of_row(app.row_length, relative_address);
     if relative_address >= app.map_span.1 {
         new_map_span.0 = address_of_row.saturating_sub(DEFAULT_MEMORYSPAN / 2);
         new_map_span.1 = new_map_span.0 + DEFAULT_MEMORYSPAN;
@@ -189,7 +188,7 @@ fn draw_memorymap(app: &mut App, map_area: &Rect, stats_area: &Rc<[Rect]>, frame
         .column_spacing(0)
         .block(Block::default()
             .title(format!("MEMORY MAP [{:x}] [VIEW: {locked_status}] [{:x} - {:x}]",
-                           MapManipulator::scale_address_up(app.map_highlight.unwrap_or(0)),
+                           map_manipulator::scale_address_up(app.map_highlight.unwrap_or(0)),
                            (address_bounds.0),
                            (address_bounds.1))
             )

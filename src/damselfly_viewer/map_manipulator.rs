@@ -1,26 +1,22 @@
 use std::rc::Rc;
 use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE};
-use crate::memory::{MemoryStatus};
+use crate::damselfly_viewer::memory_structs::{MemoryStatus};
 use crate::damselfly_viewer::NoHashMap;
 
-pub struct MapManipulator {
+pub fn allocate_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, bytes: usize, callstack: Rc<String>) {
+    let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
+    let scaled_size = bytes / DEFAULT_BLOCK_SIZE;
+    for i in 0..scaled_size {
+        map.insert(scaled_address + i, MemoryStatus::Allocated(scaled_address, bytes, Rc::clone(&callstack)));
+    }
 }
 
-impl MapManipulator {
-    pub fn allocate_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, bytes: usize, callstack: Rc<String>) {
-        let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
-        let scaled_size = bytes / DEFAULT_BLOCK_SIZE;
-        for i in 0..scaled_size {
-            map.insert(scaled_address + i, MemoryStatus::Allocated(scaled_address, bytes, Rc::clone(&callstack)));
-        }
-    }
-
-    pub fn free_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, callstack: Rc<String>) -> usize {
-        let mut freed_memory = 1;
-        let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
-        let mut adjacent_address = scaled_address + 1;
-        while map.get(&adjacent_address)
-            .is_some_and(|block_state| {
+pub fn free_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, callstack: Rc<String>) -> usize {
+    let mut freed_memory = 1;
+    let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
+    let mut adjacent_address = scaled_address + 1;
+    while map.get(&adjacent_address)
+        .is_some_and(|block_state| {
             match block_state {
                 MemoryStatus::Allocated(parent_block, _, _) =>
                     *parent_block == scaled_address,
@@ -29,31 +25,30 @@ impl MapManipulator {
                 MemoryStatus::Free(_) => false,
             }
         })
-        {
-            map.insert(adjacent_address, MemoryStatus::Free(Rc::clone(&callstack)));
-            adjacent_address += 1;
-            freed_memory += 1;
-        }
-        map.insert(scaled_address, MemoryStatus::Free(Rc::clone(&callstack)));
-        freed_memory
+    {
+        map.insert(adjacent_address, MemoryStatus::Free(Rc::clone(&callstack)));
+        adjacent_address += 1;
+        freed_memory += 1;
     }
+    map.insert(scaled_address, MemoryStatus::Free(Rc::clone(&callstack)));
+    freed_memory
+}
 
-    pub fn view_memory(map: &NoHashMap<usize, MemoryStatus>, absolute_address: usize) -> Option<&MemoryStatus> {
-        let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
-        map.get(&scaled_address)
-    }
+pub fn view_memory(map: &NoHashMap<usize, MemoryStatus>, absolute_address: usize) -> Option<&MemoryStatus> {
+    let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
+    map.get(&scaled_address)
+}
 
-    pub fn scale_address_down(absolute_address: usize) -> usize {
-        absolute_address / DEFAULT_BLOCK_SIZE
-    }
+pub fn scale_address_down(absolute_address: usize) -> usize {
+    absolute_address / DEFAULT_BLOCK_SIZE
+}
 
-    pub fn scale_address_up(relative_address: usize) -> usize {
-        relative_address * DEFAULT_BLOCK_SIZE
-    }
+pub fn scale_address_up(relative_address: usize) -> usize {
+    relative_address * DEFAULT_BLOCK_SIZE
+}
 
-    pub fn get_address_of_row(row_length: usize, relative_address: usize) -> usize {
-        (relative_address / row_length) * row_length
-    }
+pub fn get_address_of_row(row_length: usize, relative_address: usize) -> usize {
+    (relative_address / row_length) * row_length
 }
 
 #[cfg(test)]

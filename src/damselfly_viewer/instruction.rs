@@ -1,4 +1,4 @@
-use crate::memory::MemoryUpdate;
+use crate::damselfly_viewer::memory_structs::MemoryUpdate;
 
 #[derive(Clone, Debug)]
 pub struct Instruction {

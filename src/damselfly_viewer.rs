@@ -1,41 +1,26 @@
 pub mod instruction;
+pub mod map_manipulator;
 pub mod consts;
+pub mod memory_structs;
+pub mod memory_parsers;
+
+
 use std::cmp::{max, min};
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::Duration;
-use nohash_hasher::BuildNoHashHasher;
 use owo_colors::OwoColorize;
 use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_TIMESPAN, MAP_CACHE_SIZE};
 use crate::damselfly_viewer::instruction::Instruction;
-use crate::memory::{MemoryStatus, MemoryUpdate};
-use crate::map_manipulator::MapManipulator;
+use crate::damselfly_viewer::memory_structs::{MemoryStatus, MemoryUpdate, MemoryUsage, NoHashMap};
 
-
-pub type NoHashMap<K, V> = HashMap<K, V, BuildNoHashHasher<K>>;
-
-#[derive(Debug, Default, Clone)]
-pub struct MemoryUsage {
-    pub memory_used_absolute: usize,
-    pub total_memory: usize,
-    pub blocks: usize,
-}
-
-pub struct Ranking {
-    function: String,
-    memory_used: usize,
-}
-
-pub struct Leaderboard {
-    heap: BinaryHeap<Ranking>
-}
 
 #[derive(Debug)]
 pub struct DamselflyViewer {
     instruction_rx: crossbeam_channel::Receiver<Instruction>,
     timespan: (usize, usize),
     timespan_is_unlocked: bool,
-    memoryspan: (usize, usize),
+    memory_span: (usize, usize),
     memory_usage_snapshots: Vec<MemoryUsage>,
     operation_history: Vec<MemoryUpdate>,
     operation_history_map: HashMap<usize, MemoryUpdate>,
@@ -53,7 +38,7 @@ impl DamselflyViewer {
             instruction_rx,
             timespan: (0, DEFAULT_TIMESPAN),
             timespan_is_unlocked: true,
-            memoryspan: (0, consts::DEFAULT_MEMORYSPAN),
+            memory_span: (0, consts::DEFAULT_MEMORYSPAN),
             memory_usage_snapshots: Vec::new(),
             operation_history: Vec::new(),
             operation_history_map: HashMap::new(),
@@ -173,9 +158,9 @@ impl DamselflyViewer {
             self.memory_usage_snapshots.push(usage);
             match instruction.get_operation() {
                 MemoryUpdate::Allocation(address, size, callstack) =>
-                    MapManipulator::allocate_memory(&mut current_map_snapshot, address, size, callstack),
+                    map_manipulator::allocate_memory(&mut current_map_snapshot, address, size, callstack),
                 MemoryUpdate::Free(address, callstack) => {
-                    MapManipulator::free_memory(&mut current_map_snapshot, address, callstack);
+                    map_manipulator::free_memory(&mut current_map_snapshot, address, callstack);
                 }
             }
             self.log_operation(instruction);
@@ -328,8 +313,8 @@ impl DamselflyViewer {
         let starting_snapshot = time / MAP_CACHE_SIZE;
         let mut map =
             Self::clone_map_partial(self.memory_map_snapshots.get(starting_snapshot).unwrap(),
-                                    MapManipulator::scale_address_down(span_start),
-                                    MapManipulator::scale_address_down(span_end));
+                                    map_manipulator::scale_address_down(span_start),
+                                    map_manipulator::scale_address_down(span_end));
 
         for cur_time in starting_snapshot * MAP_CACHE_SIZE..=time {
             if let Some(operation) = self.operation_history.get(cur_time) {
@@ -388,7 +373,7 @@ impl DamselflyViewer {
             return None;
         }
 
-        while let Some(block_status) = MapManipulator::view_memory(map, current_address) {
+        while let Some(block_status) = map_manipulator::view_memory(map, current_address) {
             match block_status {
                 MemoryStatus::Allocated(allocated_parent_block, _, _) => {
                     if *allocated_parent_block != parent_block {
@@ -415,7 +400,7 @@ impl DamselflyViewer {
     pub fn count_adjacent_allocated_blocks(start_address: usize, end_address: usize, parent_block_address: usize, map: &NoHashMap<usize, MemoryStatus>) -> usize {
         let mut current_address = start_address;
         current_address += 1;
-        while let Some(next_block) = MapManipulator::view_memory(map, current_address) {
+        while let Some(next_block) = map_manipulator::view_memory(map, current_address) {
             match next_block {
                 MemoryStatus::Allocated(allocated_parent_block, ..) => {
                     if *allocated_parent_block != parent_block_address {
@@ -437,36 +422,8 @@ impl DamselflyViewer {
         (current_address - start_address) / DEFAULT_BLOCK_SIZE
     }
 
-    fn free_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, callstack: Rc<String>) {
-        let scaled_address = MapManipulator::scale_address_down(absolute_address);
-        if scaled_address * DEFAULT_BLOCK_SIZE != absolute_address {
-            panic!("[DamselflyViewer::free_memory]: Block arithmetic error");
-        }
-        let mut offset = 0;
-        if map.get(&scaled_address).is_none() {
-            map.insert(scaled_address, MemoryStatus::Free(Rc::clone(&callstack)));
-        }
-        while let Some(status) = map.get(&(scaled_address + offset)) {
-            match status {
-                MemoryStatus::Allocated(parent_block, _, _) => {
-                    if *parent_block != scaled_address {
-                        return;
-                    }
-                }
-                MemoryStatus::PartiallyAllocated(parent_block, _) => {
-                    if *parent_block != scaled_address {
-                        return;
-                    }
-                }
-                MemoryStatus::Free(_) => return,
-            }
-            map.insert(scaled_address + offset, MemoryStatus::Free(Rc::clone(&callstack)));
-            offset += 1;
-        }
-    }
-
     fn free_memory_manual(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, bytes: usize, callstack: Rc<String>) {
-        let scaled_address = MapManipulator::scale_address_down(absolute_address);
+        let scaled_address = map_manipulator::scale_address_down(absolute_address);
         if scaled_address * DEFAULT_BLOCK_SIZE != absolute_address {
             panic!("[DamselflyViewer::free_memory]: Block arithmetic error");
         }
@@ -477,7 +434,7 @@ impl DamselflyViewer {
     }
 
     pub fn allocate_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, bytes: usize, callstack: Rc<String>) {
-        let scaled_address = MapManipulator::scale_address_down(absolute_address);
+        let scaled_address = map_manipulator::scale_address_down(absolute_address);
         if bytes == 0 {
             return;
         }
@@ -504,8 +461,8 @@ impl DamselflyViewer {
         self.timespan
     }
 
-    pub fn get_memoryspan(&self) -> (usize, usize) {
-        self.memoryspan
+    pub fn get_memory_span(&self) -> (usize, usize) {
+        self.memory_span
     }
 
     pub fn get_total_operations(&self) -> usize {
@@ -536,8 +493,12 @@ mod tests {
     use crate::damselfly_viewer::{DamselflyViewer, consts};
     use crate::damselfly_viewer::consts::{DEFAULT_BINARY_PATH, DEFAULT_GADDR2LINE_PATH, DEFAULT_TIMESPAN};
     use crate::damselfly_viewer::instruction::Instruction;
-    use crate::map_manipulator::MapManipulator;
-    use crate::memory::{MemorySysTraceParser, MemoryUpdate};
+    use crate::damselfly_viewer::map_manipulator::map_manipulator;
+    use crate::damselfly_viewer::memory_parsers::MemorySysTraceParser;
+    use crate::damselfly_viewer::memory_structs::MemoryUpdate;
+    use crate::damselfly_viewer::map_manipulator;
+    use crate::damselfly_viewer::memory_parsers::MemorySysTraceParser;
+    use crate::damselfly_viewer::memory_structs::MemoryUpdate;
 
     fn initialise_viewer() -> (DamselflyViewer, MemorySysTraceParser) {
         let (memory_stub, instruction_rx) = MemorySysTraceParser::new();
@@ -603,7 +564,7 @@ mod tests {
     #[test]
     fn count_adjacent_blocks_allocation_outside_span_test() {
         let (mut damselfly_viewer, _ ) = initialise_viewer();
-        MapManipulator::allocate_memory(&mut damselfly_viewer.memory_map, 0, 128, Rc::new(String::from("test")));
+        map_manipulator::allocate_memory(&mut damselfly_viewer.memory_map, 0, 128, Rc::new(String::from("test")));
         let count = DamselflyViewer::count_adjacent_allocated_blocks(256, 128, 0, &damselfly_viewer.memory_map);
         assert_eq!(count, 0);
     }
@@ -611,7 +572,7 @@ mod tests {
     #[test]
     fn count_adjacent_blocks_allocation_flowing_into_span_test() {
         let (mut damselfly_viewer, _ ) = initialise_viewer();
-        MapManipulator::allocate_memory(&mut damselfly_viewer.memory_map, 0, 128, Rc::new(String::from("test")));
+        map_manipulator::allocate_memory(&mut damselfly_viewer.memory_map, 0, 128, Rc::new(String::from("test")));
         let count = DamselflyViewer::count_adjacent_allocated_blocks(64, 128, 0, &damselfly_viewer.memory_map);
         assert_eq!(count, 16);
     }

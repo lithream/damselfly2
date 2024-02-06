@@ -3,7 +3,7 @@ use owo_colors::OwoColorize;
 use crate::app::Mode::DEFAULT;
 use crate::damselfly_viewer::consts::{DEFAULT_MEMORYSPAN, DEFAULT_ROW_LENGTH};
 use crate::damselfly_viewer::DamselflyViewer;
-use crate::memory::MemorySysTraceParser;
+use crate::damselfly_viewer::memory_parsers::MemorySysTraceParser;
 
 /// Application result type.
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
