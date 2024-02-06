@@ -3,7 +3,7 @@ use std::fmt::Display;
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 use nohash_hasher::BuildNoHashHasher;
-use crate::damselfly_viewer::instruction::Instruction;
+use crate::damselfly::instruction::Instruction;
 
 pub type NoHashMap<K, V> = HashMap<K, V, BuildNoHashHasher<K>>;
 
@@ -16,9 +16,9 @@ pub struct MemoryUsage {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum MemoryUpdate {
-    // (address, size, callstack)
+    // (address, size, callstack, timestamp)
     Allocation(usize, usize, Rc<String>),
-    // (address, callstack)
+    // (address, callstack, timestamp)
     Free(usize, Rc<String>),
 }
 

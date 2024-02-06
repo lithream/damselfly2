@@ -6,7 +6,7 @@ use std::{env, fs, io};
 use std::os::unix::fs::MetadataExt;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
-use map::damselfly_viewer::consts::{DEFAULT_BINARY_PATH, DEFAULT_LOG_PATH, DEFAULT_TICK_RATE, LARGE_FILE_TICK_RATE, MAP_CACHE_SIZE};
+use map::damselfly::consts::{DEFAULT_BINARY_PATH, DEFAULT_LOG_PATH, DEFAULT_TICK_RATE, LARGE_FILE_TICK_RATE, MAP_CACHE_SIZE};
 use owo_colors::OwoColorize;
 
 fn main() -> AppResult<()> {

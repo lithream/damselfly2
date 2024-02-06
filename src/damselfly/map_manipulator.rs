@@ -1,7 +1,7 @@
 use std::rc::Rc;
-use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE};
-use crate::damselfly_viewer::memory_structs::{MemoryStatus};
-use crate::damselfly_viewer::NoHashMap;
+use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE};
+use crate::damselfly::memory_structs::{MemoryStatus};
+use crate::damselfly::memory_structs::NoHashMap;
 
 pub fn allocate_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, bytes: usize, callstack: Rc<String>) {
     let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
@@ -54,14 +54,14 @@ pub fn get_address_of_row(row_length: usize, relative_address: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use std::rc::Rc;
-    use crate::damselfly_viewer::NoHashMap;
-    use crate::map_manipulator::MapManipulator;
-    use crate::memory::MemoryStatus;
+    use crate::damselfly::NoHashMap;
+    use crate::damselfly::map_manipulator;
+    use crate::damselfly::memory_structs::MemoryStatus;
 
     #[test]
     fn allocate_memory_test() {
         let mut map: NoHashMap<usize, MemoryStatus> = NoHashMap::default();
-        MapManipulator::allocate_memory(&mut map, 0, 20, Rc::new("callstack".to_string()));
+        map_manipulator::allocate_memory(&mut map, 0, 20, Rc::new("callstack".to_string()));
         for i in 0..5 {
             assert!(matches!(map.get(&i).unwrap(), MemoryStatus::Allocated(..)));
         }
@@ -71,8 +71,8 @@ mod tests {
     #[test]
     fn allocate_memory_test_multiple_test() {
         let mut map: NoHashMap<usize, MemoryStatus> = NoHashMap::default();
-        MapManipulator::allocate_memory(&mut map, 0, 20, Rc::new("callstack".to_string()));
-        MapManipulator::allocate_memory(&mut map, 24, 20, Rc::new("callstack2".to_string()));
+        map_manipulator::allocate_memory(&mut map, 0, 20, Rc::new("callstack".to_string()));
+        map_manipulator::allocate_memory(&mut map, 24, 20, Rc::new("callstack2".to_string()));
 
         for i in 0..5 {
             assert!(matches!(map.get(&i).unwrap(), MemoryStatus::Allocated(..)));
@@ -88,8 +88,8 @@ mod tests {
     #[test]
     fn free_memory_test() {
         let mut map: NoHashMap<usize, MemoryStatus> = NoHashMap::default();
-        MapManipulator::allocate_memory(&mut map, 0, 20, Rc::new("callstack".to_string()));
-        MapManipulator::free_memory(&mut map, 0, Rc::new("callstack".to_string()));
+        map_manipulator::allocate_memory(&mut map, 0, 20, Rc::new("callstack".to_string()));
+        map_manipulator::free_memory(&mut map, 0, Rc::new("callstack".to_string()));
         for i in 0..5 {
             assert!(matches!(map.get(&i).unwrap(), MemoryStatus::Free(..)));
         }
@@ -99,15 +99,15 @@ mod tests {
     #[test]
     fn free_memory_multiple_test() {
         let mut map: NoHashMap<usize, MemoryStatus> = NoHashMap::default();
-        MapManipulator::allocate_memory(&mut map, 0, 20, Rc::new("callstack".to_string()));
-        MapManipulator::allocate_memory(&mut map, 20, 20, Rc::new("callstack".to_string()));
-        MapManipulator::free_memory(&mut map, 0, Rc::new("callstack".to_string()));
+        map_manipulator::allocate_memory(&mut map, 0, 20, Rc::new("callstack".to_string()));
+        map_manipulator::allocate_memory(&mut map, 20, 20, Rc::new("callstack".to_string()));
+        map_manipulator::free_memory(&mut map, 0, Rc::new("callstack".to_string()));
         for i in 0..5 {
             assert!(matches!(map.get(&i).unwrap(), MemoryStatus::Free(..)));
         }
         assert!(matches!(map.get(&5).unwrap(), MemoryStatus::Allocated(..)));
 
-        MapManipulator::free_memory(&mut map, 20, Rc::new("callstack".to_string()));
+        map_manipulator::free_memory(&mut map, 20, Rc::new("callstack".to_string()));
         for i in 0..5 {
             assert!(matches!(map.get(&i).unwrap(), MemoryStatus::Free(..)));
         }

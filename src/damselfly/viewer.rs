@@ -1,23 +1,16 @@
-pub mod instruction;
-pub mod map_manipulator;
-pub mod consts;
-pub mod memory_structs;
-pub mod memory_parsers;
-
-
 use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
-use std::time::Duration;
 use owo_colors::OwoColorize;
-use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_TIMESPAN, MAP_CACHE_SIZE};
-use crate::damselfly_viewer::instruction::Instruction;
-use crate::damselfly_viewer::memory_structs::{MemoryStatus, MemoryUpdate, MemoryUsage, NoHashMap};
+use crate::damselfly::{consts, map_manipulator};
+use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_TIMESPAN, MAP_CACHE_SIZE};
+use crate::damselfly::instruction::Instruction;
+use crate::damselfly::memory_structs::{MemoryStatus, MemoryUpdate, MemoryUsage, NoHashMap};
 
 
 #[derive(Debug)]
 pub struct DamselflyViewer {
-    instruction_rx: crossbeam_channel::Receiver<Instruction>,
+    instructions: Vec<Instruction>,
     timespan: (usize, usize),
     timespan_is_unlocked: bool,
     memory_span: (usize, usize),
@@ -33,9 +26,9 @@ pub struct DamselflyViewer {
 }
 
 impl DamselflyViewer {
-    pub fn new(instruction_rx: crossbeam_channel::Receiver<Instruction>) -> DamselflyViewer {
+    pub fn new() -> DamselflyViewer {
         DamselflyViewer {
-            instruction_rx,
+            instructions: Vec::new(),
             timespan: (0, DEFAULT_TIMESPAN),
             timespan_is_unlocked: true,
             memory_span: (0, consts::DEFAULT_MEMORYSPAN),
@@ -111,7 +104,7 @@ impl DamselflyViewer {
 
     /// Locks the timespan, forcing it to automatically follow along as new data streams in.
     pub fn lock_timespan(&mut self) {
-        let current_span = max(consts::DEFAULT_TIMESPAN, self.timespan.1 - self.timespan.0);
+        let current_span = max(DEFAULT_TIMESPAN, self.timespan.1 - self.timespan.0);
         self.timespan.1 = self.memory_usage_snapshots.len().saturating_sub(1);
         self.timespan.0 = self.timespan.1.saturating_sub(current_span);
         self.timespan_is_unlocked = false;
@@ -121,7 +114,7 @@ impl DamselflyViewer {
         self.timespan_is_unlocked = true;
     }
 
-    pub fn gulp_channel(&mut self) {
+    pub fn load_instructions(&mut self, instructions: Vec<Instruction>) {
         // bookkeeping
         let mut max_usage = usize::MIN;
         let mut max_blocks = usize::MIN;
@@ -132,7 +125,7 @@ impl DamselflyViewer {
         let mut blocks = 0;
 
         let mut current_map_snapshot = NoHashMap::default();
-        while let Ok(instruction) = self.instruction_rx.recv_timeout(Duration::from_nanos(1)) {
+        for instruction in instructions {
             let operation = instruction.get_operation();
             let instruction_string = operation.to_string();
             match operation {
@@ -170,7 +163,7 @@ impl DamselflyViewer {
         self.max_blocks = max_blocks;
     }
 
-    pub fn calculate_memory_usage(&mut self, instruction: &Instruction, modified_blocks: usize) -> MemoryUsage {
+    pub fn calculate_memory_usage(&self, instruction: &Instruction, modified_blocks: usize) -> MemoryUsage {
         unsafe {
             // calculate total usage
             static mut MEMORY_USED_ABSOLUTE: usize = 0;
@@ -262,6 +255,7 @@ impl DamselflyViewer {
         }
         self.operation_history.push(operation.clone());
         self.operation_history_map.insert(op_address, operation);
+        self.instructions.push(instruction);
     }
 
     pub fn get_address_bounds(&self) -> (usize, usize) {
@@ -478,7 +472,7 @@ impl DamselflyViewer {
         }
         &self.operation_history[start..=end]
     }
-    
+
     pub fn is_timespan_locked(&self) -> bool {
         !self.timespan_is_unlocked
     }
@@ -488,30 +482,29 @@ impl DamselflyViewer {
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
-    use std::iter::Map;
     use std::rc::Rc;
-    use crate::damselfly_viewer::{DamselflyViewer, consts};
-    use crate::damselfly_viewer::consts::{DEFAULT_BINARY_PATH, DEFAULT_GADDR2LINE_PATH, DEFAULT_TIMESPAN};
-    use crate::damselfly_viewer::instruction::Instruction;
-    use crate::damselfly_viewer::map_manipulator::map_manipulator;
-    use crate::damselfly_viewer::memory_parsers::MemorySysTraceParser;
-    use crate::damselfly_viewer::memory_structs::MemoryUpdate;
-    use crate::damselfly_viewer::map_manipulator;
-    use crate::damselfly_viewer::memory_parsers::MemorySysTraceParser;
-    use crate::damselfly_viewer::memory_structs::MemoryUpdate;
+    use crate::damselfly::consts;
+    use crate::damselfly::viewer::DamselflyViewer;
+    use crate::damselfly::consts::{DEFAULT_BINARY_PATH, DEFAULT_TIMESPAN};
+    use crate::damselfly::instruction::Instruction;
+    use crate::damselfly::memory_parsers::MemorySysTraceParser;
+    use crate::damselfly::memory_structs::MemoryUpdate;
+    use crate::damselfly::map_manipulator;
+    use crate::damselfly::memory_parsers::MemorySysTraceParser;
+    use crate::damselfly::memory_structs::MemoryUpdate;
 
-    fn initialise_viewer() -> (DamselflyViewer, MemorySysTraceParser) {
-        let (memory_stub, instruction_rx) = MemorySysTraceParser::new();
-        let damselfly_viewer = DamselflyViewer::new(instruction_rx);
-        (damselfly_viewer, memory_stub)
+    fn initialise_viewer(test_log_path: &str, binary_path: &str) -> DamselflyViewer {
+        let log = std::fs::read_to_string(test_log_path).unwrap();
+        let mut memory_stub = MemorySysTraceParser::new();
+        let instructions = memory_stub.parse_log(log, binary_path);
+        let mut damselfly_viewer = DamselflyViewer::new();
+        damselfly_viewer.load_instructions(instructions);
+        damselfly_viewer
     }
 
     #[test]
     fn shift_timespan() {
-        let (mut damselfly_viewer, mut mst_parser) = initialise_viewer();
-        let log = std::fs::read_to_string(consts::TEST_LOG_PATH).unwrap();
-        mst_parser.parse_log(log, DEFAULT_BINARY_PATH);
-        damselfly_viewer.gulp_channel();
+        let mut damselfly_viewer = initialise_viewer(consts::TEST_LOG_PATH, DEFAULT_BINARY_PATH);
         damselfly_viewer.shift_timespan_to_beginning();
         assert_eq!(damselfly_viewer.timespan.0, 0);
         assert_eq!(damselfly_viewer.timespan.1, DEFAULT_TIMESPAN);
@@ -525,10 +518,7 @@ mod tests {
 
     #[test]
     fn shift_timespan_left_cap() {
-        let (mut damselfly_viewer, mut mst_parser) = initialise_viewer();
-        let log = std::fs::read_to_string(consts::TEST_LOG_PATH).unwrap();
-        mst_parser.parse_log(log, DEFAULT_BINARY_PATH);
-        damselfly_viewer.gulp_channel();
+        let mut damselfly_viewer = initialise_viewer(consts::TEST_LOG_PATH, DEFAULT_BINARY_PATH);
         damselfly_viewer.shift_timespan_to_beginning();
         damselfly_viewer.shift_timespan_left(3);
         assert_eq!(damselfly_viewer.timespan.0, 0);
@@ -543,10 +533,7 @@ mod tests {
 
     #[test]
     fn shift_timespan_right() {
-        let (mut damselfly_viewer, mut mst_parser) = initialise_viewer();
-        let log = std::fs::read_to_string(consts::TEST_LOG_PATH).unwrap();
-        mst_parser.parse_log(log, DEFAULT_BINARY_PATH);
-        damselfly_viewer.gulp_channel();
+        let mut damselfly_viewer = initialise_viewer(consts::TEST_LOG_PATH, DEFAULT_BINARY_PATH);
         damselfly_viewer.shift_timespan_to_beginning();
         damselfly_viewer.shift_timespan_left(3);
         assert_eq!(damselfly_viewer.timespan.0, 0);
@@ -563,7 +550,7 @@ mod tests {
 
     #[test]
     fn count_adjacent_blocks_allocation_outside_span_test() {
-        let (mut damselfly_viewer, _ ) = initialise_viewer();
+        let mut damselfly_viewer = initialise_viewer(consts::TEST_LOG_PATH, DEFAULT_BINARY_PATH);
         map_manipulator::allocate_memory(&mut damselfly_viewer.memory_map, 0, 128, Rc::new(String::from("test")));
         let count = DamselflyViewer::count_adjacent_allocated_blocks(256, 128, 0, &damselfly_viewer.memory_map);
         assert_eq!(count, 0);
@@ -571,7 +558,7 @@ mod tests {
 
     #[test]
     fn count_adjacent_blocks_allocation_flowing_into_span_test() {
-        let (mut damselfly_viewer, _ ) = initialise_viewer();
+        let mut damselfly_viewer = initialise_viewer(consts::TEST_LOG_PATH, DEFAULT_BINARY_PATH);
         map_manipulator::allocate_memory(&mut damselfly_viewer.memory_map, 0, 128, Rc::new(String::from("test")));
         let count = DamselflyViewer::count_adjacent_allocated_blocks(64, 128, 0, &damselfly_viewer.memory_map);
         assert_eq!(count, 16);

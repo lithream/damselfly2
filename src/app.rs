@@ -1,9 +1,9 @@
 use std::{error};
 use owo_colors::OwoColorize;
 use crate::app::Mode::DEFAULT;
-use crate::damselfly_viewer::consts::{DEFAULT_MEMORYSPAN, DEFAULT_ROW_LENGTH};
-use crate::damselfly_viewer::DamselflyViewer;
-use crate::damselfly_viewer::memory_parsers::MemorySysTraceParser;
+use crate::damselfly::consts::{DEFAULT_MEMORYSPAN, DEFAULT_ROW_LENGTH};
+use crate::damselfly::viewer::DamselflyViewer;
+use crate::damselfly::memory_parsers::MemorySysTraceParser;
 
 /// Application result type.
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
@@ -43,15 +43,15 @@ pub struct App {
 impl App {
     /// Constructs a new instance of [`App`].
     pub fn new(trace_path: &str, binary_path: &str) -> Self {
-        let (mut mst_parser, instruction_rx) = MemorySysTraceParser::new();
+        let mut mst_parser = MemorySysTraceParser::new();
         println!("Reading log file into memory: {}", trace_path.cyan());
         let log = std::fs::read_to_string(trace_path).unwrap();
         println!("Parsing instructions");
-        mst_parser.parse_log(log, binary_path);
+        let instructions = mst_parser.parse_log(log, binary_path);
         println!("Initialising DamselflyViewer");
-        let mut damselfly_viewer = DamselflyViewer::new(instruction_rx);
+        let mut damselfly_viewer = DamselflyViewer::new();
         println!("Populating memory logs");
-        damselfly_viewer.gulp_channel();
+        damselfly_viewer.load_instructions(instructions);
         App {
             running: true,
             damselfly_viewer,

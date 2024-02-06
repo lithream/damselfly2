@@ -1,5 +1,5 @@
-use crate::damselfly_viewer::MemoryUpdate;
-use crate::damselfly_viewer::memory_structs::RecordType;
+use crate::damselfly::memory_structs::MemoryUpdate;
+use crate::damselfly::memory_structs::RecordType;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::Read;
@@ -8,10 +8,9 @@ use std::rc::Rc;
 use std::str::Split;
 use addr2line::{Context};
 use owo_colors::OwoColorize;
-use crate::damselfly_viewer::instruction::Instruction;
+use crate::damselfly::instruction::Instruction;
 
 pub struct MemorySysTraceParser {
-    instruction_tx: crossbeam_channel::Sender<Instruction>,
     time: usize,
     record_queue: Vec<RecordType>,
     symbols: HashMap<usize, String>,
@@ -19,14 +18,14 @@ pub struct MemorySysTraceParser {
 }
 
 impl MemorySysTraceParser {
-    pub fn new() -> (MemorySysTraceParser, crossbeam_channel::Receiver<Instruction>) {
-        let (tx, rx) = crossbeam_channel::unbounded();
-        (MemorySysTraceParser {
-            instruction_tx: tx, time: 0, record_queue: Vec::new(), symbols: HashMap::new(), prefix: String::new()
-        }, rx)
+    pub fn new() -> MemorySysTraceParser {
+        MemorySysTraceParser {
+            time: 0, record_queue: Vec::new(), symbols: HashMap::new(), prefix: String::new()
+        }
     }
 
-    pub fn parse_log(&mut self, log: String, binary_path: &str) {
+    pub fn parse_log(&mut self, log: String, binary_path: &str) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
         self.parse_symbols(&log, binary_path);
         let mut log_iter = log.split('\n').peekable();
         while let Some(line) = log_iter.peek() {
@@ -36,8 +35,9 @@ impl MemorySysTraceParser {
             }
             println!("Processing instruction: {}", line.cyan());
             let instruction = self.process_instruction(&mut log_iter);
-            self.instruction_tx.send(instruction).expect("[MemorySysTraceParser::parse_log]: Failed to send instruction");
+            instructions.push(instruction);
         }
+        instructions
         // EOF
         /*
         let instruction = self.bake_instruction();
@@ -277,14 +277,14 @@ impl MemorySysTraceParser {
 
 #[cfg(test)]
 mod tests {
-    use crate::damselfly_viewer::consts::{TEST_BINARY_PATH};
-    use crate::damselfly_viewer::memory_parsers::MemorySysTraceParser;
-    use crate::damselfly_viewer::memory_structs::{MemoryUpdate, RecordType};
-    use crate::damselfly_viewer::memory_parsers::MemorySysTraceParser;
-    use crate::damselfly_viewer::memory_structs::{RecordType, MemoryUpdate};
+    use crate::damselfly::consts::{TEST_BINARY_PATH};
+    use crate::damselfly::memory_parsers::MemorySysTraceParser;
+    use crate::damselfly::memory_structs::{MemoryUpdate, RecordType};
+    use crate::damselfly::memory_parsers::MemorySysTraceParser;
+    use crate::damselfly::memory_structs::{RecordType, MemoryUpdate};
     #[test]
     fn is_line_useless_test() {
-        let (mst_parser, _) = MemorySysTraceParser::new();
+        let mst_parser = MemorySysTraceParser::new();
         let allocation_record = "00001068: 039dcb32 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> + e150202c 14";
         let free_record = "00001053: 039dc9d7 |V|A|005|       67 us   0003.677 s    < DT:0xE14DEEBC> - e150202c";
         let stacktrace_record = "00001069: 039dcb32 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e150202c [e045d83b]";
@@ -303,7 +303,7 @@ mod tests {
 
     #[test]
     fn bake_instruction_alloc_test() {
-        let (mut mst_parser, _) = MemorySysTraceParser::new();
+        let mut mst_parser = MemorySysTraceParser::new();
         mst_parser.record_queue.push(RecordType::Allocation(0, 4, "callstack".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "1".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "2".to_string()));
@@ -319,7 +319,7 @@ mod tests {
 
     #[test]
     fn bake_instruction_free_test() {
-        let (mut mst_parser, _) = MemorySysTraceParser::new();
+        let mut mst_parser = MemorySysTraceParser::new();
         mst_parser.record_queue.push(RecordType::Free(0, "callstack".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "1".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "2".to_string()));
@@ -335,14 +335,14 @@ mod tests {
     #[test]
     #[should_panic]
     fn bake_instruction_empty_test() {
-        let (mut mst_parser, _) = MemorySysTraceParser::new();
+        let mut mst_parser = MemorySysTraceParser::new();
         mst_parser.bake_instruction();
     }
 
     #[test]
     #[should_panic]
     fn bake_instruction_invalid_queue_trace_only_test() {
-        let (mut mst_parser, _) = MemorySysTraceParser::new();
+        let mut mst_parser = MemorySysTraceParser::new();
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
         mst_parser.bake_instruction();
     }
@@ -350,7 +350,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn bake_instruction_invalid_queue_trace_first_allocation_test() {
-        let (mut mst_parser, _) = MemorySysTraceParser::new();
+        let mut mst_parser = MemorySysTraceParser::new();
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
@@ -364,7 +364,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn bake_instruction_invalid_queue_trace_first_free_test() {
-        let (mut mst_parser, _) = MemorySysTraceParser::new();
+        let mut mst_parser = MemorySysTraceParser::new();
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
@@ -377,7 +377,7 @@ mod tests {
 
     #[test]
     fn process_alloc_or_free_first_record_test(){
-        let (mut mst_parser, _) = MemorySysTraceParser::new();
+        let mut mst_parser = MemorySysTraceParser::new();
         let record = RecordType::Allocation(0, 4, "callstack".to_string());
         let instruction = mst_parser.process_alloc_or_free(Some(record));
         assert!(instruction.is_none());
@@ -395,7 +395,7 @@ mod tests {
 
     #[test]
     fn process_alloc_or_free_existing_records_test() {
-        let (mut mst_parser, _) = MemorySysTraceParser::new();
+        let mut mst_parser = MemorySysTraceParser::new();
         let alloc_record = RecordType::Allocation(0, 4, "callstack".to_string());
         let records = vec![
             RecordType::StackTrace(0, "1".to_string()),
@@ -468,7 +468,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn process_stacktrace_empty_queue_test() {
-        let (mut mst_parser, _) = MemorySysTraceParser::new();
+        let mut mst_parser = MemorySysTraceParser::new();
         mst_parser.process_stacktrace(
             RecordType::StackTrace(0, "1".to_string())
         );
@@ -476,7 +476,7 @@ mod tests {
 
     #[test]
     fn line_to_record_alloc_test() {
-        let (mst_parser, _) = MemorySysTraceParser::new();
+        let mst_parser = MemorySysTraceParser::new();
         let line = "00001444: 039e0edc |V|A|005|        0 us   0003.678 s    < DT:0xE1504C74> + e150206c 20";
         let record = mst_parser.line_to_record(line).unwrap();
         match record {
@@ -492,7 +492,7 @@ mod tests {
 
     #[test]
     fn line_to_record_free_test() {
-        let (mst_parser, _) = MemorySysTraceParser::new();
+        let mst_parser = MemorySysTraceParser::new();
         let line = "00001190: 039dd8f5 |V|A|005|       13 us   0003.677 s    < DT:0xE1504B54> - e150202c";
         let record = mst_parser.line_to_record(line).unwrap();
         match record {
@@ -507,7 +507,7 @@ mod tests {
 
     #[test]
     fn line_to_record_trace_test() {
-        let (mst_parser, _) = MemorySysTraceParser::new();
+        let mst_parser = MemorySysTraceParser::new();
         let line = "00001191: 039dd8f5 |V|A|005|        0 us   0003.677 s    < DT:0xE1504B54> ^ e150202c [e045d889]";
         let record = mst_parser.line_to_record(line).unwrap();
         match record {
@@ -521,7 +521,7 @@ mod tests {
 
     #[test]
     fn parse_log_test() {
-        let (mut mst_parser, instruction_rx) = MemorySysTraceParser::new();
+        let mut mst_parser = MemorySysTraceParser::new();
         let log = "\
        00001066: 039dcad2 |V|B|002|        0 us   0003.677 s    < DT:0xE14DEEBC> ActivityMonitorStandard::runTimer::state 2
 00001067: 039dcb32 |V|B|002|        6 us   0003.677 s    < DT:0xE14DEEBC> ActivityMonitorStandard::runTimer: starting timer to state 2 because of no state activity
@@ -565,21 +565,21 @@ mod tests {
 00001105: 039dd04f |V|A|005|        0 us   0003.677 s    < DT:0xE1504B54> + e15020a4 6c
  ";
 
-        mst_parser.parse_log(log.to_string(), TEST_BINARY_PATH);
-        let alloc = instruction_rx.recv().unwrap();
+        let instructions = mst_parser.parse_log(log.to_string(), TEST_BINARY_PATH);
+        let alloc = instructions.get(0).unwrap();
         if let MemoryUpdate::Allocation(address, size, callstack) = alloc.get_operation() {
             assert_eq!(address, 3780124716);
             assert_eq!(size, 20);
             assert!(callstack.is_empty());
         }
         assert_eq!(alloc.get_timestamp(), 0);
-        let free = instruction_rx.recv().unwrap();
+        let free = instructions.get(1).unwrap();
         if let MemoryUpdate::Free(address, callstack) = free.get_operation() {
             assert_eq!(address, 3780124716);
             assert!(callstack.is_empty());
         }
         assert_eq!(free.get_timestamp(), 1);
-        let alloc = instruction_rx.recv().unwrap();
+        let alloc = instructions.get(2).unwrap();
         if let MemoryUpdate::Allocation(address, size, callstack) = alloc.get_operation() {
             assert_eq!(address, 3780124836);
             assert_eq!(size, 108);
@@ -590,7 +590,7 @@ mod tests {
 
     #[test]
     fn parse_log_garbage_at_end_test() {
-        let (mut mst_parser, instruction_rx) = MemorySysTraceParser::new();
+        let mut mst_parser = MemorySysTraceParser::new();
         let log = "\
        00057601: 0b1972d8 |V|A|005|       11 us   0011.712 s    < DT:0xE14B3B4C> - e1504dc4
 00057602: 0b1972d8 |V|A|005|        0 us   0011.712 s    < DT:0xE14B3B4C> ^ e1504dc4 [e045d889]
@@ -602,9 +602,8 @@ mod tests {
 00057608: 0b197a34 |V|B|002|        0 us   0011.712 s    < DT:0xE14DEEBC> sched_switch from pid <0xe14e6d94> (priority 235) to pid <0xe14deebc> (priority 235)
 00057609: 0b197a70 |V|B|002|        3 us   0011.712 s    < DT:0xE14E6D94> sched_switch from pid <0xe14deebc> (priority 255) to pid <0xe14e6d94> (priority 235)
  ";
-        mst_parser.parse_log(log.to_string(), TEST_BINARY_PATH);
-        let free = instruction_rx.recv().unwrap();
-        assert!(matches!(free.get_operation(), MemoryUpdate::Free(..)));
+        let instructions = mst_parser.parse_log(log.to_string(), TEST_BINARY_PATH);
+        assert!(matches!(instructions.first().unwrap().get_operation(), MemoryUpdate::Free(..)));
     }
 
     #[test]
@@ -622,7 +621,7 @@ mod tests {
 
     #[test]
     fn parse_log_symbols_test() {
-        let (mut mst_parser, instruction_rx) = MemorySysTraceParser::new();
+        let mut mst_parser = MemorySysTraceParser::new();
         let log = "\
 00000811: 039da1f3 |V|A|005|        0 us   0003.676 s    < DT:0xE14DEEBC> + e150202c 14
 00000812: 039da1f3 |V|A|005|        0 us   0003.676 s    < DT:0xE14DEEBC> ^ e150202c [e045d83b]

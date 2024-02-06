@@ -13,8 +13,5 @@ pub mod tui;
 /// Event handler.
 pub mod handler;
 
-/// Memory
-pub mod memory;
-
 /// Damselfly
-pub mod damselfly_viewer;
+pub mod damselfly;

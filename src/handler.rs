@@ -2,7 +2,7 @@ use std::cmp::{max, min};
 use crate::app::{App, AppResult};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use crate::app::Mode::{DEFAULT, STACKTRACE};
-use crate::damselfly_viewer::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORYSPAN, DEFAULT_TIMESPAN, MIN_ROW_LENGTH};
+use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORYSPAN, DEFAULT_TIMESPAN, MIN_ROW_LENGTH};
 
 /// Handles the key events and updates the state of [`App`].
 pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
