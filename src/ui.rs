@@ -1,3 +1,4 @@
+/*
 use crate::damselfly::map_manipulator;
 use crate::app::Mode;
 use std::rc::Rc;
@@ -77,11 +78,11 @@ fn get_map_and_latest_op(app: &mut App) -> (NoHashMap<usize, MemoryStatus>, Opti
     (map_data, latest_operation)
 }
 
-fn get_graph_data(app: &mut App) -> Vec<(f64, f64)> {
+fn get_graph_data(app: &mut App) -> Vec<[f64; 2]> {
     let mut graph_binding = app.damselfly_controller.get_current_memory_usage_graph();
     graph_binding.iter_mut().for_each(|point| {
-        point.1 *= app.graph_scale;
-        point.1 /= GRAPH_VERTICAL_SCALE_OFFSET;
+        point[1] *= app.graph_scale;
+        point[1] /= GRAPH_VERTICAL_SCALE_OFFSET;
     });
     let graph_data = graph_binding.as_slice();
     Vec::from(graph_data)
@@ -287,3 +288,4 @@ fn generate_rows(rows: usize, row_length: usize, map_span: (usize, usize), map_h
     }
     grid
 }
+ */

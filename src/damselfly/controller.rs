@@ -134,7 +134,7 @@ impl DamselflyController {
         self.viewer.get_memory_usage_at(self.graph_highlight + self.timespan.0)
     }
 
-    pub fn get_current_memory_usage_graph(&self) -> Vec<(f64, f64)> {
+    pub fn get_current_memory_usage_graph(&self) -> Vec<[f64; 2]> {
         self.viewer.get_memory_usage_view(self.timespan.0, self.timespan.1)
     }
 

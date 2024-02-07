@@ -1,15 +1,11 @@
-use map::app::{App, AppResult};
-use map::event::{Event, EventHandler};
-use map::handler::handle_key_events;
-use map::tui::Tui;
 use std::{env, fs, io};
-use std::os::unix::fs::MetadataExt;
-use ratatui::backend::CrosstermBackend;
-use ratatui::Terminal;
-use map::damselfly::consts::{DEFAULT_BINARY_PATH, DEFAULT_LOG_PATH, DEFAULT_TICK_RATE, LARGE_FILE_TICK_RATE, MAP_CACHE_SIZE};
+use map::damselfly::consts::{DEFAULT_BINARY_PATH, DEFAULT_LOG_PATH};
 use owo_colors::OwoColorize;
+use map::app::App;
 
-fn main() -> AppResult<()> {
+// When compiling natively:
+#[cfg(not(target_arch = "wasm32"))]
+fn main() -> eframe::Result<()> {
     let args: Vec<String> = env::args().collect();
     // Create an application.
     let log_path = args.get(1)
@@ -25,59 +21,42 @@ fn main() -> AppResult<()> {
             eprintln!("{} No binary path supplied. Using default: {DEFAULT_BINARY_PATH}", String::from("[WARNING]").red());
             DEFAULT_BINARY_PATH.to_string()
         });
-    let metadata = fs::metadata(&log_path).unwrap();
-    let mut tick_rate = DEFAULT_TICK_RATE;
-    if metadata.size() > 500000000 {
-        let info = String::from("[INFO]");
-        let info = info.yellow();
-        println!("{} Log size: {} bytes. Large logs may degrade performance.", info, metadata.size().red());
-        println!("{} Caching snapshots of the log every {} operations lowers latency at the cost of higher RAM usage.", info, MAP_CACHE_SIZE.cyan());
-        println!("{} Slowing the TUI tick rate from {}ms to {}ms prevents CPU throttling at the cost of a slight delay when refreshing the memory map window.", info, DEFAULT_TICK_RATE.cyan(), LARGE_FILE_TICK_RATE.cyan());
-        println!("{} {} to enable these optimisations. {} to ignore.", info, String::from("y/Y").green(), String::from("n/N").red());
-        let mut input = String::new();
-        loop {
-            input.clear();
-            io::stdin().read_line(&mut input).unwrap();
-            let input = input.trim();
-            match input {
-                "y" => {
-                    tick_rate = LARGE_FILE_TICK_RATE;
-                    break;
-                }
-                "n" => {
-                    tick_rate = DEFAULT_TICK_RATE;
-                    break;
-                }
-                _ => {
-                    println!("Invalid response. Please enter y/Y or n/N.");
-                }
-            }
-        }
-    }
 
-    let mut app = App::new(log_path.as_str(), binary_path.as_str());
+    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    let native_options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([400.0, 300.0])
+            .with_min_inner_size([300.0, 220.0])
+            .with_icon(
+                // NOE: Adding an icon is optional
+                eframe::icon_data::from_png_bytes(&include_bytes!("../assets/icon-256.png")[..])
+                    .unwrap(),
+            ),
+        ..Default::default()
+    };
+    eframe::run_native(
+        "eframe template",
+        native_options,
+        Box::new(|cc| Box::new(App::new(cc, log_path, binary_path))),
+    )
+}
 
-    // Initialize the terminal user interface.
-    let backend = CrosstermBackend::new(io::stderr());
-    let terminal = Terminal::new(backend)?;
-    let events = EventHandler::new(tick_rate);
-    let mut tui = Tui::new(terminal, events);
-    tui.init()?;
+// When compiling to web using trunk:
+#[cfg(target_arch = "wasm32")]
+fn main() {
+    // Redirect `log` message to `console.log` and friends:
+    eframe::WebLogger::init(log::LevelFilter::Debug).ok();
 
-    // Start the main loop.
-    while app.running {
-        // Render the user interface.
-        tui.draw(&mut app)?;
-        // Handle events.
-        match tui.events.next()? {
-            Event::Tick => {}
-            Event::Key(key_event) => handle_key_events(key_event, &mut app)?,
-            Event::Mouse(_) => {}
-            Event::Resize(_, _) => {}
-        }
-    }
+    let web_options = eframe::WebOptions::default();
 
-    // Exit the user interface.
-    tui.exit()?;
-    Ok(())
+    wasm_bindgen_futures::spawn_local(async {
+        eframe::WebRunner::new()
+            .start(
+                "the_canvas_id", // hardcode it
+                web_options,
+                Box::new(|cc| Box::new(App::new(cc, log_path, binary_path))),
+            )
+            .await
+            .expect("failed to start eframe");
+    });
 }

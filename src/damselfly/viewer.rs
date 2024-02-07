@@ -222,14 +222,14 @@ impl DamselflyViewer {
         }
     }
 
-    pub fn get_memory_usage_view(&self, span_start: usize, span_end: usize) -> Vec<(f64, f64)> {
+    pub fn get_memory_usage_view(&self, span_start: usize, span_end: usize) -> Vec<[f64; 2]> {
         let mut vector = Vec::new();
         for i in span_start..min(self.memory_usage_snapshots.len(), span_end) {
             let memory_used_absolute = self.memory_usage_snapshots.get(i)
                 .expect("[DamselflyViewer::get_memory_usage_view]: Error getting timestamp from memory_usage_snapshots")
                 .memory_used_absolute;
             let memory_used_percentage = memory_used_absolute as f64 * 100.0 / self.max_usage as f64;
-            vector.push(((i - span_start) as f64, memory_used_percentage));
+            vector.push([(i - span_start) as f64, memory_used_percentage]);
         }
         vector
     }
