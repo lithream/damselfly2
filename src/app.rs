@@ -128,10 +128,10 @@ impl App {
     }
 
     fn draw_graph(&mut self, ctx: &Context) {
-        let graph_data = PlotPoints::from(self.damselfly_controller.get_current_memory_usage_graph());
+        let graph_data = PlotPoints::from(self.damselfly_controller.get_full_memory_usage_graph());
         let line = Line::new(graph_data);
         egui::CentralPanel::default().show(ctx, |ui| {
-            Plot::new("plot").view_aspect(2.0).show(ui, |plot_ui| plot_ui.line(line));
+            let plot_response = Plot::new("plot").view_aspect(2.0).show(ui, |plot_ui| plot_ui.line(line));
         });
     }
 }

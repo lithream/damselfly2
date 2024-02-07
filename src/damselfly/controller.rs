@@ -100,6 +100,11 @@ impl DamselflyController {
         self.timespan_freelook = false;
     }
 
+    pub fn extend_span_to_cover_all_data(&mut self) {
+        self.timespan.0 = 0;
+        self.timespan.1 = self.viewer.get_total_operations() - 1;
+    }
+
     pub fn unlock_timespan(&mut self) {
         self.timespan_freelook = true;
     }
@@ -136,6 +141,11 @@ impl DamselflyController {
 
     pub fn get_current_memory_usage_graph(&self) -> Vec<[f64; 2]> {
         self.viewer.get_memory_usage_view(self.timespan.0, self.timespan.1)
+    }
+
+    pub fn get_full_memory_usage_graph(&self) -> Vec<[f64; 2]> {
+        let end = self.viewer.get_total_operations() - 1;
+        self.viewer.get_memory_usage_view(0, end)
     }
 
     pub fn get_current_map_state(&mut self) -> (NoHashMap<usize, MemoryStatus>, Option<&MemoryUpdate>) {
