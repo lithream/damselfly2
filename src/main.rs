@@ -56,7 +56,6 @@ fn main() -> AppResult<()> {
     }
 
     let mut app = App::new(log_path.as_str(), binary_path.as_str());
-    app.graph_highlight = Some(0);
 
     // Initialize the terminal user interface.
     let backend = CrosstermBackend::new(io::stderr());

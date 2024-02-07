@@ -3,17 +3,14 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use owo_colors::OwoColorize;
 use crate::damselfly::{consts, map_manipulator};
-use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_TIMESPAN, MAP_CACHE_SIZE};
+use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, MAP_CACHE_SIZE};
 use crate::damselfly::instruction::Instruction;
 use crate::damselfly::memory_structs::{MemoryStatus, MemoryUpdate, MemoryUsage, NoHashMap};
 
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct DamselflyViewer {
     instructions: Vec<Instruction>,
-    timespan: (usize, usize),
-    timespan_is_unlocked: bool,
-    memory_span: (usize, usize),
     memory_usage_snapshots: Vec<MemoryUsage>,
     operation_history: Vec<MemoryUpdate>,
     operation_history_map: HashMap<usize, MemoryUpdate>,
@@ -29,9 +26,6 @@ impl DamselflyViewer {
     pub fn new() -> DamselflyViewer {
         DamselflyViewer {
             instructions: Vec::new(),
-            timespan: (0, DEFAULT_TIMESPAN),
-            timespan_is_unlocked: true,
-            memory_span: (0, consts::DEFAULT_MEMORYSPAN),
             memory_usage_snapshots: Vec::new(),
             operation_history: Vec::new(),
             operation_history_map: HashMap::new(),
@@ -44,74 +38,8 @@ impl DamselflyViewer {
         }
     }
 
-    /// Shifts timespan to the right.
-    ///
-    /// The absolute distance shifted is computed by multiplying units with the
-    /// current timespan.
-    ///
-    pub fn shift_timespan_right(&mut self, units: usize) -> bool {
-        let right = &mut self.timespan.1;
-        let left = &mut self.timespan.0;
-        debug_assert!(*right > *left);
-        let span = *right - *left;
-        if span < DEFAULT_TIMESPAN { return false; }
-        let absolute_shift = units * DEFAULT_TIMESPAN;
-
-        if *right + absolute_shift > self.memory_usage_snapshots.len() - 1 {
-            *right = self.memory_usage_snapshots.len() - 1;
-            *left = *right - DEFAULT_TIMESPAN;
-            return false;
-        }
-
-        *right = min((*right).saturating_add(absolute_shift), self.memory_usage_snapshots.len() - 1);
-        *left = min((*left).saturating_add(absolute_shift), *right - DEFAULT_TIMESPAN);
-
-        debug_assert!(right > left);
-        true
-    }
-
-    /// Shifts timespan to the left.
-    ///
-    /// The absolute distance shifted is computed by multiplying units with the
-    /// current timespan.
-    ///
-    pub fn shift_timespan_left(&mut self, units: usize) {
-        self.timespan_is_unlocked = true;
-        let right = &mut self.timespan.1;
-        let left = &mut self.timespan.0;
-        debug_assert!(*right > *left);
-        let span = *right - *left;
-        let absolute_shift = units * span;
-
-        *left = (*left).saturating_sub(absolute_shift);
-        *right = *left + DEFAULT_TIMESPAN;
-        debug_assert!(*right > *left);
-    }
-
-
-    pub fn shift_timespan_to_beginning(&mut self) {
-        let span = self.get_timespan();
-        self.timespan.0 = 0;
-        self.timespan.1 = span.1 - span.0;
-    }
-
-    /// Shifts timespan to include the most recent data.
-    pub fn shift_timespan_to_end(&mut self) {
-        let span = self.get_timespan();
-        self.timespan.1 = self.get_total_operations() - 1;
-        self.timespan.0 = self.timespan.1 - (span.1 - span.0);
-    }
-
-    /// Locks the timespan, forcing it to automatically follow along as new data streams in.
-    pub fn lock_timespan(&mut self) {
-        let current_span = max(DEFAULT_TIMESPAN, self.timespan.1 - self.timespan.0);
-        self.timespan.1 = self.memory_usage_snapshots.len().saturating_sub(1);
-        self.timespan.0 = self.timespan.1.saturating_sub(current_span);
-        self.timespan_is_unlocked = false;
-    }
-
-    pub fn unlock_timespan(&mut self) {
-        self.timespan_is_unlocked = true;
+    pub fn count_memory_usage_snapshots(&self) -> usize {
+        self.memory_usage_snapshots.len()
     }
 
     pub fn load_instructions(&mut self, instructions: Vec<Instruction>) {
@@ -121,11 +49,10 @@ impl DamselflyViewer {
         let mut start_addresses = HashSet::new();
         let mut end_addresses = HashSet::new();
 
-        let mut counter = 0;
         let mut blocks = 0;
 
         let mut current_map_snapshot = NoHashMap::default();
-        for instruction in instructions {
+        for (counter, instruction) in instructions.iter().enumerate() {
             let operation = instruction.get_operation();
             let instruction_string = operation.to_string();
             match operation {
@@ -138,7 +65,6 @@ impl DamselflyViewer {
                 eprintln!("Caching map...");
                 self.memory_map_snapshots.push(current_map_snapshot.clone());
             }
-            counter += 1;
 
             let modified_blocks = self.count_modified_bytes(&instruction.get_operation(), &self.operation_history_map);
             let mut usage = self.calculate_memory_usage(&instruction, modified_blocks);
@@ -156,7 +82,7 @@ impl DamselflyViewer {
                     map_manipulator::free_memory(&mut current_map_snapshot, address, callstack);
                 }
             }
-            self.log_operation(instruction);
+            self.log_operation(instruction.clone());
         }
 
         self.max_usage = max_usage;
@@ -167,15 +93,22 @@ impl DamselflyViewer {
         unsafe {
             // calculate total usage
             static mut MEMORY_USED_ABSOLUTE: usize = 0;
-            match instruction.get_operation() {
-                MemoryUpdate::Allocation(..) => MEMORY_USED_ABSOLUTE += modified_blocks,
-                MemoryUpdate::Free(..) => MEMORY_USED_ABSOLUTE -= modified_blocks,
-            }
+            let latest_address = match instruction.get_operation() {
+                MemoryUpdate::Allocation(address, ..) => {
+                    MEMORY_USED_ABSOLUTE += modified_blocks;
+                    address
+                },
+                MemoryUpdate::Free(address, ..) => {
+                    MEMORY_USED_ABSOLUTE -= modified_blocks;
+                    address
+                },
+            };
 
             MemoryUsage {
                 memory_used_absolute: MEMORY_USED_ABSOLUTE,
                 total_memory: consts::DEFAULT_MEMORY_SIZE,
                 blocks: 0,
+                latest_operation: latest_address,
             }
         }
     }
@@ -270,6 +203,7 @@ impl DamselflyViewer {
                     memory_used_absolute: 0,
                     total_memory: consts::DEFAULT_MEMORY_SIZE,
                     blocks: 0,
+                    latest_operation: 0,
                 }
             }
             Some(memory_usage) => (*memory_usage).clone()
@@ -284,17 +218,18 @@ impl DamselflyViewer {
             memory_used_absolute: 0,
             total_memory: consts::DEFAULT_MEMORY_SIZE,
             blocks: 0,
+            latest_operation: 0,
         }
     }
 
-    pub fn get_memory_usage_view(&self) -> Vec<(f64, f64)> {
+    pub fn get_memory_usage_view(&self, span_start: usize, span_end: usize) -> Vec<(f64, f64)> {
         let mut vector = Vec::new();
-        for i in self.timespan.0..min(self.memory_usage_snapshots.len(), self.timespan.1) {
+        for i in span_start..min(self.memory_usage_snapshots.len(), span_end) {
             let memory_used_absolute = self.memory_usage_snapshots.get(i)
                 .expect("[DamselflyViewer::get_memory_usage_view]: Error getting timestamp from memory_usage_snapshots")
                 .memory_used_absolute;
             let memory_used_percentage = memory_used_absolute as f64 * 100.0 / self.max_usage as f64;
-            vector.push(((i - self.timespan.0) as f64, memory_used_percentage));
+            vector.push(((i - span_start) as f64, memory_used_percentage));
         }
         vector
     }
@@ -303,23 +238,23 @@ impl DamselflyViewer {
         (self.memory_map.clone(), self.operation_history.get(self.get_total_operations().saturating_sub(1)))
     }
 
-    pub fn get_map_state(&mut self, time: usize, span_start: usize, span_end: usize) -> (NoHashMap<usize, MemoryStatus>, Option<&MemoryUpdate>) {
+    pub fn get_map_state(&self, time: usize, absolute_span_start: usize, absolute_span_end: usize) -> (NoHashMap<usize, MemoryStatus>, Option<&MemoryUpdate>) {
         let starting_snapshot = time / MAP_CACHE_SIZE;
         let mut map =
             Self::clone_map_partial(self.memory_map_snapshots.get(starting_snapshot).unwrap(),
-                                    map_manipulator::scale_address_down(span_start),
-                                    map_manipulator::scale_address_down(span_end));
+                                    map_manipulator::absolute_to_logical(absolute_span_start),
+                                    map_manipulator::absolute_to_logical(absolute_span_end));
 
         for cur_time in starting_snapshot * MAP_CACHE_SIZE..=time {
             if let Some(operation) = self.operation_history.get(cur_time) {
                 match operation {
                     MemoryUpdate::Allocation(absolute_address, size, callstack) => {
-                        if let Some((fill_start, bytes_to_fill)) = Self::bytes_allocated_within_span(*absolute_address, *size, span_start, span_end) {
+                        if let Some((fill_start, bytes_to_fill)) = Self::bytes_allocated_within_span(*absolute_address, *size, absolute_span_start, absolute_span_end) {
                             Self::allocate_memory(&mut map, fill_start, bytes_to_fill, Rc::clone(callstack));
                         }
                     }
                     MemoryUpdate::Free(absolute_address, callstack) => {
-                        if let Some((free_start, bytes_to_free)) = Self::bytes_freed_within_span(*absolute_address, span_start, span_end, &map) {
+                        if let Some((free_start, bytes_to_free)) = Self::bytes_freed_within_span(*absolute_address, absolute_span_start, absolute_span_end, &map) {
                             Self::free_memory_manual(&mut map, free_start, bytes_to_free, Rc::clone(callstack));
                         }
                     }
@@ -339,19 +274,19 @@ impl DamselflyViewer {
         new_map
     }
 
-    pub fn bytes_allocated_within_span(op_address: usize, size: usize, span_start: usize, span_end: usize) -> Option<(usize, usize)> {
-        let span_size = (span_end - span_start) * DEFAULT_BLOCK_SIZE;
+    pub fn bytes_allocated_within_span(op_address: usize, size: usize, absolute_span_start: usize, absolute_span_end: usize) -> Option<(usize, usize)> {
+        let span_size = (absolute_span_end - absolute_span_start) * DEFAULT_BLOCK_SIZE;
         // allocation starts before span and does not continue into it
-        if op_address + size < span_start {
+        if op_address + size < absolute_span_start {
             return None;
         }
         // allocation starts before span, but continues into it
-        if op_address < span_start {
-            let bytes_to_fill = min(span_size, op_address + size - span_start);
-            return Some((span_start, bytes_to_fill));
+        if op_address < absolute_span_start {
+            let bytes_to_fill = min(span_size, op_address + size - absolute_span_start);
+            return Some((absolute_span_start, bytes_to_fill));
         }
         // allocation starts inside span
-        if op_address >= span_start && op_address <= span_end {
+        if op_address >= absolute_span_start && op_address <= absolute_span_end {
             let bytes_to_fill = min(size, span_size);
             return Some((op_address, bytes_to_fill));
         }
@@ -359,11 +294,11 @@ impl DamselflyViewer {
         None
     }
 
-    pub fn bytes_freed_within_span(parent_block: usize, span_start: usize, span_end: usize, map: &NoHashMap<usize, MemoryStatus>) -> Option<(usize, usize)> {
-        let start = max(parent_block, span_start);
+    pub fn bytes_freed_within_span(parent_block: usize, absolute_span_start: usize, absolute_span_end: usize, map: &NoHashMap<usize, MemoryStatus>) -> Option<(usize, usize)> {
+        let start = max(parent_block, absolute_span_start);
         let mut current_address = start;
         // If free happens after the span, it need not be reflected within the span
-        if parent_block > span_end {
+        if parent_block > absolute_span_end {
             return None;
         }
 
@@ -384,7 +319,7 @@ impl DamselflyViewer {
                 }
             }
             current_address += 1;
-            if current_address > span_end {
+            if current_address > absolute_span_end {
                 return Some((start, current_address - start));
             }
         }
@@ -417,7 +352,7 @@ impl DamselflyViewer {
     }
 
     fn free_memory_manual(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, bytes: usize, callstack: Rc<String>) {
-        let scaled_address = map_manipulator::scale_address_down(absolute_address);
+        let scaled_address = map_manipulator::absolute_to_logical(absolute_address);
         if scaled_address * DEFAULT_BLOCK_SIZE != absolute_address {
             panic!("[DamselflyViewer::free_memory]: Block arithmetic error");
         }
@@ -428,7 +363,7 @@ impl DamselflyViewer {
     }
 
     pub fn allocate_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, bytes: usize, callstack: Rc<String>) {
-        let scaled_address = map_manipulator::scale_address_down(absolute_address);
+        let scaled_address = map_manipulator::absolute_to_logical(absolute_address);
         if bytes == 0 {
             return;
         }
@@ -437,7 +372,7 @@ impl DamselflyViewer {
             return;
         }
 
-        let full_blocks = bytes / DEFAULT_BLOCK_SIZE;
+        let full_blocks = map_manipulator::absolute_to_logical(bytes);
         for block_count in 0..full_blocks {
             map.insert(scaled_address + block_count, MemoryStatus::Allocated(absolute_address, bytes, Rc::clone(&callstack)));
         }
@@ -451,16 +386,12 @@ impl DamselflyViewer {
         self.operation_history.get(time)
     }
 
-    pub fn get_timespan(&self) -> (usize, usize) {
-        self.timespan
-    }
-
-    pub fn get_memory_span(&self) -> (usize, usize) {
-        self.memory_span
-    }
-
     pub fn get_total_operations(&self) -> usize {
         self.memory_usage_snapshots.len()
+    }
+
+    pub fn get_operation_log(&self, start: usize, end: usize) -> &[MemoryUpdate] {
+        &self.operation_history[start..=end]
     }
 
     pub fn get_operation_log_span(&self, mut start: usize, mut end: usize) -> &[MemoryUpdate] {
@@ -472,156 +403,4 @@ impl DamselflyViewer {
         }
         &self.operation_history[start..=end]
     }
-
-    pub fn is_timespan_locked(&self) -> bool {
-        !self.timespan_is_unlocked
-    }
-
 }
-
-#[cfg(test)]
-mod tests {
-    use std::collections::HashSet;
-    use std::rc::Rc;
-    use crate::damselfly::consts;
-    use crate::damselfly::viewer::DamselflyViewer;
-    use crate::damselfly::consts::{DEFAULT_BINARY_PATH, DEFAULT_TIMESPAN};
-    use crate::damselfly::instruction::Instruction;
-    use crate::damselfly::memory_parsers::MemorySysTraceParser;
-    use crate::damselfly::memory_structs::MemoryUpdate;
-    use crate::damselfly::map_manipulator;
-    use crate::damselfly::memory_parsers::MemorySysTraceParser;
-    use crate::damselfly::memory_structs::MemoryUpdate;
-
-    fn initialise_viewer(test_log_path: &str, binary_path: &str) -> DamselflyViewer {
-        let log = std::fs::read_to_string(test_log_path).unwrap();
-        let mut memory_stub = MemorySysTraceParser::new();
-        let instructions = memory_stub.parse_log(log, binary_path);
-        let mut damselfly_viewer = DamselflyViewer::new();
-        damselfly_viewer.load_instructions(instructions);
-        damselfly_viewer
-    }
-
-    #[test]
-    fn shift_timespan() {
-        let mut damselfly_viewer = initialise_viewer(consts::TEST_LOG_PATH, DEFAULT_BINARY_PATH);
-        damselfly_viewer.shift_timespan_to_beginning();
-        assert_eq!(damselfly_viewer.timespan.0, 0);
-        assert_eq!(damselfly_viewer.timespan.1, DEFAULT_TIMESPAN);
-        damselfly_viewer.shift_timespan_left(1);
-        assert_eq!(damselfly_viewer.timespan.0, 0);
-        assert_eq!(damselfly_viewer.timespan.1, DEFAULT_TIMESPAN);
-        damselfly_viewer.shift_timespan_right(1);
-        assert_eq!(damselfly_viewer.timespan.0, DEFAULT_TIMESPAN);
-        assert_eq!(damselfly_viewer.timespan.1, DEFAULT_TIMESPAN * 2);
-    }
-
-    #[test]
-    fn shift_timespan_left_cap() {
-        let mut damselfly_viewer = initialise_viewer(consts::TEST_LOG_PATH, DEFAULT_BINARY_PATH);
-        damselfly_viewer.shift_timespan_to_beginning();
-        damselfly_viewer.shift_timespan_left(3);
-        assert_eq!(damselfly_viewer.timespan.0, 0);
-        assert_eq!(damselfly_viewer.timespan.1, DEFAULT_TIMESPAN);
-        damselfly_viewer.shift_timespan_right(1);
-        assert_eq!(damselfly_viewer.timespan.0, DEFAULT_TIMESPAN);
-        assert_eq!(damselfly_viewer.timespan.1, DEFAULT_TIMESPAN * 2);
-        damselfly_viewer.shift_timespan_left(2);
-        assert_eq!(damselfly_viewer.timespan.0, 0);
-        assert_eq!(damselfly_viewer.timespan.1, DEFAULT_TIMESPAN);
-    }
-
-    #[test]
-    fn shift_timespan_right() {
-        let mut damselfly_viewer = initialise_viewer(consts::TEST_LOG_PATH, DEFAULT_BINARY_PATH);
-        damselfly_viewer.shift_timespan_to_beginning();
-        damselfly_viewer.shift_timespan_left(3);
-        assert_eq!(damselfly_viewer.timespan.0, 0);
-        assert_eq!(damselfly_viewer.timespan.1, DEFAULT_TIMESPAN);
-        damselfly_viewer.shift_timespan_right(1);
-        assert_eq!(damselfly_viewer.timespan.0, DEFAULT_TIMESPAN);
-        assert_eq!(damselfly_viewer.timespan.1, DEFAULT_TIMESPAN * 2);
-        damselfly_viewer.shift_timespan_to_end();
-        damselfly_viewer.shift_timespan_right(2);
-        let length = damselfly_viewer.memory_usage_snapshots.len();
-        assert_eq!(damselfly_viewer.timespan.0, length - DEFAULT_TIMESPAN - 1);
-        assert_eq!(damselfly_viewer.timespan.1, length - 1);
-    }
-
-    #[test]
-    fn count_adjacent_blocks_allocation_outside_span_test() {
-        let mut damselfly_viewer = initialise_viewer(consts::TEST_LOG_PATH, DEFAULT_BINARY_PATH);
-        map_manipulator::allocate_memory(&mut damselfly_viewer.memory_map, 0, 128, Rc::new(String::from("test")));
-        let count = DamselflyViewer::count_adjacent_allocated_blocks(256, 128, 0, &damselfly_viewer.memory_map);
-        assert_eq!(count, 0);
-    }
-
-    #[test]
-    fn count_adjacent_blocks_allocation_flowing_into_span_test() {
-        let mut damselfly_viewer = initialise_viewer(consts::TEST_LOG_PATH, DEFAULT_BINARY_PATH);
-        map_manipulator::allocate_memory(&mut damselfly_viewer.memory_map, 0, 128, Rc::new(String::from("test")));
-        let count = DamselflyViewer::count_adjacent_allocated_blocks(64, 128, 0, &damselfly_viewer.memory_map);
-        assert_eq!(count, 16);
-    }
-
-    #[test]
-    fn count_blocks_in_memory_one_block_test() {
-        let instruction = Instruction::new(0, MemoryUpdate::Allocation(0, 128, Rc::new(String::from("test"))));
-        let mut start_addresses = HashSet::new();
-        let mut end_addresses = HashSet::new();
-        let mut blocks = 0;
-        DamselflyViewer::count_blocks_in_memory(&instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
-        assert_eq!(blocks, 1);
-    }
-
-    #[test]
-    fn count_blocks_in_memory_multiple_blocks_test() {
-        let mut operation_history: Vec<MemoryUpdate> = Vec::new();
-        let mut blocks = 0;
-        // one block
-        let mut start_addresses = HashSet::new();
-        let mut end_addresses = HashSet::new();
-        let latest_instruction = Instruction::new(0, MemoryUpdate::Allocation(0, 128, Rc::new(String::from("test"))));
-        operation_history.push(latest_instruction.get_operation());
-        DamselflyViewer::count_blocks_in_memory(&latest_instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
-        assert_eq!(blocks, 1);
-
-        // two blocks
-        let latest_instruction = Instruction::new(1, MemoryUpdate::Allocation(256, 128, Rc::new(String::from("test"))));
-        DamselflyViewer::count_blocks_in_memory(&latest_instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
-        assert_eq!(blocks, 2);
-        operation_history.push(latest_instruction.get_operation());
-
-        // still two blocks
-        let latest_instruction = Instruction::new(2, MemoryUpdate::Allocation(128, 64, Rc::new(String::from("test"))));
-        DamselflyViewer::count_blocks_in_memory(&latest_instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
-        assert_eq!(blocks, 2);
-        operation_history.push(latest_instruction.get_operation());
-
-        // merge into one block
-        let latest_instruction = Instruction::new(3, MemoryUpdate::Allocation(192, 64, Rc::new(String::from("test"))));
-        operation_history.push(latest_instruction.get_operation());
-        DamselflyViewer::count_blocks_in_memory(&latest_instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
-        assert_eq!(blocks, 1);
-        operation_history.push(latest_instruction.get_operation());
-
-        // split into two blocks
-        let latest_instruction = Instruction::new(4, MemoryUpdate::Free(192, Rc::new(String::from("test"))));
-        DamselflyViewer::count_blocks_in_memory(&latest_instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
-        assert_eq!(blocks, 2);
-        operation_history.push(latest_instruction.get_operation());
-
-        // remove one block, leaving one
-        let latest_instruction = Instruction::new(5, MemoryUpdate::Free(256, Rc::new(String::from("test"))));
-        DamselflyViewer::count_blocks_in_memory(&latest_instruction.get_operation(), &mut start_addresses, &mut end_addresses, &mut blocks);
-        assert_eq!(blocks, 1);
-        operation_history.push(latest_instruction.get_operation());
-
-        /*
-        // zero blocks
-        let latest_instruction = Instruction::new(2, MemoryUpdate::Free(64, Rc::new(String::from("test"))));
-        assert_eq!(DamselflyViewer::count_blocks_in_memory(&latest_instruction.get_operation(), &operation_history), 1);
-         */
-    }
-}
-

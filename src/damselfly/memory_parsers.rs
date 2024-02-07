@@ -10,6 +10,7 @@ use addr2line::{Context};
 use owo_colors::OwoColorize;
 use crate::damselfly::instruction::Instruction;
 
+#[derive(Default)]
 pub struct MemorySysTraceParser {
     time: usize,
     record_queue: Vec<RecordType>,
@@ -35,6 +36,10 @@ impl MemorySysTraceParser {
             }
             println!("Processing instruction: {}", line.cyan());
             let instruction = self.process_instruction(&mut log_iter);
+            instructions.push(instruction);
+        }
+        if !self.record_queue.is_empty() {
+            let instruction = self.bake_instruction();
             instructions.push(instruction);
         }
         instructions
@@ -280,8 +285,6 @@ mod tests {
     use crate::damselfly::consts::{TEST_BINARY_PATH};
     use crate::damselfly::memory_parsers::MemorySysTraceParser;
     use crate::damselfly::memory_structs::{MemoryUpdate, RecordType};
-    use crate::damselfly::memory_parsers::MemorySysTraceParser;
-    use crate::damselfly::memory_structs::{RecordType, MemoryUpdate};
     #[test]
     fn is_line_useless_test() {
         let mst_parser = MemorySysTraceParser::new();

@@ -1,6 +1,5 @@
 use crate::damselfly::map_manipulator;
 use crate::app::Mode;
-use std::cmp::{min};
 use std::rc::Rc;
 use std::time::Instant;
 use ratatui::{layout::Alignment, style::{Color, Style}, widgets::{Block, BorderType, Borders, Paragraph, canvas::*}, Frame};
@@ -69,77 +68,43 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
 fn get_map_and_latest_op(app: &mut App) -> (NoHashMap<usize, MemoryStatus>, Option<MemoryUpdate>) {
     let (map_data, latest_operation) = {
-        match app.graph_highlight {
-            None => {
-                let map_state = app.damselfly_viewer.get_latest_map_state();
-                let map = map_state.0;
-                let operation = map_state.1.cloned();
-                (map, operation)
-            }
-            Some(graph_highlight) => {
-                let span = app.damselfly_viewer.get_timespan();
-                let map_state =
-                    app.damselfly_viewer.get_map_state(span.0 + graph_highlight,
-                                                       map_manipulator::scale_address_up(app.map_span.0),
-                                                       map_manipulator::scale_address_up(app.map_span.1));
-                let map = map_state.0;
-                let operation = map_state.1.cloned();
-                (map, operation)
-            }
-        }
+            let map_state =
+                app.damselfly_controller.get_current_map_state();
+            let map = map_state.0;
+            let operation = map_state.1.cloned();
+            (map, operation)
     };
     (map_data, latest_operation)
 }
 
 fn get_graph_data(app: &mut App) -> Vec<(f64, f64)> {
-    let mut graph_binding = app.damselfly_viewer.get_memory_usage_view();
+    let mut graph_binding = app.damselfly_controller.get_current_memory_usage_graph();
     graph_binding.iter_mut().for_each(|point| {
         point.1 *= app.graph_scale;
         point.1 /= GRAPH_VERTICAL_SCALE_OFFSET;
     });
     let graph_data = graph_binding.as_slice();
-    if let Some(highlight) = app.graph_highlight {
-        app.graph_highlight = Some(min(highlight, graph_data.len().saturating_sub(1)));
-    }
     Vec::from(graph_data)
 }
 
 fn get_blocks_data(app: &mut App) -> usize {
-    if app.graph_highlight.is_none() { return 0; }
-    let usage = app.damselfly_viewer.get_memory_usage_at(app.damselfly_viewer.get_timespan().0 + app.graph_highlight.unwrap());
-    usage.blocks
+    app.damselfly_controller.get_current_memory_usage().blocks
 }
 
 fn snap_memoryspan_to_latest_operation(app: &mut App, latest_address: usize) {
-    let mut new_map_span = app.map_span;
-    let relative_address = map_manipulator::scale_address_down(latest_address);
-    let address_of_row = map_manipulator::get_address_of_row(app.row_length, relative_address);
-    if relative_address >= app.map_span.1 {
-        new_map_span.0 = address_of_row.saturating_sub(DEFAULT_MEMORYSPAN / 2);
-        new_map_span.1 = new_map_span.0 + DEFAULT_MEMORYSPAN;
-    } else if relative_address < app.map_span.0 {
-        new_map_span.1 = relative_address + DEFAULT_MEMORYSPAN / 2;
-        new_map_span.0 = new_map_span.1.saturating_sub(DEFAULT_MEMORYSPAN);
-    }
-    app.map_highlight = Some(relative_address);
-    app.map_span = new_map_span;
+    app.damselfly_controller.snap_memoryspan_to_address(latest_address);
 }
 
 fn draw_graph(app: &mut App, area: &Rect, frame: &mut Frame, data: Vec<(f64, f64)>) {
     if data.is_empty() { return; }
-    let graph_highlight;
-    if let Some(highlight) = app.graph_highlight {
-        graph_highlight = min(highlight, data.len().saturating_sub(1));
-    } else {
-        graph_highlight = data.len().saturating_sub(1);
-    }
 
-    let true_x = app.damselfly_viewer.get_timespan().0 + graph_highlight;
-    let true_y = (data[graph_highlight].1 / app.graph_scale) * GRAPH_VERTICAL_SCALE_OFFSET;
+    let true_x = app.damselfly_controller.get_graph_highlight_absolute();
+    let relative_x = app.damselfly_controller.graph_highlight;
+    let true_y = (data[relative_x].1 / app.graph_scale) * GRAPH_VERTICAL_SCALE_OFFSET;
     let canvas = Canvas::default()
         .block(Block::default()
             .title(Title::from(format!("[ZOOM: {:.1}] [OPERATION: {} / {}] [USAGE: {:.2}]",
-                                       app.graph_scale, true_x, app.damselfly_viewer.get_total_operations() - 1,
+                                       app.graph_scale, true_x, app.damselfly_controller.viewer.get_total_operations() - 1,
                                         true_y)))
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded))
@@ -148,7 +113,7 @@ fn draw_graph(app: &mut App, area: &Rect, frame: &mut Frame, data: Vec<(f64, f64
         .paint(|ctx| {
             ctx.draw(&Points { coords: &data, color: Color::Red });
             if !data.is_empty() {
-                let (x, y) = data[graph_highlight];
+                let (x, y) = data[relative_x];
                 ctx.draw(&Points { coords: &[(x, y)], color: Color::White });
             }
         });
@@ -163,32 +128,32 @@ fn draw_memorymap(app: &mut App, map_area: &Rect, stats_area: &Rc<[Rect]>, frame
             MemoryUpdate::Free(address, _) => address,
         }
     };
-    if app.is_mapspan_locked {
+    if !app.damselfly_controller.memoryspan_freelook {
         snap_memoryspan_to_latest_operation(app, latest_address);
-        app.map_highlight = Some(latest_address / DEFAULT_BLOCK_SIZE);
     }
 
-    let grid = generate_rows(DEFAULT_MEMORYSPAN / app.row_length, app.row_length, app.map_span, app.map_highlight, map);
+    let grid = generate_rows(DEFAULT_MEMORYSPAN / app.row_length, app.row_length, app.damselfly_controller.memory_span,
+                             app.damselfly_controller.map_highlight, map);
     let widths = vec![Constraint::Length(1); app.row_length];
     let locked_status;
     let title_style;
-    match app.is_mapspan_locked {
-        true => {
+    match app.damselfly_controller.memoryspan_freelook {
+        false => {
             locked_status = "LOCKED";
             title_style = Style::default().red();
         },
-        false => {
+        true => {
             locked_status = "UNLOCKED";
             title_style = Style::default().green();
         }
     };
-    let address_bounds = app.damselfly_viewer.get_address_bounds();
+    let address_bounds = app.damselfly_controller.viewer.get_address_bounds();
     let table = Table::new(grid)
         .widths(&widths)
         .column_spacing(0)
         .block(Block::default()
             .title(format!("MEMORY MAP [{:x}] [VIEW: {locked_status}] [{:x} - {:x}]",
-                           map_manipulator::scale_address_up(app.map_highlight.unwrap_or(0)),
+                           map_manipulator::logical_to_absolute(app.damselfly_controller.map_highlight),
                            (address_bounds.0),
                            (address_bounds.1))
             )
@@ -199,24 +164,7 @@ fn draw_memorymap(app: &mut App, map_area: &Rect, stats_area: &Rc<[Rect]>, frame
 
     draw_stacktrace(&app, stats_area, frame, map);
 
-    let operation_count;
-    let operation_list;
-    if app.damselfly_viewer.is_timespan_locked() {
-        operation_count = app.damselfly_viewer.get_total_operations();
-        operation_list = app.damselfly_viewer
-            .get_operation_log_span(operation_count.saturating_sub(7), operation_count);
-    } else {
-        let timespan = app.damselfly_viewer.get_timespan();
-        let mut upper_limit = timespan.1;
-        match app.graph_highlight {
-            None => {}
-            Some(highlight) => {
-                upper_limit = timespan.0 + highlight;
-            },
-        }
-        operation_list = app.damselfly_viewer
-            .get_operation_log_span(0, upper_limit);
-    }
+    let operation_list = app.damselfly_controller.get_current_operation_log();
     let mut rows = Vec::new();
     for operation in operation_list.iter().rev() {
         let style = match operation {
@@ -245,7 +193,7 @@ fn draw_memorymap(app: &mut App, map_area: &Rect, stats_area: &Rc<[Rect]>, frame
 }
 
 fn draw_stacktrace(app: &&mut App, stats_area: &Rc<[Rect]>, frame: &mut Frame, map: &NoHashMap<usize, MemoryStatus>) {
-    let callstack = match map.get(&app.map_highlight.unwrap_or(0)) {
+    let callstack = match map.get(&app.damselfly_controller.map_highlight) {
         None => "",
         Some(memory_status) => {
             match memory_status {
@@ -289,7 +237,7 @@ fn draw_stats(area: &Rect, frame: &mut Frame, blocks_data: &usize, time: usize) 
     );
 }
 
-fn generate_rows(rows: usize, row_length: usize, map_span: (usize, usize), map_highlight: Option<usize>, map: &NoHashMap<usize, MemoryStatus>) -> Vec<Row> {
+fn generate_rows(rows: usize, row_length: usize, map_span: (usize, usize), map_highlight: usize, map: &NoHashMap<usize, MemoryStatus>) -> Vec<Row> {
     let mut address = map_span.0;
     let mut grid: Vec<Row> = Vec::new();
     let push_cell = |row: &mut Vec<Cell>, block_state: &MemoryStatus, force_bg: Option<Color>| {
@@ -328,48 +276,14 @@ fn generate_rows(rows: usize, row_length: usize, map_span: (usize, usize), map_h
     for _row in 0..rows {
         let mut current_row: Vec<Cell> = Vec::new();
         for _col in 0..row_length {
-            match map_highlight {
-                None => {
-                    push_cell_or_default(&mut current_row, map, address, None);
-                }
-                Some(map_highlight) => {
-                    if address == map_highlight {
-                        push_cell_or_default(&mut current_row, map, address, Some(Color::Green));
-                    } else {
-                        push_cell_or_default(&mut current_row, map, address, None);
-                    }
-                }
+            if address == map_highlight {
+                push_cell_or_default(&mut current_row, map, address, Some(Color::Green));
+            } else {
+                push_cell_or_default(&mut current_row, map, address, None);
             }
             address += 1;
         }
         grid.push(Row::new(current_row));
     }
     grid
-}
-
-pub fn jump_to_next_block(app: &mut App) {
-    let (map_data, _) = get_map_and_latest_op(app);
-    let keys = map_data.keys();
-    let current_address = app.map_highlight.unwrap_or(0);
-    for key in keys {
-        if *key > current_address {
-            app.map_highlight = Some(*key);
-        }
-    }
-}
-
-pub fn jump_to_prev_block(app: &mut App) {
-    let (map_data, _) = get_map_and_latest_op(app);
-    let keys = map_data.keys();
-    let current_address = app.map_highlight.unwrap_or(0);
-    for key in keys {
-        if *key < current_address {
-            app.map_highlight = Some(*key);
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
 }

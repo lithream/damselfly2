@@ -35,15 +35,15 @@ pub fn free_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: u
 }
 
 pub fn view_memory(map: &NoHashMap<usize, MemoryStatus>, absolute_address: usize) -> Option<&MemoryStatus> {
-    let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
-    map.get(&scaled_address)
+    let logical_address = absolute_address / DEFAULT_BLOCK_SIZE;
+    map.get(&logical_address)
 }
 
-pub fn scale_address_down(absolute_address: usize) -> usize {
+pub fn absolute_to_logical(absolute_address: usize) -> usize {
     absolute_address / DEFAULT_BLOCK_SIZE
 }
 
-pub fn scale_address_up(relative_address: usize) -> usize {
+pub fn logical_to_absolute(relative_address: usize) -> usize {
     relative_address * DEFAULT_BLOCK_SIZE
 }
 

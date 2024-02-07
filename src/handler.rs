@@ -20,100 +20,71 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
 
         KeyCode::Char(';') => {
             if key_event.kind == KeyEventKind::Press {
-                app.damselfly_viewer.unlock_timespan()
+                app.damselfly_controller.unlock_timespan();
             }
         }
 
         KeyCode::Char(':') => {
             if key_event.kind == KeyEventKind::Press {
-                app.damselfly_viewer.lock_timespan();
+                app.damselfly_controller.lock_timespan();
             }
         }
 
         KeyCode::Char('\'') => {
             if key_event.kind == KeyEventKind::Press {
-                app.is_mapspan_locked = !app.is_mapspan_locked;
+                app.damselfly_controller.memoryspan_freelook = !app.damselfly_controller.memoryspan_freelook;
             }
         }
 
         KeyCode::Char('H') => {
             if key_event.kind == KeyEventKind::Press {
-                app.damselfly_viewer.shift_timespan_left(1);
-                app.graph_highlight = Some(DEFAULT_TIMESPAN);
+                app.damselfly_controller.shift_timespan_left(1);
             }
         }
 
         KeyCode::Char('L') => {
-            if key_event.kind == KeyEventKind::Press && app.damselfly_viewer.shift_timespan_right(1) {
-                app.graph_highlight = Some(0);
+            if key_event.kind == KeyEventKind::Press {
+                app.damselfly_controller.shift_timespan_right(1);
             }
         }
 
         KeyCode::Char('h') => {
             if key_event.kind == KeyEventKind::Press {
-                match app.graph_highlight {
-                    None => {
-                        let span = app.damselfly_viewer.get_timespan();
-                        app.graph_highlight = Some((span.1 - span.0) / 2);
-                    }
-                    Some(highlight) => {
-                        let span = app.damselfly_viewer.get_timespan();
-                        if app.graph_highlight.unwrap() + span.0 == span.0 {
-                            app.damselfly_viewer.shift_timespan_left(1);
-                            app.graph_highlight = Some(DEFAULT_TIMESPAN);
-                        } else {
-                            app.graph_highlight = Some(highlight.saturating_sub(1));
-                        }
-                    }
-                }
+                app.damselfly_controller.shift_graph_highlight_left();
             }
         }
 
         KeyCode::Char('l') => {
             if key_event.kind == KeyEventKind::Press {
-                match app.graph_highlight {
-                    None => {
-                        let span = app.damselfly_viewer.get_timespan();
-                        app.graph_highlight = Some((span.1 - span.0) / 2);
-                    }
-                    Some(highlight) => {
-                        let span = app.damselfly_viewer.get_timespan();
-                        if app.graph_highlight.unwrap() + span.0 == span.1 - 1 {
-                            app.damselfly_viewer.shift_timespan_right(1);
-                            app.graph_highlight = Some(0);
-                        } else {
-                            app.graph_highlight = Some((highlight + 1).clamp(0, span.1 - span.0 - 1));
-                        }
-                    }
-                }
+                app.damselfly_controller.shift_graph_highlight_right();
             }
         }
 
         KeyCode::Char('i') => {
             if key_event.kind == KeyEventKind::Press {
-                app.graph_highlight = Some(0);
+                app.damselfly_controller.graph_highlight = 0;
             }
         }
 
         KeyCode::Char('o') => {
             if key_event.kind == KeyEventKind::Press {
-                let span = app.damselfly_viewer.get_timespan();
-                app.graph_highlight = Some(span.1 - span.0 - 1);
+                let span = app.damselfly_controller.get_timespan();
+                app.damselfly_controller.graph_highlight = span.1 - span.0 - 1;
             }
         }
 
         KeyCode::Char('[') => {
             if key_event.kind == KeyEventKind::Press {
-                app.damselfly_viewer.unlock_timespan();
-                app.damselfly_viewer.shift_timespan_to_beginning();
+                app.damselfly_controller.unlock_timespan();
+                app.damselfly_controller.shift_timespan_to_beginning();
             }
         }
 
         KeyCode::Char(']') => {
             if key_event.kind == KeyEventKind::Press {
-                app.damselfly_viewer.lock_timespan();
-                app.damselfly_viewer.unlock_timespan();
-                app.damselfly_viewer.shift_timespan_to_end();
+                app.damselfly_controller.lock_timespan();
+                app.damselfly_controller.unlock_timespan();
+                app.damselfly_controller.shift_timespan_to_end();
             }
         }
 
@@ -131,26 +102,26 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
 
         KeyCode::Char('j') => {
             if key_event.kind == KeyEventKind::Press {
-                app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(1));
+                app.damselfly_controller.map_highlight = app.damselfly_controller.map_highlight.saturating_sub(1);
             }
         }
 
         KeyCode::Char('J') => {
             if key_event.kind == KeyEventKind::Press {
-                app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(app.row_length));
+                app.damselfly_controller.map_highlight = app.damselfly_controller.map_highlight.saturating_add(app.row_length);
             }
         }
 
         KeyCode::PageUp => {
             if key_event.kind == KeyEventKind::Press {
                 if key_event.modifiers == KeyModifiers::SHIFT {
-                    app.map_span.0 = app.map_span.0.saturating_sub(DEFAULT_MEMORYSPAN);
-                    app.map_span.1 = app.map_span.1.saturating_sub(DEFAULT_MEMORYSPAN);
-                    app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(DEFAULT_MEMORYSPAN));
+                    app.damselfly_controller.memory_span.0 = app.damselfly_controller.memory_span.0.saturating_sub(DEFAULT_MEMORYSPAN);
+                    app.damselfly_controller.memory_span.1 = app.damselfly_controller.memory_span.1.saturating_sub(DEFAULT_MEMORYSPAN);
+                    app.damselfly_controller.map_highlight = app.damselfly_controller.map_highlight.saturating_sub(DEFAULT_MEMORYSPAN);
                 } else {
-                    app.map_span.0 = app.map_span.0.saturating_sub(app.row_length);
-                    app.map_span.1 = app.map_span.1.saturating_sub(app.row_length);
-                    app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(app.row_length));
+                    app.damselfly_controller.memory_span.0 = app.damselfly_controller.memory_span.0.saturating_sub(app.row_length);
+                    app.damselfly_controller.memory_span.1 = app.damselfly_controller.memory_span.1.saturating_sub(app.row_length);
+                    app.damselfly_controller.map_highlight = app.damselfly_controller.map_highlight.saturating_sub(app.row_length);
                 }
             }
         }
@@ -158,50 +129,50 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         KeyCode::PageDown => {
             if key_event.kind == KeyEventKind::Press {
                 if key_event.modifiers == KeyModifiers::SHIFT {
-                    app.map_span.0 = app.map_span.0.saturating_add(DEFAULT_MEMORYSPAN);
-                    app.map_span.1 = app.map_span.1.saturating_add(DEFAULT_MEMORYSPAN);
-                    app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(DEFAULT_MEMORYSPAN));
+                    app.damselfly_controller.memory_span.0 = app.damselfly_controller.memory_span.0.saturating_add(DEFAULT_MEMORYSPAN);
+                    app.damselfly_controller.memory_span.1 = app.damselfly_controller.memory_span.1.saturating_add(DEFAULT_MEMORYSPAN);
+                    app.damselfly_controller.map_highlight = app.damselfly_controller.map_highlight.saturating_add(DEFAULT_MEMORYSPAN);
                 }
-                app.map_span.0 = app.map_span.0.saturating_add(app.row_length);
-                app.map_span.1 = app.map_span.1.saturating_add(app.row_length);
-                app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(app.row_length));
+                app.damselfly_controller.memory_span.0 = app.damselfly_controller.memory_span.0.saturating_add(app.row_length);
+                app.damselfly_controller.memory_span.1 = app.damselfly_controller.memory_span.1.saturating_add(app.row_length);
+                app.damselfly_controller.map_highlight = app.damselfly_controller.map_highlight.saturating_add(app.row_length);
             }
         }
 
         KeyCode::Left => {
             if key_event.kind == KeyEventKind::Press {
-                app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(1));
+                app.damselfly_controller.map_highlight = app.damselfly_controller.map_highlight.saturating_sub(1);
             }
         }
 
         KeyCode::Right => {
 
             if key_event.kind == KeyEventKind::Press {
-                app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(1));
+                app.damselfly_controller.map_highlight = app.damselfly_controller.map_highlight.saturating_add(1);
             }
         }
 
         KeyCode::Up => {
             if key_event.kind == KeyEventKind::Press {
-                app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(app.row_length));
+                app.damselfly_controller.map_highlight = app.damselfly_controller.map_highlight.saturating_sub(app.row_length);
             }
         }
 
         KeyCode::Down => {
             if key_event.kind == KeyEventKind::Press {
-                app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(app.row_length));
+                app.damselfly_controller.map_highlight = app.damselfly_controller.map_highlight.saturating_add(app.row_length);
             }
         }
 
         KeyCode::Char('k') => {
             if key_event.kind == KeyEventKind::Press {
-                app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_add(1));
+                app.damselfly_controller.map_highlight = app.damselfly_controller.map_highlight.saturating_add(1);
             }
         }
 
         KeyCode::Char('K') => {
             if key_event.kind == KeyEventKind::Press {
-                app.map_highlight = Some(app.map_highlight.unwrap_or(0).saturating_sub(app.row_length));
+                app.damselfly_controller.map_highlight = app.damselfly_controller.map_highlight.saturating_sub(app.row_length);
             }
         }
 
