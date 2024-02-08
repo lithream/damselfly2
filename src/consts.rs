@@ -1,0 +1,1 @@
+pub const DEFAULT_CELL_WIDTH: f32 = 10.0;

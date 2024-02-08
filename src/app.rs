@@ -1,12 +1,19 @@
 use std::{error};
+use std::cell::RefCell;
+use std::rc::Rc;
+use eframe::emath::Rect;
 use eframe::Frame;
-use egui::Context;
-use egui_plot::{Line, Plot, PlotPoints};
+use egui::{Button, Context};
+use egui::style::Spacing;
+use egui_plot::{Line, Plot, PlotPoint, PlotPoints};
 use owo_colors::OwoColorize;
 use crate::app::Mode::DEFAULT;
+use crate::consts::DEFAULT_CELL_WIDTH;
 use crate::damselfly::consts::{DEFAULT_ROW_LENGTH};
 use crate::damselfly::controller::DamselflyController;
+use crate::damselfly::map_manipulator;
 use crate::damselfly::memory_parsers::MemorySysTraceParser;
+use crate::damselfly::memory_structs::{MemoryStatus, MemoryUpdate, NoHashMap};
 
 /// Application result type.
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
@@ -37,7 +44,9 @@ pub struct App {
     pub mode: Mode,
 
     pub value: f64,
-    pub label: String
+    pub label: String,
+
+    pub graph_highlight: usize,
 }
 
 impl App {
@@ -66,6 +75,7 @@ impl App {
             mode: DEFAULT,
             value: 2.7,
             label: "Hello World!".to_owned(),
+            graph_highlight: Default::default(),
         }
     }
 }
@@ -75,6 +85,12 @@ impl eframe::App for App {
         self.draw_top_bottom_panel(ctx);
         self.draw_central_panel(ctx);
     }
+}
+
+enum GraphResponse {
+    Hover(f64, f64),
+    Click(f64, f64),
+    None
 }
 
 impl App {
@@ -96,43 +112,98 @@ impl App {
         });
     }
 
-    fn draw_central_panel(&mut self, ctx: &Context) {
-        self.draw_graph(ctx);
-        /*
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Damselfly");
-
-            ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(&mut self.label);
-            });
-
-            ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                self.value += 1.0;
-            }
-
-            ui.separator();
-
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/master/",
-                "Source code."
-            ));
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                powered_by_egui_and_eframe(ui);
-                egui::warn_if_debug_build(ui);
-            });
-        });
-        */
+    fn validate_x_coordinate(&self, x: f64) -> Result<usize, ()> {
+        let int_x = x.round() as usize;
+        let instructions = self.damselfly_controller.viewer.get_total_operations();
+        if int_x < instructions {
+            return Ok(int_x);
+        }
+        Err(())
     }
 
-    fn draw_graph(&mut self, ctx: &Context) {
+    fn draw_central_panel(&mut self, ctx: &Context) {
+        egui::CentralPanel::default().show(ctx, |mut ui| {
+            ui.vertical(|ui| {
+                let current_map = self.damselfly_controller.get_current_map_state();
+                let map = current_map.0;
+                let latest_operation = current_map.1.cloned();
+                match self.draw_graph(ui) {
+                    GraphResponse::Hover(x, y) => {
+                        if let Ok(temporary_graph_highlight) = self.validate_x_coordinate(x) {
+                            self.damselfly_controller.graph_highlight = temporary_graph_highlight;
+                        }
+                    }
+                    GraphResponse::Click(x, y) => {
+                        if let Ok(persistent_graph_highlight) = self.validate_x_coordinate(x) {
+                            self.graph_highlight = persistent_graph_highlight;
+                            self.damselfly_controller.graph_highlight = persistent_graph_highlight;
+                        }
+                    }
+                    GraphResponse::None => {
+                        self.damselfly_controller.graph_highlight = self.graph_highlight;
+                    }
+                }
+                ui.separator();
+                self.draw_map(map, latest_operation, ui);
+            });
+        });
+    }
+
+    fn draw_graph(&mut self, ui: &mut egui::Ui) -> GraphResponse {
         let graph_data = PlotPoints::from(self.damselfly_controller.get_full_memory_usage_graph());
         let line = Line::new(graph_data);
-        egui::CentralPanel::default().show(ctx, |ui| {
-            let plot_response = Plot::new("plot").view_aspect(2.0).show(ui, |plot_ui| plot_ui.line(line));
-        });
+        let hovered_point: Rc<RefCell<(f64, f64)>> = Default::default();
+        let hovered_point_ref_clone: Rc<RefCell<(f64, f64)>> = Rc::clone(&hovered_point);
+
+        let get_hovered_point_coords = move |name: &str, point: &PlotPoint| {
+            *hovered_point_ref_clone.borrow_mut() = (point.x, point.y);
+            format!("{:?} {:?}", name, point)
+        };
+
+        let mut graph_response = GraphResponse::None;
+        let mut response = Plot::new("plot")
+            .label_formatter(get_hovered_point_coords)
+            .view_aspect(2.0)
+            .show(ui, |plot_ui| plot_ui.line(line));
+        let point = *hovered_point.borrow_mut();
+        if response.response.clicked() {
+            graph_response = GraphResponse::Click(point.0, point.1);
+        } else if response.response.hovered() {
+            graph_response = GraphResponse::Hover(point.0, point.1);
+        }
+        graph_response
+    }
+
+    fn draw_map(&mut self, current_map: NoHashMap<usize, MemoryStatus>, latest_operation: Option<MemoryUpdate>, ui: &mut egui::Ui) {
+        let cells_per_row = 16;
+        egui::Grid::new("memory_map_grid")
+            .min_col_width(0.0)
+            .min_row_height(0.0)
+            .spacing(egui::vec2(0.0, 0.0))
+            .show(ui, |ui| {
+                for (cell_counter, (address, status)) in current_map.into_iter().enumerate() {
+                    if cell_counter % cells_per_row == 0 {
+                        ui.end_row();
+                    }
+                    match status {
+                        MemoryStatus::Allocated(_, _, _) => {
+                            if ui.add(Button::new(format!("X")).fill(egui::Color32::RED).small()).clicked() {
+                                eprintln!("0x{:x}", map_manipulator::logical_to_absolute(address));
+                            };
+                        },
+                        MemoryStatus::PartiallyAllocated(_, _) => {
+                            if ui.add(Button::new(format!("=")).fill(egui::Color32::YELLOW).small()).clicked() {
+                                eprintln!("0x{:x}", map_manipulator::logical_to_absolute(address));
+                            };
+                        }
+                        MemoryStatus::Free(_) => {
+                            if ui.add(Button::new(format!("0")).fill(egui::Color32::WHITE).small()).clicked() {
+                                eprintln!("0x{:x}", map_manipulator::logical_to_absolute(address));
+                            };
+                        }
+                    }
+                }
+            });
     }
 }
 
@@ -146,3 +217,31 @@ fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
         ui.label(".");
     });
 }
+
+/*
+egui::CentralPanel::default().show(ctx, |ui| {
+    ui.heading("Damselfly");
+
+    ui.horizontal(|ui| {
+        ui.label("Write something: ");
+        ui.text_edit_singleline(&mut self.label);
+    });
+
+    ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
+    if ui.button("Increment").clicked() {
+        self.value += 1.0;
+    }
+
+    ui.separator();
+
+    ui.add(egui::github_link_file!(
+        "https://github.com/emilk/eframe_template/blob/master/",
+        "Source code."
+    ));
+
+    ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+        powered_by_egui_and_eframe(ui);
+        egui::warn_if_debug_build(ui);
+    });
+});
+*/
