@@ -17,7 +17,7 @@ pub struct DamselflyController {
 }
 
 impl DamselflyController {
-    pub(crate) fn new() -> DamselflyController {
+    pub fn new() -> DamselflyController {
         DamselflyController {
             viewer: DamselflyViewer::new(),
             graph_highlight: 0,

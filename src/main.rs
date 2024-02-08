@@ -1,11 +1,20 @@
+/// Application.
+pub mod app;
+/// Widget renderer.
+pub mod ui;
+/// Damselfly
+pub mod damselfly;
+mod consts;
+
 use std::{env, fs, io};
+use iced::{Application, Settings};
 use map::damselfly::consts::{DEFAULT_BINARY_PATH, DEFAULT_LOG_PATH};
 use owo_colors::OwoColorize;
-use map::app::App;
+use crate::app::{App, Flags};
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
-fn main() -> eframe::Result<()> {
+fn main() -> iced::Result {
     let args: Vec<String> = env::args().collect();
     // Create an application.
     let log_path = args.get(1)
@@ -22,41 +31,10 @@ fn main() -> eframe::Result<()> {
             DEFAULT_BINARY_PATH.to_string()
         });
 
-    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
-    let native_options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([400.0, 300.0])
-            .with_min_inner_size([300.0, 220.0])
-            .with_icon(
-                // NOE: Adding an icon is optional
-                eframe::icon_data::from_png_bytes(&include_bytes!("../assets/icon-256.png")[..])
-                    .unwrap(),
-            ),
-        ..Default::default()
+    let flags: Flags = Flags {
+        log_path,
+        binary_path
     };
-    eframe::run_native(
-        "eframe template",
-        native_options,
-        Box::new(|cc| Box::new(App::new(cc, log_path, binary_path))),
-    )
-}
 
-// When compiling to web using trunk:
-#[cfg(target_arch = "wasm32")]
-fn main() {
-    // Redirect `log` message to `console.log` and friends:
-    eframe::WebLogger::init(log::LevelFilter::Debug).ok();
-
-    let web_options = eframe::WebOptions::default();
-
-    wasm_bindgen_futures::spawn_local(async {
-        eframe::WebRunner::new()
-            .start(
-                "the_canvas_id", // hardcode it
-                web_options,
-                Box::new(|cc| Box::new(App::new(cc, log_path, binary_path))),
-            )
-            .await
-            .expect("failed to start eframe");
-    });
+    App::run(Settings::with_flags(flags))
 }
