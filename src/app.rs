@@ -1,10 +1,8 @@
 use std::{error};
 use std::cell::RefCell;
 use std::rc::Rc;
-use eframe::emath::Rect;
 use eframe::Frame;
-use egui::{Button, Context};
-use egui::style::Spacing;
+use egui::{Button, Context, Slider};
 use egui_plot::{Line, Plot, PlotPoint, PlotPoints};
 use owo_colors::OwoColorize;
 use crate::app::Mode::DEFAULT;
@@ -25,27 +23,7 @@ pub enum Mode {
 
 /// Application.
 pub struct App {
-    /// Is the application running?
-    pub running: bool,
-    /// Damselfly
     pub damselfly_controller: DamselflyController,
-
-    pub map_grid: Vec<Vec<usize>>,
-    pub graph_scale: f64,
-
-    pub row_length: usize,
-    // Actual mapspan (e.g. becomes 100 - 200 after shifting right once)
-    pub up_left_width: u16,
-    pub up_right_width: u16,
-    pub up_middle_width: u16,
-    pub up_height: u16,
-    pub down_height: u16,
-
-    pub mode: Mode,
-
-    pub value: f64,
-    pub label: String,
-
     pub graph_highlight: usize,
 }
 
@@ -62,19 +40,7 @@ impl App {
         println!("Populating memory logs");
         damselfly_controller.viewer.load_instructions(instructions);
         App {
-            running: true,
             damselfly_controller,
-            map_grid: Vec::new(),
-            graph_scale: 1.0,
-            row_length: DEFAULT_ROW_LENGTH,
-            up_left_width: 30,
-            up_middle_width: 60,
-            up_right_width: 30,
-            up_height: 70,
-            down_height: 30,
-            mode: DEFAULT,
-            value: 2.7,
-            label: "Hello World!".to_owned(),
             graph_highlight: Default::default(),
         }
     }
@@ -84,6 +50,7 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &Context, frame: &mut Frame) {
         self.draw_top_bottom_panel(ctx);
         self.draw_central_panel(ctx);
+        self.draw_side_panel(ctx);
     }
 }
 
@@ -122,12 +89,11 @@ impl App {
     }
 
     fn draw_central_panel(&mut self, ctx: &Context) {
-        egui::CentralPanel::default().show(ctx, |mut ui| {
-            ui.vertical(|ui| {
-                let current_map = self.damselfly_controller.get_current_map_state();
-                let map = current_map.0;
-                let latest_operation = current_map.1.cloned();
-                match self.draw_graph(ui) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.columns(2, |columns| {
+                columns[0].label("USAGE");
+                columns[1].label("MEMORY");
+                match self.draw_graph(&mut columns[0]) {
                     GraphResponse::Hover(x, y) => {
                         if let Ok(temporary_graph_highlight) = self.validate_x_coordinate(x) {
                             self.damselfly_controller.graph_highlight = temporary_graph_highlight;
@@ -143,9 +109,12 @@ impl App {
                         self.damselfly_controller.graph_highlight = self.graph_highlight;
                     }
                 }
-                ui.separator();
-                self.draw_map(map, latest_operation, ui);
-            });
+                let current_map = self.damselfly_controller.get_current_map_state();
+                let map = current_map.0;
+                let latest_operation = current_map.1.cloned();
+                let pane_width = columns[1].available_width();
+                self.draw_map(map, latest_operation, &mut columns[1], pane_width);
+            })
         });
     }
 
@@ -174,48 +143,57 @@ impl App {
         graph_response
     }
 
-    fn draw_map(&mut self, current_map: NoHashMap<usize, MemoryStatus>, latest_operation: Option<MemoryUpdate>, ui: &mut egui::Ui) {
-        let cells_per_row = 16;
-        egui::Grid::new("memory_map_grid")
-            .min_col_width(0.0)
-            .min_row_height(0.0)
-            .spacing(egui::vec2(0.0, 0.0))
-            .show(ui, |ui| {
-                for (cell_counter, (address, status)) in current_map.into_iter().enumerate() {
-                    if cell_counter % cells_per_row == 0 {
-                        ui.end_row();
-                    }
-                    match status {
-                        MemoryStatus::Allocated(_, _, _) => {
-                            if ui.add(Button::new(format!("X")).fill(egui::Color32::RED).small()).clicked() {
-                                eprintln!("0x{:x}", map_manipulator::logical_to_absolute(address));
-                            };
-                        },
-                        MemoryStatus::PartiallyAllocated(_, _) => {
-                            if ui.add(Button::new(format!("=")).fill(egui::Color32::YELLOW).small()).clicked() {
-                                eprintln!("0x{:x}", map_manipulator::logical_to_absolute(address));
-                            };
+    fn draw_map(&mut self, current_map: NoHashMap<usize, MemoryStatus>, latest_operation: Option<MemoryUpdate>, ui: &mut egui::Ui, pane_width: f32) {
+        let cells_per_row = pane_width as usize / DEFAULT_CELL_WIDTH as usize;
+        let span = self.damselfly_controller.memory_span;
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            egui::Grid::new("memory_map_grid")
+                .min_col_width(0.0)
+                .min_row_height(0.0)
+                .spacing(egui::vec2(0.0, 0.0))
+                .show(ui, |ui| {
+                    for address in span.0..=span.1 {
+                        if (address - span.0) % cells_per_row == 0 {
+                            ui.end_row();
                         }
-                        MemoryStatus::Free(_) => {
-                            if ui.add(Button::new(format!("0")).fill(egui::Color32::WHITE).small()).clicked() {
-                                eprintln!("0x{:x}", map_manipulator::logical_to_absolute(address));
-                            };
+                        match current_map.get(&address) {
+                            Some(status) => {
+                                match status {
+                                    MemoryStatus::Allocated(_, _, _) => {
+                                        if ui.add(Button::new("X".to_string()).fill(egui::Color32::RED).small()).clicked() {
+                                            eprintln!("0x{:x}", map_manipulator::logical_to_absolute(address));
+                                        };
+                                    },
+                                    MemoryStatus::PartiallyAllocated(_, _) => {
+                                        if ui.add(Button::new("=".to_string()).fill(egui::Color32::YELLOW).small()).clicked() {
+                                            eprintln!("0x{:x}", map_manipulator::logical_to_absolute(address));
+                                        };
+                                    }
+                                    MemoryStatus::Free(_) => {
+                                        if ui.add(Button::new("0".to_string()).fill(egui::Color32::WHITE).small()).clicked() {
+                                            eprintln!("0x{:x}", map_manipulator::logical_to_absolute(address));
+                                        };
+                                    }
+                                }
+                            }
+                            None => {
+                                ui.add(Button::new("U".to_string()).fill(egui::Color32::WHITE).small());
+                            }
                         }
                     }
-                }
-            });
-    }
-}
+                });
+        });
 
-fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 0.0;
-        ui.label("Powered by ");
-        ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-        ui.label(" and ");
-        ui.hyperlink_to("eframe", "https://github.com/emilk/egui/tree/master/crates/eframe");
-        ui.label(".");
-    });
+    }
+
+    fn draw_side_panel(&mut self, ctx: Context) {
+        /*
+        egui::SidePanel::right().show(ctx, |ui| {
+            ui.add(Slider::new(&mut self.))
+        });
+
+         */
+    }
 }
 
 /*

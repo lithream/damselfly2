@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use owo_colors::OwoColorize;
 use crate::damselfly::{consts, map_manipulator};
-use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, MAP_CACHE_SIZE};
+use crate::damselfly::consts::{MAP_CACHE_SIZE};
 use crate::damselfly::instruction::Instruction;
 use crate::damselfly::memory_structs::{MemoryStatus, MemoryUpdate, MemoryUsage, NoHashMap};
 
@@ -16,6 +16,7 @@ pub struct DamselflyViewer {
     operation_history_map: HashMap<usize, MemoryUpdate>,
     memory_map: NoHashMap<usize, MemoryStatus>,
     memory_map_snapshots: Vec<NoHashMap<usize, MemoryStatus>>,
+    map_block_size: usize,
     min_address: usize,
     max_address: usize,
     max_usage: usize,
@@ -31,6 +32,7 @@ impl DamselflyViewer {
             operation_history_map: HashMap::new(),
             memory_map: NoHashMap::default(),
             memory_map_snapshots: Vec::new(),
+            map_block_size: consts::_BLOCK_SIZE,
             min_address: usize::MAX,
             max_address: usize::MIN,
             max_usage: usize::MIN,
@@ -42,7 +44,7 @@ impl DamselflyViewer {
         self.memory_usage_snapshots.len()
     }
 
-    pub fn load_instructions(&mut self, instructions: Vec<Instruction>) {
+    pub fn load_instructions(&mut self, instructions: Vec<Instruction>, block_size: usize) {
         // bookkeeping
         let mut max_usage = usize::MIN;
         let mut max_blocks = usize::MIN;
@@ -77,9 +79,9 @@ impl DamselflyViewer {
             self.memory_usage_snapshots.push(usage);
             match instruction.get_operation() {
                 MemoryUpdate::Allocation(address, size, callstack) =>
-                    map_manipulator::allocate_memory(&mut current_map_snapshot, address, size, callstack),
+                    map_manipulator::allocate_memory(&mut current_map_snapshot, address, size, callstack, block_size),
                 MemoryUpdate::Free(address, callstack) => {
-                    map_manipulator::free_memory(&mut current_map_snapshot, address, callstack);
+                    map_manipulator::free_memory(&mut current_map_snapshot, address, callstack, block_size);
                 }
             }
             self.log_operation(instruction.clone());
@@ -238,18 +240,18 @@ impl DamselflyViewer {
         (self.memory_map.clone(), self.operation_history.get(self.get_total_operations().saturating_sub(1)))
     }
 
-    pub fn get_map_state(&self, time: usize, absolute_span_start: usize, absolute_span_end: usize) -> (NoHashMap<usize, MemoryStatus>, Option<&MemoryUpdate>) {
+    pub fn get_map_state(&self, time: usize, absolute_span_start: usize, absolute_span_end: usize, block_size: usize) -> (NoHashMap<usize, MemoryStatus>, Option<&MemoryUpdate>) {
         let starting_snapshot = time / MAP_CACHE_SIZE;
         let mut map =
             Self::clone_map_partial(self.memory_map_snapshots.get(starting_snapshot).unwrap(),
-                                    map_manipulator::absolute_to_logical(absolute_span_start),
-                                    map_manipulator::absolute_to_logical(absolute_span_end));
+                                    map_manipulator::absolute_to_logical(absolute_span_start, block_size),
+                                    map_manipulator::absolute_to_logical(absolute_span_end, block_size));
 
         for cur_time in starting_snapshot * MAP_CACHE_SIZE..=time {
             if let Some(operation) = self.operation_history.get(cur_time) {
                 match operation {
                     MemoryUpdate::Allocation(absolute_address, size, callstack) => {
-                        if let Some((fill_start, bytes_to_fill)) = Self::bytes_allocated_within_span(*absolute_address, *size, absolute_span_start, absolute_span_end) {
+                        if let Some((fill_start, bytes_to_fill)) = Self::bytes_allocated_within_span(*absolute_address, *size, absolute_span_start, absolute_span_end, block_size) {
                             Self::allocate_memory(&mut map, fill_start, bytes_to_fill, Rc::clone(callstack));
                         }
                     }
@@ -274,8 +276,8 @@ impl DamselflyViewer {
         new_map
     }
 
-    pub fn bytes_allocated_within_span(op_address: usize, size: usize, absolute_span_start: usize, absolute_span_end: usize) -> Option<(usize, usize)> {
-        let span_size = (absolute_span_end - absolute_span_start) * DEFAULT_BLOCK_SIZE;
+    pub fn bytes_allocated_within_span(op_address: usize, size: usize, absolute_span_start: usize, absolute_span_end: usize, block_size: usize) -> Option<(usize, usize)> {
+        let span_size = (absolute_span_end - absolute_span_start) * block_size;
         // allocation starts before span and does not continue into it
         if op_address + size < absolute_span_start {
             return None;

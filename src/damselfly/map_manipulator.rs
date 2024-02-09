@@ -1,19 +1,18 @@
 use std::rc::Rc;
-use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE};
 use crate::damselfly::memory_structs::{MemoryStatus};
 use crate::damselfly::memory_structs::NoHashMap;
 
-pub fn allocate_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, bytes: usize, callstack: Rc<String>) {
-    let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
-    let scaled_size = bytes / DEFAULT_BLOCK_SIZE;
+pub fn allocate_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, bytes: usize, callstack: Rc<String>, block_size: usize) {
+    let scaled_address = absolute_address / block_size;
+    let scaled_size = bytes / block_size;
     for i in 0..scaled_size {
         map.insert(scaled_address + i, MemoryStatus::Allocated(scaled_address, bytes, Rc::clone(&callstack)));
     }
 }
 
-pub fn free_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, callstack: Rc<String>) -> usize {
+pub fn free_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: usize, callstack: Rc<String>, block_size: usize) -> usize {
     let mut freed_memory = 1;
-    let scaled_address = absolute_address / DEFAULT_BLOCK_SIZE;
+    let scaled_address = absolute_address / block_size;
     let mut adjacent_address = scaled_address + 1;
     while map.get(&adjacent_address)
         .is_some_and(|block_state| {
@@ -34,17 +33,17 @@ pub fn free_memory(map: &mut NoHashMap<usize, MemoryStatus>, absolute_address: u
     freed_memory
 }
 
-pub fn view_memory(map: &NoHashMap<usize, MemoryStatus>, absolute_address: usize) -> Option<&MemoryStatus> {
-    let logical_address = absolute_address / DEFAULT_BLOCK_SIZE;
+pub fn view_memory(map: &NoHashMap<usize, MemoryStatus>, absolute_address: usize, block_size: usize) -> Option<&MemoryStatus> {
+    let logical_address = absolute_address / block_size;
     map.get(&logical_address)
 }
 
-pub fn absolute_to_logical(absolute_address: usize) -> usize {
-    absolute_address / DEFAULT_BLOCK_SIZE
+pub fn absolute_to_logical(absolute_address: usize, block_size: usize) -> usize {
+    absolute_address / block_size
 }
 
-pub fn logical_to_absolute(relative_address: usize) -> usize {
-    relative_address * DEFAULT_BLOCK_SIZE
+pub fn logical_to_absolute(relative_address: usize, block_size: usize) -> usize {
+    relative_address * block_size
 }
 
 pub fn get_address_of_row(row_length: usize, relative_address: usize) -> usize {
