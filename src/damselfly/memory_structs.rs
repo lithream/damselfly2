@@ -61,3 +61,7 @@ pub struct MemorySnapshot {
     pub memory_usage: (f64, usize),
     pub operation: MemoryUpdate,
 }
+
+pub struct MemoryMap {
+    
+}

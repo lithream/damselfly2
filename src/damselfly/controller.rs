@@ -1,5 +1,5 @@
 use std::cmp::{max, min};
-use crate::damselfly::consts::{DEFAULT_MEMORYSPAN, DEFAULT_OPERATION_LOG_SIZE, DEFAULT_ROW_LENGTH, DEFAULT_TIMESPAN};
+use crate::damselfly::consts::{_BLOCK_SIZE, DEFAULT_MEMORYSPAN, DEFAULT_OPERATION_LOG_SIZE, DEFAULT_ROW_LENGTH, DEFAULT_TIMESPAN};
 use crate::damselfly::map_manipulator;
 use crate::damselfly::memory_structs::{MemoryStatus, MemoryUpdate, MemoryUsage, NoHashMap};
 use crate::damselfly::viewer::DamselflyViewer;
@@ -10,6 +10,7 @@ pub struct DamselflyController {
     pub map_highlight: usize,
     pub timespan: (usize, usize),
     pub memory_span: (usize, usize),
+    pub block_size: usize,
     pub timespan_freelook: bool,
     pub memoryspan_freelook: bool,
 
@@ -24,6 +25,7 @@ impl DamselflyController {
             map_highlight: 0,
             timespan: (0, DEFAULT_TIMESPAN),
             memory_span: (0, DEFAULT_MEMORYSPAN),
+            block_size: _BLOCK_SIZE,
             timespan_freelook: false,
             memoryspan_freelook: false,
             row_length: DEFAULT_ROW_LENGTH,
@@ -155,7 +157,9 @@ impl DamselflyController {
         }
         // unnecessary since get_map_state converts back from absolute to logical, todo optimise later
         self.viewer.get_map_state(self.timespan.0 + self.graph_highlight,
-                                  map_manipulator::logical_to_absolute(self.memory_span.0), map_manipulator::logical_to_absolute(self.memory_span.1))
+                                  map_manipulator::logical_to_absolute(self.memory_span.0, self.block_size),
+                                  map_manipulator::logical_to_absolute(self.memory_span.1, self.block_size),
+                                  self.block_size)
     }
 
     pub fn get_current_operation_log(&self) -> &[MemoryUpdate] {
@@ -166,7 +170,7 @@ impl DamselflyController {
 
     pub fn snap_memoryspan_to_address(&mut self, absolute_address: usize) {
         let mut new_map_span = self.memory_span;
-        let relative_address = map_manipulator::absolute_to_logical(absolute_address);
+        let relative_address = map_manipulator::absolute_to_logical(absolute_address, self.block_size);
         let address_of_row = map_manipulator::get_address_of_row(self.row_length, relative_address);
         if relative_address >= self.memory_span.1 {
             new_map_span.0 = address_of_row.saturating_sub(DEFAULT_MEMORYSPAN / 2);

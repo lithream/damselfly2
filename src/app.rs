@@ -9,7 +9,7 @@ use crate::app::Mode::DEFAULT;
 use crate::consts::DEFAULT_CELL_WIDTH;
 use crate::damselfly::consts::{DEFAULT_ROW_LENGTH};
 use crate::damselfly::controller::DamselflyController;
-use crate::damselfly::map_manipulator;
+use crate::damselfly::{consts, map_manipulator};
 use crate::damselfly::memory_parsers::MemorySysTraceParser;
 use crate::damselfly::memory_structs::{MemoryStatus, MemoryUpdate, NoHashMap};
 
@@ -38,7 +38,7 @@ impl App {
         println!("Initialising DamselflyViewer");
         let mut damselfly_controller = DamselflyController::new();
         println!("Populating memory logs");
-        damselfly_controller.viewer.load_instructions(instructions);
+        damselfly_controller.viewer.load_instructions(instructions, consts::_BLOCK_SIZE);
         App {
             damselfly_controller,
             graph_highlight: Default::default(),
@@ -49,8 +49,8 @@ impl App {
 impl eframe::App for App {
     fn update(&mut self, ctx: &Context, frame: &mut Frame) {
         self.draw_top_bottom_panel(ctx);
-        self.draw_central_panel(ctx);
         self.draw_side_panel(ctx);
+        self.draw_central_panel(ctx);
     }
 }
 
@@ -146,6 +146,7 @@ impl App {
     fn draw_map(&mut self, current_map: NoHashMap<usize, MemoryStatus>, latest_operation: Option<MemoryUpdate>, ui: &mut egui::Ui, pane_width: f32) {
         let cells_per_row = pane_width as usize / DEFAULT_CELL_WIDTH as usize;
         let span = self.damselfly_controller.memory_span;
+        let block_size = self.damselfly_controller.block_size;
         egui::ScrollArea::vertical().show(ui, |ui| {
             egui::Grid::new("memory_map_grid")
                 .min_col_width(0.0)
@@ -161,17 +162,17 @@ impl App {
                                 match status {
                                     MemoryStatus::Allocated(_, _, _) => {
                                         if ui.add(Button::new("X".to_string()).fill(egui::Color32::RED).small()).clicked() {
-                                            eprintln!("0x{:x}", map_manipulator::logical_to_absolute(address));
+                                            eprintln!("0x{:x}", map_manipulator::logical_to_absolute(address, block_size));
                                         };
                                     },
                                     MemoryStatus::PartiallyAllocated(_, _) => {
                                         if ui.add(Button::new("=".to_string()).fill(egui::Color32::YELLOW).small()).clicked() {
-                                            eprintln!("0x{:x}", map_manipulator::logical_to_absolute(address));
+                                            eprintln!("0x{:x}", map_manipulator::logical_to_absolute(address, block_size));
                                         };
                                     }
                                     MemoryStatus::Free(_) => {
                                         if ui.add(Button::new("0".to_string()).fill(egui::Color32::WHITE).small()).clicked() {
-                                            eprintln!("0x{:x}", map_manipulator::logical_to_absolute(address));
+                                            eprintln!("0x{:x}", map_manipulator::logical_to_absolute(address, block_size));
                                         };
                                     }
                                 }
@@ -183,16 +184,12 @@ impl App {
                     }
                 });
         });
-
     }
 
-    fn draw_side_panel(&mut self, ctx: Context) {
-        /*
-        egui::SidePanel::right().show(ctx, |ui| {
-            ui.add(Slider::new(&mut self.))
+    fn draw_side_panel(&mut self, ctx: &Context) {
+        egui::SidePanel::right("RIGHT PANEL").show(&ctx, |ui| {
+            ui.add(Slider::new(&mut self.damselfly_controller.block_size, 4..=4096).text("BLOCK SIZE"));
         });
-
-         */
     }
 }
 
