@@ -13,7 +13,7 @@ pub struct App {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    FileOpened(Result<Arc<String>, io::ErrorKind>)
+    DamselflyReady,
 }
 
 #[derive(Default)]
@@ -36,7 +36,7 @@ impl Application for App {
             },
             Command::perform(
                 initialise_damselfly(flags.log_path, flags.binary_path),
-                Message::FileOpened
+                |_| Message::DamselflyReady
             ),
         )
     }
@@ -62,9 +62,10 @@ async fn load_file(path: impl AsRef<Path>) -> Result<Arc<String>, io::ErrorKind>
     tokio::fs::read_to_string(path).await.map(Arc::new).map_err(|error| error.kind())
 }
 
-async fn initialise_damselfly(log_path: String, binary_path: String) -> Result<Arc<String>, io::ErrorKind> {
+async fn initialise_damselfly(log_path: String, binary_path: String) -> Result<(), Error> {
     let mut mst_parser = MemorySysTraceParser::new();
     println!("Reading log file into memory: {}", log_path.cyan());
+    // todo: add native file picker
     let log = std::fs::read_to_string(log_path).unwrap();
     println!("Parsing instructions");
     let instructions = mst_parser.parse_log(log, binary_path);
@@ -72,5 +73,11 @@ async fn initialise_damselfly(log_path: String, binary_path: String) -> Result<A
     let mut damselfly_controller = DamselflyController::new();
     println!("Populating memory logs");
     damselfly_controller.viewer.load_instructions(instructions);
-    Ok(Arc::new(String::from("ok")))
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+pub enum Error {
+    DialogClosed,
+    IO(io::ErrorKind),
 }
