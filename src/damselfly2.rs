@@ -1,2 +1,4 @@
 pub mod memory_update;
-mod instruction_interval_factory;
+pub mod memory_structs;
+mod update_interval;
+
