@@ -365,7 +365,6 @@ impl DamselflyViewer {
                 MemoryStatus::PartiallyAllocated(_, _) => {}
                 MemoryStatus::Free(_) => {}
             }
-            map.insert(scaled_address, MemoryStatus::PartiallyAllocated()
         }
         let blocks = map_manipulator::absolute_to_logical(bytes, block_size);
         for i in 0..blocks {
