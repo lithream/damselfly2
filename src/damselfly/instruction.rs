@@ -6,6 +6,12 @@ pub struct Instruction {
     operation: MemoryUpdate
 }
 
+impl PartialEq for Instruction {
+    fn eq(&self, other: &Self) -> bool {
+        return self.timestamp == other.timestamp && self.operation == other.operation;
+    }
+}
+
 impl Instruction {
     pub fn new(timestamp: usize, operation: MemoryUpdate) -> Instruction {
         Instruction { timestamp, operation }

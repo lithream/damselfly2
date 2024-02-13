@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::rc::Rc;
-use std::sync::mpsc::Receiver;
 use nohash_hasher::BuildNoHashHasher;
+use rust_lapper::{Interval, Lapper};
 use crate::damselfly::instruction::Instruction;
 
 pub type NoHashMap<K, V> = HashMap<K, V, BuildNoHashHasher<K>>;
@@ -17,10 +17,10 @@ pub struct MemoryUsage {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum MemoryUpdate {
-    // (address, size, callstack, timestamp)
+    // (address, size, callstack)
     Allocation(usize, usize, Rc<String>),
-    // (address, callstack, timestamp)
-    Free(usize, Rc<String>),
+    // (address, size, callstack)
+    Free(usize, usize, Rc<String>),
 }
 
 #[derive(Clone)]
@@ -46,14 +46,10 @@ impl Display for MemoryUpdate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
             MemoryUpdate::Allocation(address, size, _) => format!("ALLOC: 0x{:x} {}B", address, size),
-            MemoryUpdate::Free(address, _) => format!("FREE: 0x{:x}", address),
+            MemoryUpdate::Free(address, size, _) => format!("FREE: 0x{:x} {}", address, size),
         };
         write!(f, "{}", str)
     }
-}
-
-pub trait MemoryTracker {
-    fn get_recv(&self) -> Receiver<Instruction>;
 }
 
 #[derive(Debug)]
@@ -62,6 +58,3 @@ pub struct MemorySnapshot {
     pub operation: MemoryUpdate,
 }
 
-pub struct MemoryMap {
-    
-}
