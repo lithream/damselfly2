@@ -1,4 +1,3 @@
-pub mod memory_update;
-pub mod memory_structs;
+pub mod memory;
 mod update_interval;
 

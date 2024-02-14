@@ -1,8 +1,6 @@
-use std::sync::Arc;
 use rust_lapper::{Interval, Lapper};
-use crate::damselfly2::memory_update::MemoryUpdate;
-use crate::damselfly2::memory_structs::NoHashMap;
-use crate::damselfly2::memory_update::MemoryUpdateType;
+use crate::damselfly2::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
+use crate::damselfly2::update_interval::UpdateInterval;
 
 
 pub struct UpdateIntervalFactory {

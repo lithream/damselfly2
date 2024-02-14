@@ -11,7 +11,7 @@ use ratatui::widgets::block::Title;
 
 use crate::app::App;
 use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORYSPAN, DEFAULT_TIMESPAN, GRAPH_VERTICAL_SCALE_OFFSET};
-use crate::damselfly::memory_structs::{MemoryStatus, MemoryUpdate, NoHashMap};
+use crate::damselfly::memory::{MemoryStatus, MemoryUpdate, NoHashMap};
 
 /// Renders the user interface widgets.
 pub fn render(app: &mut App, frame: &mut Frame) {
