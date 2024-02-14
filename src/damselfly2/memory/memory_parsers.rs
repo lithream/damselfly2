@@ -6,13 +6,23 @@ use std::str::Split;
 use std::sync::Arc;
 use addr2line::Context;
 use owo_colors::OwoColorize;
-use crate::damselfly::instruction::Instruction;
-use crate::damselfly::memory_structs::{MemoryUpdate, RecordType};
+use crate::damselfly2::memory::memory_update::{Allocation, Free, MemoryUpdate, MemoryUpdateType};
+
+#[derive(Clone)]
+pub enum RecordType {
+    // (address, size, callstack)
+    Allocation(usize, usize, String),
+    // (address, callstack)
+    Free(usize, String),
+    // (address, callstack)
+    StackTrace(usize, String),
+}
 
 #[derive(Default)]
 pub struct MemorySysTraceParser {
     time: usize,
     record_queue: Vec<RecordType>,
+    memory_updates: Vec<MemoryUpdateType>,
     symbols: HashMap<usize, String>,
     prefix: String,
 }
@@ -20,12 +30,25 @@ pub struct MemorySysTraceParser {
 impl MemorySysTraceParser {
     pub fn new() -> MemorySysTraceParser {
         MemorySysTraceParser {
-            time: 0, record_queue: Vec::new(), symbols: HashMap::new(), prefix: String::new()
+            time: 0,
+            record_queue: Vec::new(),
+            memory_updates: Vec::new(),
+            symbols: HashMap::new(),
+            prefix: String::new()
         }
     }
 
-    pub fn parse_log(&mut self, log: String, binary_path: String) -> Vec<Instruction> {
-        let mut instructions = Vec::new();
+    /// Parses a log file into a Vec of MemoryUpdateTypes, each containing an Allocation or a Free.
+    ///
+    /// # Arguments
+    ///
+    /// * `log`: log file as a String
+    /// * `binary_path`: path to threadApp binary for debuginfo
+    ///
+    /// returns: a Vec of MemoryUpdateType (MemoryUpdate wrapped in an enum, ready for
+    ///          interval overlap processing
+    ///
+    pub fn parse_log(mut self, log: String, binary_path: String) -> Vec<MemoryUpdateType> {
         self.parse_symbols(&log, &binary_path);
         let mut log_iter = log.split('\n').peekable();
         while let Some(line) = log_iter.peek() {
@@ -34,14 +57,14 @@ impl MemorySysTraceParser {
                 continue;
             }
             println!("Processing instruction: {}", line.cyan());
-            let instruction = self.process_instruction(&mut log_iter);
-            instructions.push(instruction);
+            let memory_update = self.process_instruction(&mut log_iter);
+            self.memory_updates.push(memory_update);
         }
         if !self.record_queue.is_empty() {
-            let instruction = self.bake_instruction();
-            instructions.push(instruction);
+            let memory_update = self.bake_memory_update();
+            self.memory_updates.push(memory_update);
         }
-        instructions
+        self.memory_updates
         // EOF
         /*
         let instruction = self.bake_instruction();
@@ -49,8 +72,19 @@ impl MemorySysTraceParser {
          */
     }
 
-    fn is_line_useless(next_line: &str) -> bool {
-        let split_line = next_line.split('>').collect::<Vec<_>>();
+    /// Checks if a line in the log contains none of the following:
+    /// Allocation information
+    /// Free information
+    /// Stacktrace information
+    ///
+    /// # Arguments
+    ///
+    /// * `line`: the line to check
+    ///
+    /// returns: true if useless, false if useful
+    ///
+    pub fn is_line_useless(line: &str) -> bool {
+        let split_line = line.split('>').collect::<Vec<_>>();
         if let Some(latter_half) = split_line.get(1) {
             let trimmed_string = latter_half.trim();
             if trimmed_string.starts_with('+') || trimmed_string.starts_with('-') || trimmed_string.starts_with('^') {
@@ -59,6 +93,15 @@ impl MemorySysTraceParser {
         }
         true
     }
+
+    /// Extracts all memory addresses from the log, ignoring lines that are deemed useless by
+    /// is_line_useless.
+    ///
+    /// # Arguments
+    ///
+    /// * `log`: the entire log file
+    ///
+    /// returns: a Vec of every address in the log relevant to memory tracing
 
     fn extract_addresses_from_log(log: &str) -> Vec<usize> {
         let mut set = HashSet::new();
@@ -80,6 +123,15 @@ impl MemorySysTraceParser {
             .collect()
     }
 
+    /// Gets the memory address pointed to by a stacktrace line. This method does not check if the
+    /// line is actually a stacktrace, so only use it when you are sure the line contains a stacktrace.
+    ///
+    /// # Arguments
+    ///
+    /// * `line`: a single line containing a stacktrace log
+    ///
+    /// returns: the address found in the line
+
     fn extract_trace_address(line: &str) -> String {
         let mut address = String::new();
         if let Some(open_bracket_pos) = line.rfind('[') {
@@ -91,6 +143,16 @@ impl MemorySysTraceParser {
         }
         address
     }
+
+    /// Finds symbols (FILENAME:LINE_NO) of addresses in a log. Also computes the longest prefix
+    /// common to all symbols and stores it.
+    ///
+    /// # Arguments
+    ///
+    /// * `log`: the entire log
+    /// * `binary_path`: path to the threadApp binary for debuginfo
+    ///
+    /// returns: nothing, as the longest prefix and symbols are stored as struct fields.
 
     fn parse_symbols(&mut self, log: &str, binary_path: &str) {
         let addresses = Self::extract_addresses_from_log(log);
@@ -113,6 +175,14 @@ impl MemorySysTraceParser {
         self.prefix = Self::longest_common_prefix(&symbols);
         self.symbols = addresses.into_iter().zip(symbols).collect();
     }
+
+    /// Looks up the symbol corresponding to a hex address.
+    ///
+    /// # Arguments
+    ///
+    /// * `query`: the address in hex without a 0x prefix
+    ///
+    /// returns: the symbol if found, None otherwise
 
     fn lookup_symbol(&self, query: String) -> Option<String> {
         let full_symbol = self.symbols.get(&usize::from_str_radix(query.as_str(), 16)
@@ -149,7 +219,7 @@ impl MemorySysTraceParser {
         prefix
     }
 
-    pub fn process_instruction(&mut self, log_iter: &mut Peekable<Split<char>>) -> Instruction {
+    pub fn process_instruction(&mut self, log_iter: &mut Peekable<Split<char>>) -> MemoryUpdateType {
         let mut baked_instruction = None;
         for line in &mut *log_iter {
             if Self::is_line_useless(line) {
@@ -165,12 +235,12 @@ impl MemorySysTraceParser {
         }
         // EOF but last instruction left in queue
         if baked_instruction.is_none() && !self.record_queue.is_empty() {
-            baked_instruction = Some(self.bake_instruction());
+            baked_instruction = Some(self.bake_memory_update());
         }
         baked_instruction.unwrap()
     }
 
-    fn process_alloc_or_free(&mut self, record: Option<RecordType>) -> Option<Instruction> {
+    fn process_alloc_or_free(&mut self, record: Option<RecordType>) -> Option<MemoryUpdateType> {
         // If this is the first record in the log, push it into the queue and wait for StackTrace records
         if self.record_queue.is_empty() {
             self.record_queue.push(record.expect("[MemorySysTraceParser::process_alloc_or_free]: Queue is empty, but record is also None"));
@@ -178,17 +248,17 @@ impl MemorySysTraceParser {
         }
 
         // Else, bake the previously stored alloc/free, clear the queue and push the latest record into it
-        let baked_instruction = self.bake_instruction();
+        let baked_memory_update = self.bake_memory_update();
         self.record_queue.clear();
         if let Some(record) = record {
             self.record_queue.push(record);
         } else {
-            // EOF
+            // EOF. empty else block for clarity
         }
-        Some(baked_instruction)
+        Some(baked_memory_update)
     }
 
-    fn bake_instruction(&mut self) -> Instruction {
+    fn bake_memory_update(&mut self) -> MemoryUpdateType {
         let mut iter = self.record_queue.iter();
         let mut first_rec: RecordType = iter.next().expect("[MemorySysTraceParser::bake_instruction]: Record queue empty").clone();
         for rec in iter {
@@ -214,21 +284,37 @@ impl MemorySysTraceParser {
             }
         }
 
-        let instruction;
+        // Stack tracing complete, so we instantiate the MemoryUpdateType with the required data and return it
+        let memory_update;
         match first_rec {
             RecordType::Allocation(address, size, callstack) => {
-                let memory_update = MemoryUpdate::Allocation(address, size, Arc::new(callstack));
-                instruction = Instruction::new(self.time, memory_update);
+                memory_update = Allocation::new(address, size, Arc::new(callstack), self.time).wrap_in_enum();
                 self.time += 1;
             },
             RecordType::Free(address, callstack) => {
-                let memory_update = MemoryUpdate::Free(address, Arc::new(callstack));
-                instruction = Instruction::new(self.time, memory_update);
+                // We manually calculate the bytes to free, since the log file does not say how many bytes are freed
+                let free_size = self.find_latest_allocation_size(address);
+                if free_size.is_none() { panic!("[MSTParser::bake_instruction]: Can't find alloc for this free"); }
+                memory_update = Free::new(address, free_size.unwrap(), Arc::new(callstack), self.time).wrap_in_enum();
                 self.time += 1;
             }
             _ => { panic!("[MemorySysTraceParser::bake_instruction]: First instruction in instruction queue is a stacktrace, but it should be an alloc/free"); }
         }
-        instruction
+        memory_update
+    }
+
+    fn find_latest_allocation_size(&self, address: usize) -> Option<usize> {
+        for memory_update in self.memory_updates.iter().rev() {
+            match memory_update {
+                MemoryUpdateType::Allocation(allocation) => {
+                    if allocation.get_absolute_address() == address {
+                        return Some(allocation.get_absolute_size());
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
     }
 
     fn process_stacktrace(&mut self, record: RecordType) {

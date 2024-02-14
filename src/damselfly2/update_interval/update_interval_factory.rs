@@ -4,14 +4,17 @@ use crate::damselfly2::update_interval::UpdateInterval;
 
 
 pub struct UpdateIntervalFactory {
-    memory_updates: Vec<Box<dyn MemoryUpdate>>,
+    memory_updates: Vec<MemoryUpdateType>,
     lapper: Lapper<usize, MemoryUpdateType>,
 }
 
 impl UpdateIntervalFactory {
-    pub fn load_instruction<T: MemoryUpdate>(&mut self, update: T)
+    pub fn append_instruction(&mut self, update: MemoryUpdateType)
     {
-        self.memory_updates.push(Box::new(update));
+        self.memory_updates.push(update);
+    }
+    pub fn load_instructions(&mut self, updates: Vec<MemoryUpdateType>) {
+        self.memory_updates = updates;
     }
 
     pub fn calculate_overlaps(&mut self) {
@@ -33,5 +36,18 @@ impl UpdateIntervalFactory {
         }
 
         intervals
+    }
+
+    fn get_start_and_stop(&self, memory_update: &MemoryUpdateType) -> (usize, usize) {
+        match memory_update {
+            MemoryUpdateType::Allocation(allocation) => {
+                let alloc_address = allocation.get_absolute_address();
+                (alloc_address, alloc_address + allocation.get_absolute_size())
+            }
+            MemoryUpdateType::Free(free) => {
+                let free_address = free.get_absolute_address();
+                (free_address, free_address + free.get_absolute_size())
+            }
+        }
     }
 }

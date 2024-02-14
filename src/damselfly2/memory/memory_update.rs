@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -44,7 +43,7 @@ pub struct Free {
 }
 
 impl Free {
-    fn new(address: usize, size: usize, callstack: Arc<String>, timestamp: usize) -> Free {
+    pub fn new(address: usize, size: usize, callstack: Arc<String>, timestamp: usize) -> Free {
         Free {
             address,
             size,
