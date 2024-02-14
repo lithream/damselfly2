@@ -1,4 +1,4 @@
-use crate::damselfly2::memory_update::{MemoryUpdate, MemoryUpdateType};
+use crate::damselfly2::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use super::UpdateInterval;
 
 pub struct UpdateIntervalSorter;

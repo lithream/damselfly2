@@ -3,7 +3,7 @@ use crate::damselfly2::memory::memory_update::MemoryUpdateType;
 use crate::damselfly2::update_interval::update_interval_factory::UpdateIntervalFactory;
 use crate::damselfly2::update_interval::update_queue_compressor::UpdateQueueCompressor;
 
-pub struct DistinctBlockCounter<'a> {
+pub struct DistinctBlockCounter {
     memory_updates: Vec<MemoryUpdateType>,
 }
 
@@ -13,7 +13,7 @@ impl DistinctBlockCounter {
             memory_updates: Vec::new(),
         }
     }
-    
+
     pub fn new(memory_updates: Vec<MemoryUpdateType>) -> DistinctBlockCounter {
         DistinctBlockCounter {
             memory_updates

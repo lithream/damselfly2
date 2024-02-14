@@ -48,8 +48,8 @@ impl MemorySysTraceParser {
     /// returns: a Vec of MemoryUpdateType (MemoryUpdate wrapped in an enum, ready for
     ///          interval overlap processing
     ///
-    pub fn parse_log(mut self, log: String, binary_path: String) -> Vec<MemoryUpdateType> {
-        self.parse_symbols(&log, &binary_path);
+    pub fn parse_log(mut self, log: &str, binary_path: &str) -> Vec<MemoryUpdateType> {
+        self.parse_symbols(log, binary_path);
         let mut log_iter = log.split('\n').peekable();
         while let Some(line) = log_iter.peek() {
             if Self::is_line_useless(line) {

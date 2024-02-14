@@ -2,20 +2,35 @@ use std::cmp::Ordering;
 
 #[derive(Debug, Default, Clone)]
 pub struct MemoryUsage {
-    pub memory_used_absolute: usize,
-    pub blocks: usize,
-    pub latest_operation: usize,
+    memory_used_absolute: i128,
+    distinct_blocks: usize,
+    latest_operation: usize,
 }
 
 impl MemoryUsage {
-    pub fn new(memory_used_absolute: usize, blocks: usize, latest_operation: usize) -> MemoryUsage {
+    pub fn new(memory_used_absolute: i128, distinct_blocks: usize, latest_operation: usize) -> MemoryUsage {
         MemoryUsage {
             memory_used_absolute,
-            blocks,
+            distinct_blocks,
             latest_operation,
         }
     }
 }
+
+impl MemoryUsage {
+    pub fn get_memory_used_absolute(&self) -> i128 {
+        self.memory_used_absolute
+    }
+    
+    pub fn get_distinct_blocks(&self) -> usize {
+        self.distinct_blocks
+    }
+    
+    pub fn get_latest_operation(&self) -> usize {
+        self.latest_operation
+    }
+}
+
 impl Eq for MemoryUsage {}
 
 impl PartialEq<Self> for MemoryUsage {
