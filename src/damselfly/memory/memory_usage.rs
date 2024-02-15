@@ -50,3 +50,18 @@ impl Ord for MemoryUsage {
         self.memory_used_absolute.cmp(&other.memory_used_absolute)
     }
 }
+
+mod tests {
+    use crate::damselfly::memory::memory_usage::MemoryUsage;
+
+    #[test]
+    fn ordering_test() {
+        let base = MemoryUsage::new(128, 4, 4);
+        let larger = MemoryUsage::new(256, 3, 3);
+        let equal = MemoryUsage::new(128, 32, 32);
+        assert_eq!(base, equal);
+        assert!(base < larger);
+        assert!(equal < larger);
+        assert_ne!(larger, equal);
+    }
+}

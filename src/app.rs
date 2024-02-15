@@ -2,16 +2,12 @@ use std::{error};
 use std::cell::RefCell;
 use std::rc::Rc;
 use eframe::Frame;
-use egui::{Button, Context, Slider};
+use egui::{Button, Context};
 use egui_plot::{Line, Plot, PlotPoint, PlotPoints};
-use owo_colors::OwoColorize;
-use crate::app::Mode::DEFAULT;
 use crate::consts::DEFAULT_CELL_WIDTH;
-use crate::damselfly::consts::{DEFAULT_ROW_LENGTH};
-use crate::damselfly::controller::DamselflyController;
-use crate::damselfly::{consts, map_manipulator};
-use crate::damselfly::memory_parsers::MemorySysTraceParser;
-use crate::damselfly::memory_structs::{MemoryStatus, MemoryUpdate, NoHashMap};
+use crate::damselfly::memory::memory_status::MemoryStatus;
+use crate::damselfly::memory::memory_update::MemoryUpdateType;
+use crate::damselfly::viewer::damselfly_viewer::DamselflyViewer;
 
 /// Application result type.
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
@@ -23,31 +19,23 @@ pub enum Mode {
 
 /// Application.
 pub struct App {
-    pub damselfly_controller: DamselflyController,
+    pub viewer: DamselflyViewer,
     pub graph_highlight: usize,
 }
 
 impl App {
     /// Constructs a new instance of [`App`].
-    pub fn new(cc: &eframe::CreationContext<'_>, trace_path: String, binary_path: String) -> Self {
-        let mut mst_parser = MemorySysTraceParser::new();
-        println!("Reading log file into memory: {}", trace_path.cyan());
-        let log = std::fs::read_to_string(trace_path).unwrap();
-        println!("Parsing instructions");
-        let instructions = mst_parser.parse_log(log, binary_path);
-        println!("Initialising DamselflyViewer");
-        let mut damselfly_controller = DamselflyController::new();
-        println!("Populating memory logs");
-        damselfly_controller.viewer.load_instructions(instructions, consts::_BLOCK_SIZE);
+    pub fn new(_: &eframe::CreationContext<'_>, log_path: String, binary_path: String) -> Self {
+        let viewer = DamselflyViewer::new(log_path.as_str(), binary_path.as_str());
         App {
-            damselfly_controller,
-            graph_highlight: Default::default(),
+            viewer,
+            graph_highlight: 0,
         }
     }
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &Context, frame: &mut Frame) {
+    fn update(&mut self, ctx: &Context, _: &mut Frame) {
         self.draw_top_bottom_panel(ctx);
         self.draw_side_panel(ctx);
         self.draw_central_panel(ctx);
@@ -81,7 +69,7 @@ impl App {
 
     fn validate_x_coordinate(&self, x: f64) -> Result<usize, ()> {
         let int_x = x.round() as usize;
-        let instructions = self.damselfly_controller.viewer.get_total_operations();
+        let instructions = self.viewer.get_total_operations();
         if int_x < instructions {
             return Ok(int_x);
         }
@@ -94,32 +82,30 @@ impl App {
                 columns[0].label("USAGE");
                 columns[1].label("MEMORY");
                 match self.draw_graph(&mut columns[0]) {
-                    GraphResponse::Hover(x, y) => {
+                    GraphResponse::Hover(x, _) => {
                         if let Ok(temporary_graph_highlight) = self.validate_x_coordinate(x) {
-                            self.damselfly_controller.graph_highlight = temporary_graph_highlight;
+                            self.viewer.set_graph_current_highlight(temporary_graph_highlight);
                         }
                     }
-                    GraphResponse::Click(x, y) => {
+                    GraphResponse::Click(x, _) => {
                         if let Ok(persistent_graph_highlight) = self.validate_x_coordinate(x) {
                             self.graph_highlight = persistent_graph_highlight;
-                            self.damselfly_controller.graph_highlight = persistent_graph_highlight;
+                            self.viewer.set_graph_saved_highlight(persistent_graph_highlight);
                         }
                     }
                     GraphResponse::None => {
-                        self.damselfly_controller.graph_highlight = self.graph_highlight;
+                        self.viewer.clear_graph_current_highlight();
                     }
                 }
-                let current_map = self.damselfly_controller.get_current_map_state();
-                let map = current_map.0;
-                let latest_operation = current_map.1.cloned();
                 let pane_width = columns[1].available_width();
-                self.draw_map(map, latest_operation, &mut columns[1], pane_width);
+                let map = self.viewer.get_map();
+                self.draw_map(map, &mut columns[1], pane_width);
             })
         });
     }
 
     fn draw_graph(&mut self, ui: &mut egui::Ui) -> GraphResponse {
-        let graph_data = PlotPoints::from(self.damselfly_controller.get_full_memory_usage_graph());
+        let graph_data = PlotPoints::from(self.viewer.get_graph());
         let line = Line::new(graph_data);
         let hovered_point: Rc<RefCell<(f64, f64)>> = Default::default();
         let hovered_point_ref_clone: Rc<RefCell<(f64, f64)>> = Rc::clone(&hovered_point);
@@ -130,7 +116,7 @@ impl App {
         };
 
         let mut graph_response = GraphResponse::None;
-        let mut response = Plot::new("plot")
+        let response = Plot::new("plot")
             .label_formatter(get_hovered_point_coords)
             .view_aspect(2.0)
             .show(ui, |plot_ui| plot_ui.line(line));
@@ -143,53 +129,47 @@ impl App {
         graph_response
     }
 
-    fn draw_map(&mut self, current_map: NoHashMap<usize, MemoryStatus>, latest_operation: Option<MemoryUpdate>, ui: &mut egui::Ui, pane_width: f32) {
+    fn draw_map(&mut self,
+                blocks: Vec<MemoryStatus>,
+                ui: &mut egui::Ui,
+                pane_width: f32
+    ) {
         let cells_per_row = pane_width as usize / DEFAULT_CELL_WIDTH as usize;
-        let span = self.damselfly_controller.memory_span;
-        let block_size = self.damselfly_controller.block_size;
         egui::ScrollArea::vertical().show(ui, |ui| {
             egui::Grid::new("memory_map_grid")
                 .min_col_width(0.0)
                 .min_row_height(0.0)
                 .spacing(egui::vec2(0.0, 0.0))
                 .show(ui, |ui| {
-                    for address in span.0..=span.1 {
-                        if (address - span.0) % cells_per_row == 0 {
+                    for (index, block) in blocks.iter().enumerate() {
+                        if index % cells_per_row == 0 {
                             ui.end_row();
                         }
-                        match current_map.get(&address) {
-                            Some(status) => {
-                                match status {
-                                    MemoryStatus::Allocated(_, _, _) => {
-                                        if ui.add(Button::new("X".to_string()).fill(egui::Color32::RED).small()).clicked() {
-                                            eprintln!("0x{:x}", map_manipulator::logical_to_absolute(address, block_size));
-                                        };
-                                    },
-                                    MemoryStatus::PartiallyAllocated(_, _) => {
-                                        if ui.add(Button::new("=".to_string()).fill(egui::Color32::YELLOW).small()).clicked() {
-                                            eprintln!("0x{:x}", map_manipulator::logical_to_absolute(address, block_size));
-                                        };
-                                    }
-                                    MemoryStatus::Free(_) => {
-                                        if ui.add(Button::new("0".to_string()).fill(egui::Color32::WHITE).small()).clicked() {
-                                            eprintln!("0x{:x}", map_manipulator::logical_to_absolute(address, block_size));
-                                        };
-                                    }
+
+                        match block {
+                            MemoryStatus::Allocated(parent_address, _, _) => {
+                                if ui.add(Button::new("X".to_string()).fill(egui::Color32::RED).small()).clicked() {
+                                    eprintln!("ALLOC 0x{:x}", parent_address);
                                 }
                             }
-                            None => {
-                                ui.add(Button::new("U".to_string()).fill(egui::Color32::WHITE).small());
+                            MemoryStatus::PartiallyAllocated(parent_address, _, _) => {
+                                if ui.add(Button::new("=".to_string()).fill(egui::Color32::YELLOW).small()).clicked() {
+                                    eprintln!("0x{:x}", parent_address);
+                                }
                             }
+                            MemoryStatus::Free(parent_address, _, _) => {
+                                if ui.add(Button::new("0".to_string()).fill(egui::Color32::WHITE).small()).clicked() {
+                                    eprintln!("0x{:x}", parent_address);
+                                }
+                            }
+                            MemoryStatus::Unused => {}
                         }
                     }
                 });
         });
     }
 
-    fn draw_side_panel(&mut self, ctx: &Context) {
-        egui::SidePanel::right("RIGHT PANEL").show(&ctx, |ui| {
-            ui.add(Slider::new(&mut self.damselfly_controller.block_size, 4..=4096).text("BLOCK SIZE"));
-        });
+    fn draw_side_panel(&mut self, _: &Context) {
     }
 }
 

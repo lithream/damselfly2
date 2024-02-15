@@ -1,4 +1,4 @@
-use crate::damselfly2::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
+use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 
 pub struct UpdateQueueCompressor { }
 
@@ -7,7 +7,7 @@ impl UpdateQueueCompressor {
         let mut compressed_updates = Vec::new();
         for update in updates {
             match update {
-                MemoryUpdateType::Allocation(allocation) => compressed_updates.push(allocation.wrap_in_enum()),
+                MemoryUpdateType::Allocation(allocation) => compressed_updates.push(allocation.clone().wrap_in_enum()),
                 MemoryUpdateType::Free(free) => {
                     compressed_updates.remove(
                         compressed_updates

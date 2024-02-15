@@ -1,4 +1,4 @@
-use crate::damselfly2::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
+use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 
 pub struct Utility {}
 

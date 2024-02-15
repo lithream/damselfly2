@@ -1,7 +1,5 @@
-pub mod instruction;
-pub mod map_manipulator;
-pub mod consts;
-pub mod memory_structs;
-pub mod memory_parsers;
+pub mod memory;
+pub mod update_interval;
 pub mod viewer;
-pub mod controller;
+pub mod consts;
+

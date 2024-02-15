@@ -6,6 +6,7 @@ use map::app::App;
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result<()> {
+    
     let args: Vec<String> = env::args().collect();
     // Create an application.
     let log_path = args.get(1)

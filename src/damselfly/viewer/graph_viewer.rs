@@ -1,5 +1,4 @@
-use crate::damselfly2::memory::memory_usage::MemoryUsage;
-use crate::damselfly2::memory::memory_usage_factory::MemoryUsageFactory;
+use crate::damselfly::memory::memory_usage::MemoryUsage;
 
 enum GraphMode {
     NORMAL,
@@ -8,7 +7,7 @@ enum GraphMode {
 
 pub struct GraphViewer {
     memory_usage_snapshots: Vec<MemoryUsage>,
-    current_highlight: usize,
+    current_highlight: Option<usize>,
     saved_highlight: usize,
     max_usage: i128,
     left_mark: usize,
@@ -20,7 +19,7 @@ impl GraphViewer {
     pub fn new(memory_usage_snapshots: Vec<MemoryUsage>, max_usage: i128) -> GraphViewer {
         let mut viewer = GraphViewer {
             memory_usage_snapshots,
-            current_highlight: 0,
+            current_highlight: None,
             saved_highlight: 0,
             max_usage,
             left_mark: 0,
@@ -40,8 +39,27 @@ impl GraphViewer {
         Vec::new()
     }
 
-    pub fn get_current_highlight(&self) -> usize {
-        self.current_highlight
+    pub fn get_total_operations(&self) -> usize {
+        self.memory_usage_snapshots.len()
+    }
+
+    pub fn get_highlight(&self) -> usize {
+        if let Some(highlight) = self.current_highlight {
+            return highlight;
+        }
+        self.saved_highlight
+    }
+
+    pub fn set_current_highlight(&mut self, new_highlight: usize) {
+        self.current_highlight = Some(new_highlight);
+    }
+
+    pub fn set_saved_highlight(&mut self, new_highlight: usize) {
+        self.saved_highlight = new_highlight;
+    }
+
+    pub fn clear_current_highlight(&mut self) {
+        self.current_highlight = None;
     }
 
     pub fn get_saved_highlight(&self) -> usize {

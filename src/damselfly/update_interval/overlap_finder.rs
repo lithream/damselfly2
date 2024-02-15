@@ -1,6 +1,6 @@
 use rust_lapper::{Interval, Lapper};
-use crate::damselfly2::memory::memory_update::MemoryUpdateType;
-use crate::damselfly2::update_interval::UpdateInterval;
+use crate::damselfly::memory::memory_update::MemoryUpdateType;
+use crate::damselfly::update_interval::UpdateInterval;
 
 pub struct OverlapFinder {
     lapper: Lapper<usize, MemoryUpdateType>

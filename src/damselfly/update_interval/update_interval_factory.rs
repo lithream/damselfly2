@@ -1,7 +1,7 @@
 use rust_lapper::{Interval};
-use crate::damselfly2::memory::memory_update::{MemoryUpdateType};
-use crate::damselfly2::update_interval::{UpdateInterval};
-use crate::damselfly2::update_interval::utility::Utility;
+use crate::damselfly::memory::memory_update::MemoryUpdateType;
+use crate::damselfly::update_interval::UpdateInterval;
+use crate::damselfly::update_interval::utility::Utility;
 
 
 pub struct UpdateIntervalFactory {
@@ -24,9 +24,9 @@ impl UpdateIntervalFactory {
 
     pub fn construct_enum_vector(&self) -> Vec<Interval<usize, MemoryUpdateType>> {
         let mut intervals = Vec::new();
-        for memory_update in self.memory_updates {
-            let (start, stop) = Utility::get_start_and_stop(&memory_update);
-            intervals.push(UpdateInterval { start, stop, val: memory_update });
+        for memory_update in &self.memory_updates {
+            let (start, stop) = Utility::get_start_and_stop(memory_update);
+            intervals.push(UpdateInterval { start, stop, val: memory_update.clone() });
         }
 
         intervals
