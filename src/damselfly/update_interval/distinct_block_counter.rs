@@ -46,3 +46,28 @@ impl DistinctBlockCounter {
         lapper.find(self.start, self.stop).count()
     }
 }
+
+mod tests {
+    use crate::damselfly::consts::{TEST_BINARY_PATH, TEST_LOG};
+    use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
+    use crate::damselfly::memory::memory_update::MemoryUpdateType;
+    use crate::damselfly::update_interval::distinct_block_counter::DistinctBlockCounter;
+
+    fn initialise_test_log() -> (Vec<MemoryUpdateType>, DistinctBlockCounter) {
+        let mst_parser = MemorySysTraceParser::new();
+        let updates = mst_parser.parse_log_directly(TEST_LOG, TEST_BINARY_PATH);
+        (updates, DistinctBlockCounter::default())
+    }
+
+    #[test]
+    fn zero_distinct_blocks_test() {
+        let (_, distinct_block_counter) = initialise_test_log();
+        assert_eq!(distinct_block_counter.get_distinct_blocks(), 0);
+    }
+
+    #[test]
+    fn one_distinct_block_test() {
+        let (updates, mut distinct_block_counter) = initialise_test_log();
+        distinct_block_counter.push_update(&updates[0]);
+    }
+}

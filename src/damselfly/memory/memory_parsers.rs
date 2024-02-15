@@ -48,9 +48,16 @@ impl MemorySysTraceParser {
     /// returns: a Vec of MemoryUpdateType (MemoryUpdate wrapped in an enum, ready for
     ///          interval overlap processing
     ///
-    pub fn parse_log(mut self, log: &str, binary_path: &str) -> Vec<MemoryUpdateType> {
-        let log = std::fs::read_to_string(log).unwrap();
-        let log = log.as_str();
+    pub fn parse_log_directly(mut self, log: &str, binary_path: &str) -> Vec<MemoryUpdateType> {
+        self.parse_log_contents(log, binary_path)
+    }
+    
+    pub fn parse_log(self, log_path: &str, binary_path: &str) -> Vec<MemoryUpdateType> {
+        let log = std::fs::read_to_string(log_path).unwrap();
+        self.parse_log_contents(log.as_str(), binary_path)
+    }
+    
+    fn parse_log_contents(mut self, log: &str, binary_path: &str) -> Vec<MemoryUpdateType> {
         self.parse_symbols(log, binary_path);
         let mut log_iter = log.split('\n').peekable();
         while let Some(line) = log_iter.peek() {

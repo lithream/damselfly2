@@ -15,3 +15,13 @@ pub const GRAPH_VERTICAL_SCALE_OFFSET: f64 = 1.2;
 pub const MAP_CACHE_SIZE: usize = 10000;
 pub const DEFAULT_TICK_RATE: u64 = 100;
 pub const LARGE_FILE_TICK_RATE: u64 = 500;
+pub const TEST_LOG: &str = "00000811: 039da1f3 |V|A|005|        0 us   0003.676 s    < DT:0xE14DEEBC> + 0 14
+00000812: 039da1f3 |V|A|005|        0 us   0003.676 s    < DT:0xE14DEEBC> ^ 0 [e045d83b]
+00000830: 039da3f2 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> + 20 14
+00000831: 039da3f2 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ 20 [e045d83b]
+00000850: 039da4e5 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> + 40 114
+00000851: 039da4e5 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ 40 [e045d83b]
+00000811: 039da1f3 |V|A|005|        0 us   0003.676 s    < DT:0xE14DEEBC> + 158 14
+00000812: 039da1f3 |V|A|005|        0 us   0003.676 s    < DT:0xE14DEEBC> ^ 80 [e045d83b]
+00000830: 039da3f2 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> + 16c 14
+00000831: 039da3f2 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ 20 [e045d83b]";

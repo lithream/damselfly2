@@ -50,26 +50,48 @@ impl MemoryUsageFactory {
 
 mod tests {
     use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
-    use crate::damselfly::consts::{TEST_BINARY_PATH, TEST_LOG_PATH};
+    use crate::damselfly::consts::{TEST_BINARY_PATH, TEST_LOG, TEST_LOG_PATH};
+    use crate::damselfly::memory::memory_usage::MemoryUsage;
     use crate::damselfly::memory::memory_usage_factory::MemoryUsageFactory;
 
-    #[test]
-    fn calculate_usage_stats_test() {
+    fn initialise_test_log() -> (Vec<MemoryUsage>, i128) {
         let mst_parser = MemorySysTraceParser::new();
-        let updates = mst_parser.parse_log(TEST_LOG_PATH, TEST_BINARY_PATH);
+        let updates = mst_parser.parse_log_directly(TEST_LOG, TEST_BINARY_PATH);
         let memory_usage_factory = MemoryUsageFactory::new(updates);
-        let (memory_usages, max_usage) = memory_usage_factory.calculate_usage_stats();
+        memory_usage_factory.calculate_usage_stats()
+    }
+
+    #[test]
+    fn calculate_max_usage_test() {
+        let (memory_usages, max_usage) = initialise_test_log();
+
         assert_eq!(max_usage, 356);
         assert_eq!(memory_usages[0].get_memory_used_absolute(), 20);
         assert_eq!(memory_usages[1].get_memory_used_absolute(), 40);
         assert_eq!(memory_usages[2].get_memory_used_absolute(), 316);
         assert_eq!(memory_usages[3].get_memory_used_absolute(), 336);
         assert_eq!(memory_usages[4].get_memory_used_absolute(), 356);
+    }
+
+    #[test]
+    fn calculate_memory_used_absolute_test() {
+        let (memory_usages, _) = initialise_test_log();
 
         assert_eq!(memory_usages[0].get_distinct_blocks(), 1);
         assert_eq!(memory_usages[1].get_distinct_blocks(), 2);
         assert_eq!(memory_usages[2].get_distinct_blocks(), 3);
         assert_eq!(memory_usages[3].get_distinct_blocks(), 4);
         assert_eq!(memory_usages[4].get_distinct_blocks(), 4);
+    }
+
+    #[test]
+    fn calculate_latest_operation_test() {
+        let (memory_usages, _) = initialise_test_log();
+
+        assert_eq!(memory_usages[0].get_latest_operation(), 0);
+        assert_eq!(memory_usages[1].get_latest_operation(), 1);
+        assert_eq!(memory_usages[2].get_latest_operation(), 2);
+        assert_eq!(memory_usages[3].get_latest_operation(), 3);
+        assert_eq!(memory_usages[4].get_latest_operation(), 4);
     }
 }
