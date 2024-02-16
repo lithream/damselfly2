@@ -20,7 +20,6 @@ pub enum Mode {
 /// Application.
 pub struct App {
     pub viewer: DamselflyViewer,
-    pub graph_highlight: usize,
 }
 
 impl App {
@@ -29,7 +28,6 @@ impl App {
         let viewer = DamselflyViewer::new(log_path.as_str(), binary_path.as_str());
         App {
             viewer,
-            graph_highlight: 0,
         }
     }
 }
@@ -89,7 +87,6 @@ impl App {
                     }
                     GraphResponse::Click(x, _) => {
                         if let Ok(persistent_graph_highlight) = self.validate_x_coordinate(x) {
-                            self.graph_highlight = persistent_graph_highlight;
                             self.viewer.set_graph_saved_highlight(persistent_graph_highlight);
                         }
                     }
@@ -98,6 +95,7 @@ impl App {
                     }
                 }
                 let pane_width = columns[1].available_width();
+                self.viewer.set_block_size(4);
                 let map = self.viewer.get_map();
                 self.draw_map(map, &mut columns[1], pane_width);
             })
@@ -147,22 +145,26 @@ impl App {
                         }
 
                         match block {
-                            MemoryStatus::Allocated(parent_address, _, _) => {
+                            MemoryStatus::Allocated(parent_address, parent_size, callstack) => {
                                 if ui.add(Button::new("X".to_string()).fill(egui::Color32::RED).small()).clicked() {
-                                    eprintln!("ALLOC 0x{:x}", parent_address);
+                                    eprintln!("ALLOC 0x{:x} {}B {}", parent_address, parent_size, *callstack);
                                 }
                             }
-                            MemoryStatus::PartiallyAllocated(parent_address, _, _) => {
+                            MemoryStatus::PartiallyAllocated(parent_address, parent_size, callstack) => {
                                 if ui.add(Button::new("=".to_string()).fill(egui::Color32::YELLOW).small()).clicked() {
-                                    eprintln!("0x{:x}", parent_address);
+                                    eprintln!("0x{:x} {}B {}", parent_address, parent_size, *callstack);
                                 }
                             }
-                            MemoryStatus::Free(parent_address, _, _) => {
+                            MemoryStatus::Free(parent_address, parent_size, callstack) => {
                                 if ui.add(Button::new("0".to_string()).fill(egui::Color32::WHITE).small()).clicked() {
-                                    eprintln!("0x{:x}", parent_address);
+                                    eprintln!("0x{:x} {}B {}", parent_address, parent_size, callstack);
                                 }
                             }
-                            MemoryStatus::Unused => {}
+                            MemoryStatus::Unused => {
+                                if ui.add(Button::new("U".to_string()).fill(egui::Color32::WHITE).small()).clicked() {
+                                    eprintln!("UNUSED");
+                                }
+                            }
                         }
                     }
                 });

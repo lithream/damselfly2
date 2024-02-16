@@ -6,21 +6,21 @@ use crate::damselfly::viewer::memory_canvas::MemoryCanvas;
 
 pub struct MapViewer {
     update_intervals: Vec<UpdateInterval>,
-    current_highlight: usize,
     current_timestamp: usize,
     canvas_start: usize,
-    canvas_stop: usize,
+    canvas_span: usize,
+    block_size: usize,
 }
 
 impl MapViewer {
     pub fn new(update_intervals: Vec<UpdateInterval>) -> MapViewer {
         let current_timestamp = update_intervals.len().saturating_sub(1);
         MapViewer {
+            block_size: 1,
             update_intervals,
-            current_highlight: 0,
             current_timestamp,
             canvas_start: 0,
-            canvas_stop: DEFAULT_MEMORYSPAN,
+            canvas_span: DEFAULT_MEMORYSPAN,
         }
     }
 
@@ -30,17 +30,24 @@ impl MapViewer {
 
     pub fn pan_forward(&mut self, units: usize) {
         self.canvas_start += units;
-        self.canvas_stop += units;
     }
 
     pub fn pan_backward(&mut self, units: usize) {
         self.canvas_start = self.canvas_start.saturating_sub(units);
-        self.canvas_stop = self.canvas_stop.saturating_sub(units);
     }
 
-    pub fn paint_map(&self) -> Vec<MemoryStatus> {
+    pub fn set_map_span(&mut self, new_span: usize) {
+        self.canvas_span = new_span;
+    }
+
+    pub fn set_block_size(&mut self, new_size: usize) {
+        self.block_size = new_size;
+    }
+
+    pub fn paint_map(&mut self) -> Vec<MemoryStatus> {
+        self.snap_map_to_current_update();
         let updates_till_now = self.update_intervals[0..=self.current_timestamp].to_vec();
-        let canvas = MemoryCanvas::new(self.canvas_start, self.canvas_stop, updates_till_now);
+        let mut canvas = MemoryCanvas::new(self.canvas_start, self.canvas_start + self.canvas_span, self.block_size, updates_till_now);
         canvas.render()
     }
 
@@ -49,5 +56,12 @@ impl MapViewer {
             .expect("[MapViewer::get_current_operation]: Current timestamp not found in update intervals Vec")
             .val
             .clone()
+    }
+
+    fn snap_map_to_current_update(&mut self) {
+        let current_update = self.update_intervals.get(self.current_timestamp)
+            .expect("[MapViewer::snap_map_to_current_update]: Current timestamp out of bounds of update intervals");
+        self.canvas_start = current_update.start.saturating_sub(self.canvas_span / 2);
+        eprintln!("start {}", self.canvas_start);
     }
 }

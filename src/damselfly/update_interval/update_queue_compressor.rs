@@ -9,17 +9,19 @@ impl UpdateQueueCompressor {
             match update {
                 MemoryUpdateType::Allocation(allocation) => compressed_updates.push(allocation.clone().wrap_in_enum()),
                 MemoryUpdateType::Free(free) => {
-                    compressed_updates.remove(
-                        compressed_updates
-                            .iter()
-                            .position(|update| {
-                                match update {
-                                    MemoryUpdateType::Allocation(allocation) =>
-                                        allocation.get_absolute_address() == free.get_absolute_address(),
-                                    MemoryUpdateType::Free(_) => panic!("[UpdateQueueCompressor::compress_to_allocs_only]: Free found in compressed_updates"),
-                                }
-                            })
-                            .expect("[UpdateQueueCompressor::strip_frees_and_corresponding_allocs]: Cannot find alloc corresponding to free"));
+                    let alloc_to_remove = compressed_updates
+                        .iter()
+                        .position(|update| {
+                            match update {
+                                MemoryUpdateType::Allocation(allocation) =>
+                                    allocation.get_absolute_address() == free.get_absolute_address(),
+                                MemoryUpdateType::Free(_) => panic!("[UpdateQueueCompressor::compress_to_allocs_only]: Free found in compressed_updates"),
+                            }
+                        })
+                        .or(None);
+                    if let Some(alloc_to_remove) = alloc_to_remove {
+                        compressed_updates.remove(alloc_to_remove);
+                    }
                 }
             };
         }

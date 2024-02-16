@@ -73,9 +73,9 @@ pub struct MemoryCanvas {
 }
 
 impl MemoryCanvas {
-    pub fn new(start: usize, stop: usize, update_intervals: Vec<UpdateInterval>) -> MemoryCanvas {
+    pub fn new(start: usize, stop: usize, block_size: usize, update_intervals: Vec<UpdateInterval>) -> MemoryCanvas {
         MemoryCanvas {
-            block_size: 1,
+            block_size,
             start,
             stop,
             blocks: Vec::new(),
@@ -98,7 +98,8 @@ impl MemoryCanvas {
         }
     }
 
-    pub fn render(&self) -> Vec<MemoryStatus> {
+    pub fn render(&mut self) -> Vec<MemoryStatus> {
+        self.paint_blocks();
         self.blocks
             .iter()
             .map(|block| block.block_status.clone())
@@ -130,9 +131,8 @@ impl MemoryCanvas {
     }
 
     fn insert_blocks(&mut self) {
-        for block in self.get_block_iter() {
-            let address = self.start + block;
-            self.blocks.push(Block::new(address, self.block_size));
+        for block_address in self.get_block_iter() {
+            self.blocks.push(Block::new(block_address, self.block_size));
         }
     }
 

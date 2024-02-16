@@ -58,6 +58,13 @@ impl DamselflyViewer {
         self.graph_viewer.get_highlight()
     }
 
+    pub fn set_block_size(&mut self, new_size: usize) {
+        self.map_viewer.set_block_size(new_size);
+    }
+
+    pub fn set_map_span(&mut self, new_span: usize) {
+        self.map_viewer.set_map_span(new_span);
+    }
     pub fn sync_viewers(&mut self) {
         let current_timestamp = self.graph_viewer.get_highlight();
         self.map_viewer.set_timestamp(current_timestamp);

@@ -17,7 +17,7 @@ pub struct GraphViewer {
 
 impl GraphViewer {
     pub fn new(memory_usage_snapshots: Vec<MemoryUsage>, max_usage: i128) -> GraphViewer {
-        let mut viewer = GraphViewer {
+        GraphViewer {
             memory_usage_snapshots,
             current_highlight: None,
             saved_highlight: 0,
@@ -25,8 +25,7 @@ impl GraphViewer {
             left_mark: 0,
             right_mark: 0,
             graph_mode: GraphMode::NORMAL,
-        };
-        viewer
+        }
     }
 
     pub fn get_plot_points(&self) -> Vec<[f64; 2]> {
@@ -36,7 +35,7 @@ impl GraphViewer {
                 (snapshot.get_memory_used_absolute() as f64 * 100.0) / self.get_max_usage() as f64;
             vector.push([index as f64, memory_used_percentage]);
         }
-        Vec::new()
+        vector
     }
 
     pub fn get_total_operations(&self) -> usize {
