@@ -39,7 +39,7 @@ impl DistinctBlockCounter {
     }
 
     pub fn get_distinct_blocks(&self) -> usize {
-        let compressed_updates = UpdateQueueCompressor::compress_to_allocs_only(&self.memory_updates);
+        let compressed_updates = UpdateQueueCompressor::compress_to_allocs(&self.memory_updates);
         let interval_factory = UpdateIntervalFactory::new(compressed_updates);
         let mut lapper: Lapper<usize, MemoryUpdateType> = Lapper::new(interval_factory.construct_enum_vector());
         lapper.merge_overlaps();

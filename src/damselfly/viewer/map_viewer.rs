@@ -39,8 +39,7 @@ impl MapViewer {
     }
 
     pub fn paint_map(&self) -> Vec<MemoryStatus> {
-        let mut updates_till_now = Vec::new();
-        updates_till_now.clone_from_slice(&self.update_intervals[0..=self.current_timestamp]);
+        let updates_till_now = self.update_intervals[0..=self.current_timestamp].to_vec();
         let canvas = MemoryCanvas::new(self.canvas_start, self.canvas_stop, updates_till_now);
         canvas.render()
     }
