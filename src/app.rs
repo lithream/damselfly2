@@ -3,10 +3,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use eframe::Frame;
 use egui::{Button, Context};
+use egui::panel::Side;
 use egui_plot::{Line, Plot, PlotPoint, PlotPoints};
+use egui_extras::{Column, TableBuilder};
 use crate::consts::DEFAULT_CELL_WIDTH;
+use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORYSPAN, MAX_BLOCK_SIZE, MAX_MAP_SPAN};
 use crate::damselfly::memory::memory_status::MemoryStatus;
-use crate::damselfly::memory::memory_update::MemoryUpdateType;
+use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use crate::damselfly::viewer::damselfly_viewer::DamselflyViewer;
 
 /// Application result type.
@@ -20,6 +23,9 @@ pub enum Mode {
 /// Application.
 pub struct App {
     pub viewer: DamselflyViewer,
+    pub block_size: usize,
+    pub map_span: usize,
+    pub current_block: Option<MemoryUpdateType>,
 }
 
 impl App {
@@ -28,6 +34,9 @@ impl App {
         let viewer = DamselflyViewer::new(log_path.as_str(), binary_path.as_str());
         App {
             viewer,
+            block_size: DEFAULT_BLOCK_SIZE,
+            map_span: DEFAULT_MEMORYSPAN,
+            current_block: None,
         }
     }
 }
@@ -49,19 +58,49 @@ enum GraphResponse {
 impl App {
     fn draw_top_bottom_panel(&mut self, ctx: &Context) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
-                let is_web = cfg!(target_arch = "wasm32");
-                if !is_web {
-                    ui.menu_button("File", |ui| {
-                        if ui.button("Quit").clicked() {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                        }
-                    });
-                    ui.add_space(16.0);
-                }
+            self.draw_title_bar(ctx, ui);
+        });
 
-                egui::widgets::global_dark_light_mode_buttons(ui);
-            });
+        egui::TopBottomPanel::bottom("bottom_panel")
+            .default_height(50.0)
+            .resizable(true)
+            .show(ctx, |ui| {
+            ui.columns(2, |columns| {
+                columns[0].label("CALLSTACK");
+                columns[1].label("HISTORY");
+                self.draw_callstack(&mut columns[0]);
+                self.draw_operation_history(&mut columns[1]);
+            })
+        });
+    }
+
+    fn draw_callstack(&self, ui: &mut egui::Ui) {
+        if self.current_block.is_none() { return };
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            let current_block = self.current_block.clone().unwrap();
+            match current_block {
+                MemoryUpdateType::Allocation(allocation) =>
+                    ui.label(allocation.get_callstack().to_string()),
+                MemoryUpdateType::Free(free) =>
+                    ui.label(free.get_callstack().to_string()),
+            };
+        });
+    }
+
+    fn draw_operation_history(&self, ui: &mut egui::Ui) {
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            let operation_history = self.viewer.get_operation_history();
+            TableBuilder::new(ui)
+                .column(Column::remainder())
+                .body(|mut body| {
+                    for operation in operation_history {
+                        body.row(30.0, |mut row| {
+                            row.col(|ui| {
+                                ui.label(operation.to_string());
+                            });
+                        });
+                    }
+                });
         });
     }
 
@@ -72,6 +111,22 @@ impl App {
             return Ok(int_x);
         }
         Err(())
+    }
+
+    fn draw_title_bar(&self, ctx: &Context, ui: &mut egui::Ui) {
+        egui::menu::bar(ui, |ui| {
+            let is_web = cfg!(target_arch = "wasm32");
+            if !is_web {
+                ui.menu_button("File", |ui| {
+                    if ui.button("Quit").clicked() {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    }
+                });
+                ui.add_space(16.0);
+            }
+
+            egui::widgets::global_dark_light_mode_buttons(ui);
+        });
     }
 
     fn draw_central_panel(&mut self, ctx: &Context) {
@@ -95,7 +150,9 @@ impl App {
                     }
                 }
                 let pane_width = columns[1].available_width();
-                self.viewer.set_block_size(4);
+                self.viewer.set_map_block_size(self.block_size);
+                self.viewer.set_map_span(self.map_span);
+                self.current_block = Some(self.viewer.get_current_operation());
                 let map = self.viewer.get_map();
                 self.draw_map(map, &mut columns[1], pane_width);
             })
@@ -103,8 +160,6 @@ impl App {
     }
 
     fn draw_graph(&mut self, ui: &mut egui::Ui) -> GraphResponse {
-        let graph_data = PlotPoints::from(self.viewer.get_graph());
-        let line = Line::new(graph_data);
         let hovered_point: Rc<RefCell<(f64, f64)>> = Default::default();
         let hovered_point_ref_clone: Rc<RefCell<(f64, f64)>> = Rc::clone(&hovered_point);
 
@@ -113,11 +168,20 @@ impl App {
             format!("{:?} {:?}", name, point)
         };
 
+        let usage_data = PlotPoints::from(self.viewer.get_usage_graph());
+        let usage_line = Line::new(usage_data);
+        let distinct_blocks_data = PlotPoints::from(self.viewer.get_distinct_blocks_graph());
+        let distinct_blocks_line = Line::new(distinct_blocks_data);
+
         let mut graph_response = GraphResponse::None;
         let response = Plot::new("plot")
             .label_formatter(get_hovered_point_coords)
             .view_aspect(2.0)
-            .show(ui, |plot_ui| plot_ui.line(line));
+            .show(ui, |plot_ui| {
+                plot_ui.line(usage_line);
+                plot_ui.line(distinct_blocks_line);
+            });
+
         let point = *hovered_point.borrow_mut();
         if response.response.clicked() {
             graph_response = GraphResponse::Click(point.0, point.1);
@@ -171,7 +235,23 @@ impl App {
         });
     }
 
-    fn draw_side_panel(&mut self, _: &Context) {
+    fn draw_side_panel(&mut self, ctx: &Context) {
+        egui::SidePanel::new(Side::Right, "Right panel").show(ctx, |ui| {
+            self.draw_map_controls(ui);
+        });
+    }
+
+    fn draw_map_controls(&mut self, ui: &mut egui::Ui) {
+        ui.add(egui::Slider::new(&mut self.block_size, 1..=MAX_BLOCK_SIZE)
+            .logarithmic(true)
+            .smart_aim(false)
+            .drag_value_speed(0.1)
+            .text("BLOCK SIZE"));
+        ui.add(egui::Slider::new(&mut self.map_span, 1..=MAX_MAP_SPAN)
+            .logarithmic(true)
+            .smart_aim(false)
+            .drag_value_speed(0.1)
+            .text("CANVAS SPAN"));
     }
 }
 

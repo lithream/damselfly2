@@ -19,21 +19,24 @@ impl MemoryUsageFactory {
         self.memory_updates = updates;
     }
 
-    pub fn calculate_usage_stats(&self) -> (Vec<MemoryUsage>, i128) {
+    pub fn calculate_usage_stats(&self) -> (Vec<MemoryUsage>, i128, usize) {
         let mut current_usage = 0;
         let mut max_usage = 0;
         let mut memory_usages = Vec::new();
+
         let mut distinct_block_counter = DistinctBlockCounter::default();
+        let mut max_distinct_blocks = 0;
         for (index, update) in self.memory_updates.iter().enumerate() {
             current_usage += Self::get_total_usage_delta(update);
             max_usage = max(max_usage, current_usage);
 
             distinct_block_counter.push_update(update);
             let distinct_blocks = distinct_block_counter.get_distinct_blocks();
+            max_distinct_blocks = max(max_distinct_blocks, distinct_blocks);
 
             memory_usages.push(MemoryUsage::new(current_usage, distinct_blocks, index));
         }
-        (memory_usages, max_usage)
+        (memory_usages, max_usage, max_distinct_blocks)
     }
 
     fn get_total_usage_delta(memory_update: &MemoryUpdateType) -> i128 {
@@ -54,7 +57,7 @@ mod tests {
     use crate::damselfly::memory::memory_usage::MemoryUsage;
     use crate::damselfly::memory::memory_usage_factory::MemoryUsageFactory;
 
-    fn initialise_test_log() -> (Vec<MemoryUsage>, i128) {
+    fn initialise_test_log() -> (Vec<MemoryUsage>, i128, usize) {
         let mst_parser = MemorySysTraceParser::new();
         let updates = mst_parser.parse_log_directly(TEST_LOG, TEST_BINARY_PATH);
         let memory_usage_factory = MemoryUsageFactory::new(updates);
@@ -63,7 +66,7 @@ mod tests {
 
     #[test]
     fn calculate_max_usage_test() {
-        let (memory_usages, max_usage) = initialise_test_log();
+        let (memory_usages, max_usage, _) = initialise_test_log();
 
         assert_eq!(max_usage, 356);
         assert_eq!(memory_usages[0].get_memory_used_absolute(), 20);
@@ -75,7 +78,7 @@ mod tests {
 
     #[test]
     fn calculate_memory_used_absolute_test() {
-        let (memory_usages, _) = initialise_test_log();
+        let (memory_usages, _, _) = initialise_test_log();
 
         assert_eq!(memory_usages[0].get_distinct_blocks(), 1);
         assert_eq!(memory_usages[1].get_distinct_blocks(), 2);
@@ -86,7 +89,7 @@ mod tests {
 
     #[test]
     fn calculate_latest_operation_test() {
-        let (memory_usages, _) = initialise_test_log();
+        let (memory_usages, _, _) = initialise_test_log();
 
         assert_eq!(memory_usages[0].get_latest_operation(), 0);
         assert_eq!(memory_usages[1].get_latest_operation(), 1);

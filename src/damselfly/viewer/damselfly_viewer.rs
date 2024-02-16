@@ -15,8 +15,9 @@ impl DamselflyViewer {
     pub fn new(log_path: &str, binary_path: &str) -> DamselflyViewer {
         let mem_sys_trace_parser = MemorySysTraceParser::new();
         let memory_updates = mem_sys_trace_parser.parse_log(log_path, binary_path);
-        let (memory_usages, max_usage) = MemoryUsageFactory::new(memory_updates.clone()).calculate_usage_stats();
-        let graph_viewer = GraphViewer::new(memory_usages, max_usage);
+        let (memory_usages, max_usage, max_distinct_blocks) =
+            MemoryUsageFactory::new(memory_updates.clone()).calculate_usage_stats();
+        let graph_viewer = GraphViewer::new(memory_usages, max_usage, max_distinct_blocks);
         let update_intervals = UpdateIntervalFactory::new(memory_updates).construct_enum_vector();
         let map_viewer = MapViewer::new(update_intervals);
         DamselflyViewer {
@@ -30,8 +31,12 @@ impl DamselflyViewer {
         self.map_viewer.paint_map()
     }
 
-    pub fn get_graph(&self) -> Vec<[f64; 2]> {
-        self.graph_viewer.get_plot_points()
+    pub fn get_usage_graph(&self) -> Vec<[f64; 2]> {
+        self.graph_viewer.get_usage_plot_points()
+    }
+
+    pub fn get_distinct_blocks_graph(&self) -> Vec<[f64; 2]> {
+        self.graph_viewer.get_distinct_blocks_plot_points()
     }
 
     pub fn get_total_operations(&self) -> usize {
@@ -40,6 +45,10 @@ impl DamselflyViewer {
 
     pub fn get_current_operation(&self) -> MemoryUpdateType {
         self.map_viewer.get_current_operation()
+    }
+
+    pub fn get_operation_history(&self) -> Vec<MemoryUpdateType> {
+        self.map_viewer.get_update_history(7)
     }
 
     pub fn set_graph_current_highlight(&mut self, new_highlight: usize) {
@@ -58,13 +67,14 @@ impl DamselflyViewer {
         self.graph_viewer.get_highlight()
     }
 
-    pub fn set_block_size(&mut self, new_size: usize) {
+    pub fn set_map_block_size(&mut self, new_size: usize) {
         self.map_viewer.set_block_size(new_size);
     }
 
     pub fn set_map_span(&mut self, new_span: usize) {
         self.map_viewer.set_map_span(new_span);
     }
+
     pub fn sync_viewers(&mut self) {
         let current_timestamp = self.graph_viewer.get_highlight();
         self.map_viewer.set_timestamp(current_timestamp);

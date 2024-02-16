@@ -1,4 +1,4 @@
-use crate::damselfly::consts::DEFAULT_MEMORYSPAN;
+use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORYSPAN};
 use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::MemoryUpdateType;
 use crate::damselfly::update_interval::UpdateInterval;
@@ -16,12 +16,22 @@ impl MapViewer {
     pub fn new(update_intervals: Vec<UpdateInterval>) -> MapViewer {
         let current_timestamp = update_intervals.len().saturating_sub(1);
         MapViewer {
-            block_size: 1,
+            block_size: DEFAULT_BLOCK_SIZE,
             update_intervals,
             current_timestamp,
             canvas_start: 0,
             canvas_span: DEFAULT_MEMORYSPAN,
         }
+    }
+
+    pub fn get_update_history(&self, history_size: usize) -> Vec<MemoryUpdateType> {
+        self.update_intervals
+            .iter()
+            .rev()
+            .take(history_size)
+            .map(|update_interval| update_interval.val.clone())
+            .rev()
+            .collect()
     }
 
     pub fn set_timestamp(&mut self, new_timestamp: usize) {
@@ -41,6 +51,8 @@ impl MapViewer {
     }
 
     pub fn set_block_size(&mut self, new_size: usize) {
+        let span_scale_factor = new_size as f64 / self.block_size as f64;
+        self.set_map_span((self.canvas_span as f64 * span_scale_factor).round() as usize);
         self.block_size = new_size;
     }
 

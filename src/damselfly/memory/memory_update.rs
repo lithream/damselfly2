@@ -7,6 +7,19 @@ pub enum MemoryUpdateType {
     Free(Free)
 }
 
+impl Display for MemoryUpdateType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let str;
+        match self {
+            MemoryUpdateType::Allocation(allocation) =>
+                str = allocation.to_string(),
+            MemoryUpdateType::Free(free) =>
+                str = free.to_string(),
+        };
+        write!(f, "{}", str)
+    }
+}
+
 pub trait MemoryUpdate {
     fn get_absolute_address(&self) -> usize;
     fn get_absolute_size(&self) -> usize;
