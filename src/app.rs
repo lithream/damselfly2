@@ -151,7 +151,6 @@ impl App {
                 }
                 let pane_width = columns[1].available_width();
                 self.viewer.set_map_block_size(self.block_size);
-                self.viewer.set_map_span(self.map_span);
                 self.current_block = Some(self.viewer.get_current_operation());
                 let map = self.viewer.get_map();
                 self.draw_map(map, &mut columns[1], pane_width);
@@ -247,11 +246,6 @@ impl App {
             .smart_aim(false)
             .drag_value_speed(0.1)
             .text("BLOCK SIZE"));
-        ui.add(egui::Slider::new(&mut self.map_span, 1..=MAX_MAP_SPAN)
-            .logarithmic(true)
-            .smart_aim(false)
-            .drag_value_speed(0.1)
-            .text("CANVAS SPAN"));
     }
 }
 

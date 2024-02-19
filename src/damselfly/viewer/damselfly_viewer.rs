@@ -28,7 +28,7 @@ impl DamselflyViewer {
 
     pub fn get_map(&mut self) -> Vec<MemoryStatus> {
         self.sync_viewers();
-        self.map_viewer.paint_map()
+        self.map_viewer.snap_and_paint_map()
     }
 
     pub fn get_usage_graph(&self) -> Vec<[f64; 2]> {

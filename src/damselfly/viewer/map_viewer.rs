@@ -56,8 +56,12 @@ impl MapViewer {
         self.block_size = new_size;
     }
 
-    pub fn paint_map(&mut self) -> Vec<MemoryStatus> {
+    pub fn snap_and_paint_map(&mut self) -> Vec<MemoryStatus> {
         self.snap_map_to_current_update();
+        self.paint_map();
+    }
+    
+    pub fn paint_map(&mut self) -> Vec<MemoryStatus> {
         let updates_till_now = self.update_intervals[0..=self.current_timestamp].to_vec();
         let mut canvas = MemoryCanvas::new(self.canvas_start, self.canvas_start + self.canvas_span, self.block_size, updates_till_now);
         canvas.render()
