@@ -7,6 +7,36 @@ pub enum MemoryUpdateType {
     Free(Free)
 }
 
+impl MemoryUpdateType {
+    pub fn get_absolute_address(&self) -> usize {
+        match self {
+            MemoryUpdateType::Allocation(allocation) => allocation.get_absolute_address(),
+            MemoryUpdateType::Free(free) => free.get_absolute_address(),
+        }
+    }
+
+    pub fn get_absolute_size(&self) -> usize {
+        match self {
+            MemoryUpdateType::Allocation(allocation) => allocation.get_absolute_size(),
+            MemoryUpdateType::Free(free) => free.get_absolute_size(),
+        }
+    }
+
+    pub fn get_callstack(&self) -> Arc<String> {
+        match self {
+            MemoryUpdateType::Allocation(allocation) => allocation.get_callstack(),
+            MemoryUpdateType::Free(free) => free.get_callstack(),
+        }
+    }
+
+    pub fn get_timestamp(&self) -> usize {
+        match self {
+            MemoryUpdateType::Allocation(allocation) => allocation.get_timestamp(),
+            MemoryUpdateType::Free(free) => free.get_timestamp(),
+        }
+    }
+}
+
 impl Display for MemoryUpdateType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let str;

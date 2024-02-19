@@ -2,10 +2,12 @@ use std::{error};
 use std::cell::RefCell;
 use std::rc::Rc;
 use eframe::Frame;
-use egui::{Button, Context};
+use egui::{Button, Context, Rect};
 use egui::panel::Side;
 use egui_plot::{Line, Plot, PlotPoint, PlotPoints};
 use egui_extras::{Column, TableBuilder};
+use crate::config::app_default_config::AppDefaultConfig;
+use crate::config::app_memory_map_config::AppMemoryMapConfig;
 use crate::consts::DEFAULT_CELL_WIDTH;
 use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORYSPAN, MAX_BLOCK_SIZE, MAX_MAP_SPAN};
 use crate::damselfly::memory::memory_status::MemoryStatus;
@@ -17,15 +19,15 @@ pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
 
 pub enum Mode {
     DEFAULT,
-    STACKTRACE,
+    MEMORYMAP,
 }
 
 /// Application.
 pub struct App {
-    pub viewer: DamselflyViewer,
-    pub block_size: usize,
-    pub map_span: usize,
-    pub current_block: Option<MemoryUpdateType>,
+    viewer: DamselflyViewer,
+    mode: Mode,
+    default_settings: AppDefaultConfig,
+    memorymap_settings: AppMemoryMapConfig,
 }
 
 impl App {
@@ -34,18 +36,26 @@ impl App {
         let viewer = DamselflyViewer::new(log_path.as_str(), binary_path.as_str());
         App {
             viewer,
-            block_size: DEFAULT_BLOCK_SIZE,
-            map_span: DEFAULT_MEMORYSPAN,
-            current_block: None,
+            mode: Mode::DEFAULT,
+            default_settings: AppDefaultConfig::new(DEFAULT_BLOCK_SIZE, 4096, None),
+            memorymap_settings: AppMemoryMapConfig::new(DEFAULT_BLOCK_SIZE, 4096, None),
         }
     }
 }
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &Context, _: &mut Frame) {
-        self.draw_top_bottom_panel(ctx);
-        self.draw_side_panel(ctx);
-        self.draw_central_panel(ctx);
+        match self.mode {
+            Mode::DEFAULT => {
+                self.draw_top_bottom_panel_default(ctx);
+                self.draw_side_panel_default(ctx);
+                self.draw_central_panel_default(ctx);
+            }
+            Mode::MEMORYMAP => {
+                self.draw_top_bottom_panel_default(ctx);
+                self.draw_central_panel_memorymap(ctx);
+            }
+        }
     }
 }
 
@@ -56,28 +66,16 @@ enum GraphResponse {
 }
 
 impl App {
-    fn draw_top_bottom_panel(&mut self, ctx: &Context) {
+    fn draw_top_bottom_panel_default(&mut self, ctx: &Context) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             self.draw_title_bar(ctx, ui);
-        });
-
-        egui::TopBottomPanel::bottom("bottom_panel")
-            .default_height(50.0)
-            .resizable(true)
-            .show(ctx, |ui| {
-            ui.columns(2, |columns| {
-                columns[0].label("CALLSTACK");
-                columns[1].label("HISTORY");
-                self.draw_callstack(&mut columns[0]);
-                self.draw_operation_history(&mut columns[1]);
-            })
         });
     }
 
     fn draw_callstack(&self, ui: &mut egui::Ui) {
-        if self.current_block.is_none() { return };
+        if self.default_settings.current_block.is_none() { return };
         egui::ScrollArea::vertical().show(ui, |ui| {
-            let current_block = self.current_block.clone().unwrap();
+            let current_block = self.default_settings.current_block.clone().unwrap();
             match current_block {
                 MemoryUpdateType::Allocation(allocation) =>
                     ui.label(allocation.get_callstack().to_string()),
@@ -113,7 +111,7 @@ impl App {
         Err(())
     }
 
-    fn draw_title_bar(&self, ctx: &Context, ui: &mut egui::Ui) {
+    fn draw_title_bar(&mut self, ctx: &Context, ui: &mut egui::Ui) {
         egui::menu::bar(ui, |ui| {
             let is_web = cfg!(target_arch = "wasm32");
             if !is_web {
@@ -123,13 +121,21 @@ impl App {
                     }
                 });
                 ui.add_space(16.0);
+                ui.menu_button("View", |ui| {
+                    if ui.button("Default").clicked() {
+                        self.mode = Mode::DEFAULT;
+                    }
+                    if ui.button("Memory map").clicked() {
+                        self.mode = Mode::MEMORYMAP;
+                    }
+                });
             }
 
             egui::widgets::global_dark_light_mode_buttons(ui);
         });
     }
 
-    fn draw_central_panel(&mut self, ctx: &Context) {
+    fn draw_central_panel_default(&mut self, ctx: &Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.columns(2, |columns| {
                 columns[0].label("USAGE");
@@ -149,12 +155,52 @@ impl App {
                         self.viewer.clear_graph_current_highlight();
                     }
                 }
+                columns[0].separator();
+                self.draw_callstack(&mut columns[0]);
                 let pane_width = columns[1].available_width();
-                self.viewer.set_map_block_size(self.block_size);
-                self.current_block = Some(self.viewer.get_current_operation());
+                self.viewer.set_map_block_size(self.default_settings.block_size);
+                self.default_settings.current_block = Some(self.viewer.get_current_operation());
                 let map = self.viewer.get_map();
                 self.draw_map(map, &mut columns[1], pane_width);
             })
+        });
+    }
+
+    fn draw_central_panel_memorymap(&mut self, ctx: &Context) {
+        let blocks = self.viewer.get_map_full();
+        egui::CentralPanel::default().show(ctx, |ui| {
+            let start = ui.min_rect().min;
+            let end = ui.min_rect().max;
+
+            let mut cur_x = 0.0;
+            let mut cur_y = 0.0;
+
+            eprintln!("{}", blocks.len());
+            for block in &blocks {
+                if cur_x == end.x {
+                    cur_x = 0.0;
+                    cur_y += 1.0;
+                } else {
+                    cur_x += 1.0;
+                }
+
+                if cur_y > end.y {
+                    break;
+                }
+
+                let rect = Rect::from_min_size(
+                    start + egui::vec2(cur_x, cur_y),
+                    egui::vec2(1.0, 1.0),
+                );
+
+                let color = match block {
+                    MemoryStatus::Allocated(..) => egui::Color32::RED,
+                    MemoryStatus::PartiallyAllocated(..) => egui::Color32::YELLOW,
+                    MemoryStatus::Free(..) => egui::Color32::LIGHT_GREEN,
+                    MemoryStatus::Unused => egui::Color32::WHITE,
+                };
+                ui.painter().rect_filled(rect, 0.0, color);
+            }
         });
     }
 
@@ -234,18 +280,25 @@ impl App {
         });
     }
 
-    fn draw_side_panel(&mut self, ctx: &Context) {
+    fn draw_side_panel_default(&mut self, ctx: &Context) {
         egui::SidePanel::new(Side::Right, "Right panel").show(ctx, |ui| {
             self.draw_map_controls(ui);
+            ui.separator();
+            self.draw_operation_history(ui);
         });
     }
 
     fn draw_map_controls(&mut self, ui: &mut egui::Ui) {
-        ui.add(egui::Slider::new(&mut self.block_size, 1..=MAX_BLOCK_SIZE)
+        ui.add(egui::Slider::new(&mut self.default_settings.block_size, 1..=MAX_BLOCK_SIZE)
             .logarithmic(true)
             .smart_aim(false)
             .drag_value_speed(0.1)
             .text("BLOCK SIZE"));
+        ui.add(egui::Slider::new(&mut self.default_settings.map_span, 1..=MAX_MAP_SPAN)
+            .logarithmic(true)
+            .smart_aim(false)
+            .drag_value_speed(0.1)
+            .text("MAP SPAN"));
     }
 }
 

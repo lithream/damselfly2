@@ -1,6 +1,6 @@
 use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORYSPAN};
 use crate::damselfly::memory::memory_status::MemoryStatus;
-use crate::damselfly::memory::memory_update::MemoryUpdateType;
+use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use crate::damselfly::update_interval::UpdateInterval;
 use crate::damselfly::viewer::memory_canvas::MemoryCanvas;
 
@@ -10,17 +10,30 @@ pub struct MapViewer {
     canvas_start: usize,
     canvas_span: usize,
     block_size: usize,
+    lowest_address: usize,
+    highest_address: usize,
 }
 
 impl MapViewer {
     pub fn new(update_intervals: Vec<UpdateInterval>) -> MapViewer {
         let current_timestamp = update_intervals.len().saturating_sub(1);
+
+        let lowest_address = update_intervals.iter().min_by(|prev, next| {
+            prev.val.get_absolute_address().cmp(&next.val.get_absolute_address())
+        }).expect("[MapViewer::new]: Cannot find lowest address").val.get_absolute_address();
+
+        let highest_address = update_intervals.iter().max_by(|prev, next| {
+            prev.val.get_absolute_address().cmp(&next.val.get_absolute_address())
+        }).expect("[MapViewer::new]: Cannot find highest address").val.get_absolute_address();
+
         MapViewer {
-            block_size: DEFAULT_BLOCK_SIZE,
             update_intervals,
             current_timestamp,
             canvas_start: 0,
             canvas_span: DEFAULT_MEMORYSPAN,
+            block_size: DEFAULT_BLOCK_SIZE,
+            lowest_address,
+            highest_address,
         }
     }
 
@@ -32,6 +45,10 @@ impl MapViewer {
             .map(|update_interval| update_interval.val.clone())
             .rev()
             .collect()
+    }
+
+    pub fn get_update_intervals(&self) -> &Vec<UpdateInterval> {
+        &self.update_intervals
     }
 
     pub fn set_timestamp(&mut self, new_timestamp: usize) {
@@ -58,12 +75,18 @@ impl MapViewer {
 
     pub fn snap_and_paint_map(&mut self) -> Vec<MemoryStatus> {
         self.snap_map_to_current_update();
-        self.paint_map();
+        self.paint_map()
     }
     
     pub fn paint_map(&mut self) -> Vec<MemoryStatus> {
         let updates_till_now = self.update_intervals[0..=self.current_timestamp].to_vec();
         let mut canvas = MemoryCanvas::new(self.canvas_start, self.canvas_start + self.canvas_span, self.block_size, updates_till_now);
+        canvas.render()
+    }
+
+    pub fn paint_map_full(&self) -> Vec<MemoryStatus> {
+        let updates_till_now = self.update_intervals[0..=self.current_timestamp].to_vec();
+        let mut canvas = MemoryCanvas::new(self.lowest_address, self.highest_address, self.block_size, updates_till_now);
         canvas.render()
     }
 
@@ -78,6 +101,5 @@ impl MapViewer {
         let current_update = self.update_intervals.get(self.current_timestamp)
             .expect("[MapViewer::snap_map_to_current_update]: Current timestamp out of bounds of update intervals");
         self.canvas_start = current_update.start.saturating_sub(self.canvas_span / 2);
-        eprintln!("start {}", self.canvas_start);
     }
 }

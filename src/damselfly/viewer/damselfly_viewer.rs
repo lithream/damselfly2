@@ -3,6 +3,7 @@ use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::MemoryUpdateType;
 use crate::damselfly::memory::memory_usage_factory::MemoryUsageFactory;
 use crate::damselfly::update_interval::update_interval_factory::UpdateIntervalFactory;
+use crate::damselfly::update_interval::UpdateInterval;
 use crate::damselfly::viewer::graph_viewer::GraphViewer;
 use crate::damselfly::viewer::map_viewer::MapViewer;
 
@@ -31,6 +32,11 @@ impl DamselflyViewer {
         self.map_viewer.snap_and_paint_map()
     }
 
+    pub fn get_map_full(&mut self) -> Vec<MemoryStatus> {
+        self.sync_viewers();
+        self.map_viewer.paint_map_full()
+    }
+
     pub fn get_usage_graph(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_usage_plot_points()
     }
@@ -51,6 +57,14 @@ impl DamselflyViewer {
         self.map_viewer.get_update_history(7)
     }
 
+    pub fn get_graph_highlight(&self) -> usize {
+        self.graph_viewer.get_highlight()
+    }
+
+    pub fn get_all_intervals(&self) -> &Vec<UpdateInterval> {
+        self.map_viewer.get_update_intervals()
+    }
+
     pub fn set_graph_current_highlight(&mut self, new_highlight: usize) {
         self.graph_viewer.set_current_highlight(new_highlight);
     }
@@ -63,9 +77,6 @@ impl DamselflyViewer {
         self.graph_viewer.clear_current_highlight();
     }
 
-    pub fn get_graph_highlight(&self) -> usize {
-        self.graph_viewer.get_highlight()
-    }
 
     pub fn set_map_block_size(&mut self, new_size: usize) {
         self.map_viewer.set_block_size(new_size);
