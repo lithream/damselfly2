@@ -1,0 +1,82 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'map'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=map"
+                ],
+                "filter": {
+                    "name": "map",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'map'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=map",
+                    "--package=map"
+                ],
+                "filter": {
+                    "name": "map",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'map'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=map",
+                    "--package=map"
+                ],
+                "filter": {
+                    "name": "map",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=map",
+                    "--package=map",
+                ],
+                "filter": {
+                    "name": "map",
+                    "kind": "bin",
+                }
+            },
+            "args": ["./trace2.log"],
+            "cwd": "${workspaceFolder}",
+        }
+    ]
+}

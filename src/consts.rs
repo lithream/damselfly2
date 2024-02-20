@@ -1,1 +1,1 @@
-pub const DEFAULT_CELL_WIDTH: f32 = 20.0;
+pub const DEFAULT_CELL_WIDTH: f32 = 2.0;
