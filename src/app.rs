@@ -48,7 +48,6 @@ impl eframe::App for App {
         match self.mode {
             Mode::DEFAULT => {
                 self.draw_top_bottom_panel_default(ctx);
-//                self.draw_side_panel_default(ctx);
                 self.draw_central_panel_default(ctx);
             }
             Mode::MEMORYMAP => {
@@ -118,11 +117,6 @@ impl App {
             .smart_aim(false)
             .drag_value_speed(0.1)
             .text("BLOCK SIZE"));
-        ui.add(egui::Slider::new(&mut self.default_state.map_span, 1..=MAX_MAP_SPAN)
-            .logarithmic(true)
-            .smart_aim(false)
-            .drag_value_speed(0.1)
-            .text("MAP SPAN"));
     }
 
     fn draw_title_bar(&mut self, ctx: &Context, ui: &mut egui::Ui) {
@@ -198,64 +192,62 @@ impl App {
         }
     }
     fn draw_full_map(&mut self, ui: &mut egui::Ui) {
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            if let Some(cached_map) = self.get_cached_map() {
-                for (rect, color) in cached_map {
-                    ui.painter().rect_filled(*rect, 0.0, *color);
-                }
+        if let Some(cached_map) = self.get_cached_map() {
+            for (rect, color) in cached_map {
+                ui.painter().rect_filled(*rect, 0.0, *color);
             }
+        }
 
-            // Otherwise, cache a new map
-            let mut new_cached_map = (self.viewer.get_graph_highlight(), Vec::new());
-            let blocks = self.viewer.get_map_full();
-            let start = ui.min_rect().min;
-            let end = ui.max_rect().max;
+        // Otherwise, cache a new map
+        let mut new_cached_map = (self.viewer.get_graph_highlight(), Vec::new());
+        let blocks = self.viewer.get_map_full();
+        let start = ui.max_rect().min;
+        let end = ui.max_rect().max;
 
-            let mut cur_x = 0.0;
-            let mut cur_y = 0.0;
+        let mut cur_x = 0.0;
+        let mut cur_y = 0.0;
 
-            let mut consecutive_identical_blocks = 0;
+        let mut consecutive_identical_blocks = 0;
 
-            for (index, block) in blocks.iter().enumerate() {
-                if let Some(prev_block) = blocks.get(index.saturating_sub(1)) {
-                    if prev_block == block {
-                        consecutive_identical_blocks += 1;
-                    } else {
-                        consecutive_identical_blocks = 0;
-                    }
-                }
-
-                if consecutive_identical_blocks > 1024 {
-                    continue;
-                }
-
-                if cur_x >= end.x {
-                    cur_x = 0.0;
-                    cur_y += DEFAULT_CELL_WIDTH;
+        for (index, block) in blocks.iter().enumerate() {
+            if let Some(prev_block) = blocks.get(index.saturating_sub(1)) {
+                if prev_block == block {
+                    consecutive_identical_blocks += 1;
                 } else {
-                    cur_x += DEFAULT_CELL_WIDTH;
+                    consecutive_identical_blocks = 0;
                 }
-
-                if cur_y > end.y {
-                    break;
-                }
-
-                let rect = Rect::from_min_size(
-                    start + vec2(cur_x, cur_y),
-                    vec2(DEFAULT_CELL_WIDTH, DEFAULT_CELL_WIDTH),
-                );
-
-                let color = match block {
-                    MemoryStatus::Allocated(..) => Color32::RED,
-                    MemoryStatus::PartiallyAllocated(..) => Color32::YELLOW,
-                    MemoryStatus::Free(..) => Color32::LIGHT_GREEN,
-                    MemoryStatus::Unused => Color32::WHITE,
-                };
-
-                new_cached_map.1.push((rect, color));
             }
-            self.memory_map_state.cache_map(new_cached_map);
-        });
+
+            if consecutive_identical_blocks > 2048 {
+                continue;
+            }
+
+            if cur_x >= end.x {
+                cur_x = 0.0;
+                cur_y += DEFAULT_CELL_WIDTH;
+            } else {
+                cur_x += DEFAULT_CELL_WIDTH;
+            }
+
+            if cur_y > end.y {
+                break;
+            }
+
+            let rect = Rect::from_min_size(
+                start + vec2(cur_x, cur_y),
+                vec2(DEFAULT_CELL_WIDTH, DEFAULT_CELL_WIDTH),
+            );
+
+            let color = match block {
+                MemoryStatus::Allocated(..) => Color32::RED,
+                MemoryStatus::PartiallyAllocated(..) => Color32::YELLOW,
+                MemoryStatus::Free(..) => Color32::LIGHT_GREEN,
+                MemoryStatus::Unused => Color32::WHITE,
+            };
+
+            new_cached_map.1.push((rect, color));
+        }
+        self.memory_map_state.cache_map(new_cached_map);
     }
 
     fn get_cached_map(&self) -> Option<&Vec<(Rect, Color32)>> {
@@ -359,11 +351,6 @@ impl App {
             .smart_aim(false)
             .drag_value_speed(0.1)
             .text("BLOCK SIZE"));
-        ui.add(egui::Slider::new(&mut self.default_state.map_span, 1..=MAX_MAP_SPAN)
-            .logarithmic(true)
-            .smart_aim(false)
-            .drag_value_speed(0.1)
-            .text("MAP SPAN"));
     }
 }
 

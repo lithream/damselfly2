@@ -7,7 +7,6 @@ pub struct AppMemoryMapState {
     current_block: Option<MemoryUpdateType>,
     // (timestamp, Vec<rect, color>)
     cached_map: Option<(usize, Vec<(egui::Rect, egui::Color32)>)>,
-    cached_maps: Vec<Vec<MemoryStatus>>,
 }
 
 impl AppMemoryMapState {
@@ -17,7 +16,6 @@ impl AppMemoryMapState {
             map_span,
             current_block,
             cached_map: None,
-            cached_maps: Vec::new(),
         }
     }
     
