@@ -37,6 +37,11 @@ impl DamselflyViewer {
         self.map_viewer.paint_map_full()
     }
 
+    pub fn get_map_full_at(&mut self, timestamp: usize) -> Vec<MemoryStatus> {
+        self.set_graph_saved_highlight(timestamp);
+        self.map_viewer.paint_map_full()
+    }
+
     pub fn get_usage_graph(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_usage_plot_points()
     }

@@ -1,20 +1,23 @@
+use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::MemoryUpdateType;
 
-pub struct AppMemoryMapConfig {
+pub struct AppMemoryMapState {
     block_size: usize,
     map_span: usize,
     current_block: Option<MemoryUpdateType>,
     // (timestamp, Vec<rect, color>)
     cached_map: Option<(usize, Vec<(egui::Rect, egui::Color32)>)>,
+    cached_maps: Vec<Vec<MemoryStatus>>,
 }
 
-impl AppMemoryMapConfig {
-    pub fn new(block_size: usize, map_span: usize, current_block: Option<MemoryUpdateType>) -> AppMemoryMapConfig {
-        AppMemoryMapConfig {
+impl AppMemoryMapState {
+    pub fn new(block_size: usize, map_span: usize, current_block: Option<MemoryUpdateType>) -> AppMemoryMapState {
+        AppMemoryMapState {
             block_size,
             map_span,
             current_block,
             cached_map: None,
+            cached_maps: Vec::new(),
         }
     }
     
