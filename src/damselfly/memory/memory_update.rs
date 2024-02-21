@@ -29,6 +29,20 @@ impl MemoryUpdateType {
         }
     }
 
+    pub fn get_start(&self) -> usize {
+        match self {
+            MemoryUpdateType::Allocation(allocation) => allocation.get_absolute_address(),
+            MemoryUpdateType::Free(free) => free.get_absolute_address(),
+        }
+    }
+
+    pub fn get_end(&self) -> usize {
+        match self {
+            MemoryUpdateType::Allocation(allocation) => allocation.get_absolute_address() + allocation.get_absolute_size(),
+            MemoryUpdateType::Free(free) => free.get_absolute_address() + free.get_absolute_size(),
+        }
+    }
+    
     pub fn get_timestamp(&self) -> usize {
         match self {
             MemoryUpdateType::Allocation(allocation) => allocation.get_timestamp(),

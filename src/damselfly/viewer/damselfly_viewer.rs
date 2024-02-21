@@ -6,6 +6,7 @@ use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::MemoryUpdateType;
 use crate::damselfly::memory::memory_usage_factory::MemoryUsageFactory;
 use crate::damselfly::update_interval::update_interval_factory::UpdateIntervalFactory;
+use crate::damselfly::update_interval::update_queue_compressor::UpdateQueueCompressor;
 use crate::damselfly::update_interval::UpdateInterval;
 use crate::damselfly::viewer::graph_viewer::GraphViewer;
 use crate::damselfly::viewer::map_viewer::MapViewer;
@@ -54,14 +55,36 @@ impl DamselflyViewer {
     }
 
     pub fn get_free_blocks_stats(&self) -> (usize, usize) {
+        eprintln!("getting updates");
         let updates_till_now = self.map_viewer.get_updates_from(0, self.get_graph_highlight());
-        let lapper = Lapper::new(updates_till_now);
+        let updates_till_now: Vec<MemoryUpdateType> = updates_till_now.iter()
+            .map(|update| update.val.clone())
+            .collect();
+        let compressed_allocs = UpdateQueueCompressor::compress_to_allocs(&updates_till_now);
+        let compressed_intervals = UpdateIntervalFactory::new(compressed_allocs).construct_enum_vector();
+        eprintln!("initialising lapper");
+        let mut lapper = Lapper::new(compressed_intervals);
+        lapper.merge_overlaps();
+
+        let mut largest_free_block_size: usize = 0;
+        let mut free_blocks: usize = 0;
+        let mut lapper_iter = lapper.iter().peekable();
+
+        while let Some(current_block) = lapper_iter.next() {
+            if let Some(next_block) = lapper_iter.peek() {
+                let current_free_block_size = next_block.val.get_start() - current_block.val.get_start();
+                largest_free_block_size = max(largest_free_block_size, current_free_block_size);
+                free_blocks += 1;
+            }
+        }
+
         let mut largest_free_block_size = 0;
         let mut free_blocks = 0;
         let mut left = self.map_viewer.get_lowest_address();
         let mut right = left + 1;
         let highest_address = self.map_viewer.get_highest_address();
 
+        eprintln!("looping {left} {highest_address}");
         while right < highest_address {
             while lapper.find(left, right).count() == 0{
                 right += 1;
@@ -71,6 +94,7 @@ impl DamselflyViewer {
             left = right;
             right = left + 1;
         }
+        eprintln!("exit loop");
         (largest_free_block_size, free_blocks)
     }
 

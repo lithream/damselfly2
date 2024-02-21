@@ -349,10 +349,13 @@ impl App {
 
     fn draw_side_panel_default(&mut self, ctx: &Context) {
         egui::SidePanel::new(Side::Left, "Right panel").show(ctx, |ui| {
+            eprintln!("drawing map");
             self.draw_map_controls(ui);
             ui.separator();
+            eprintln!("drawing operation");
             self.draw_operation_history(ui);
             ui.separator();
+            eprintln!("calculating free");
             let (largest_free_block, free_blocks) = self.viewer.get_free_blocks_stats();
             ui.label(format!("{}", largest_free_block));
             ui.separator();
