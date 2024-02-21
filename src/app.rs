@@ -2,14 +2,14 @@ use std::{error};
 use std::cell::RefCell;
 use std::rc::Rc;
 use eframe::Frame;
-use egui::{Button, Color32, Context, Rect, vec2};
+use egui::{Button, Color32, Context, Rect, ScrollArea, vec2};
 use egui::panel::Side;
 use egui_plot::{Line, Plot, PlotPoint, PlotPoints};
 use egui_extras::{Column, TableBuilder};
 use crate::config::app_default_config::AppDefaultState;
 use crate::config::app_memory_map_config::AppMemoryMapState;
 use crate::consts::DEFAULT_CELL_WIDTH;
-use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORYSPAN, MAX_BLOCK_SIZE, MAX_MAP_SPAN};
+use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, MAX_BLOCK_SIZE};
 use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use crate::damselfly::viewer::damselfly_viewer::DamselflyViewer;
@@ -48,6 +48,7 @@ impl eframe::App for App {
         match self.mode {
             Mode::DEFAULT => {
                 self.draw_top_bottom_panel_default(ctx);
+                self.draw_side_panel_default(ctx);
                 self.draw_central_panel_default(ctx);
             }
             Mode::MEMORYMAP => {
@@ -86,15 +87,30 @@ impl App {
     }
 
     fn draw_operation_history(&self, ui: &mut egui::Ui) {
-        egui::ScrollArea::vertical().show(ui, |ui| {
+        let label_operation = |prepend_str, operation: &MemoryUpdateType| {
+            let color = match operation {
+                MemoryUpdateType::Allocation(_) => Color32::RED,
+                MemoryUpdateType::Free(_) => Color32::GREEN,
+            };
+            egui::RichText::new(format!("{prepend_str} {}", operation)).color(color)
+        };
+
+        ScrollArea::vertical().show(ui, |ui| {
             let operation_history = self.viewer.get_operation_history();
             TableBuilder::new(ui)
                 .column(Column::remainder())
                 .body(|mut body| {
-                    for operation in operation_history {
-                        body.row(30.0, |mut row| {
+                    if let Some(first_operation) = operation_history.first() {
+                        body.row(10.0, |mut row| {
                             row.col(|ui| {
-                                ui.label(operation.to_string());
+                                ui.label(label_operation("->", first_operation));
+                            });
+                        });
+                    }
+                    for operation in operation_history.iter().skip(1) {
+                        body.row(10.0, |mut row| {
+                            row.col(|ui| {
+                                ui.label(label_operation("", operation));
                             });
                         });
                     }
@@ -114,7 +130,6 @@ impl App {
     fn draw_settings(&mut self, ui: &mut egui::Ui) {
         ui.add(egui::Slider::new(&mut self.default_state.block_size, 16..=MAX_BLOCK_SIZE)
             .logarithmic(true)
-            .smart_aim(false)
             .drag_value_speed(0.1)
             .text("BLOCK SIZE"));
     }
@@ -148,33 +163,27 @@ impl App {
             ui.columns(2, |columns| {
                 columns[0].label("USAGE");
                 columns[1].label("MEMORY");
-                columns[0].columns(2, |columns| {
-                    match self.draw_graph(&mut columns[1]) {
-                        GraphResponse::Hover(x, _) => {
-                            if let Ok(temporary_graph_highlight) = self.validate_x_coordinate(x) {
-                                self.viewer.set_graph_current_highlight(temporary_graph_highlight);
-                            }
-                        }
-                        GraphResponse::Click(x, _) => {
-                            if let Ok(persistent_graph_highlight) = self.validate_x_coordinate(x) {
-                                self.viewer.set_graph_saved_highlight(persistent_graph_highlight);
-                            }
-                        }
-                        GraphResponse::None => {
-                            self.viewer.clear_graph_current_highlight();
+                match self.draw_graph(&mut columns[0]) {
+                    GraphResponse::Hover(x, _) => {
+                        if let Ok(temporary_graph_highlight) = self.validate_x_coordinate(x) {
+                            self.viewer.set_graph_current_highlight(temporary_graph_highlight);
                         }
                     }
-                    self.draw_operation_history(&mut columns[0]);
-                });
+                    GraphResponse::Click(x, _) => {
+                        if let Ok(persistent_graph_highlight) = self.validate_x_coordinate(x) {
+                            self.viewer.set_graph_saved_highlight(persistent_graph_highlight);
+                        }
+                    }
+                    GraphResponse::None => {
+                        self.viewer.clear_graph_current_highlight();
+                    }
+                }
 
                 columns[0].separator();
                 self.draw_callstack(&mut columns[0]);
-                let pane_width = columns[1].available_width();
                 self.viewer.set_map_block_size(self.default_state.block_size);
                 self.default_state.current_block = Some(self.viewer.get_current_operation());
                 self.draw_full_map(&mut columns[1]);
-//                let map = self.viewer.get_map();
-                //self.draw_map(map, &mut columns[1], pane_width);
             })
         });
     }
@@ -185,69 +194,70 @@ impl App {
         });
     }
 
+    /*
     fn cache_maps(&mut self) {
         let mut cached_maps = Vec::new();
         for timestamp in 0..self.viewer.get_total_operations() {
             cached_maps.push(self.viewer.get_map_full_at(timestamp));
         }
     }
+     */
+
     fn draw_full_map(&mut self, ui: &mut egui::Ui) {
-        if let Some(cached_map) = self.get_cached_map() {
-            for (rect, color) in cached_map {
-                ui.painter().rect_filled(*rect, 0.0, *color);
-            }
-        }
-
-        // Otherwise, cache a new map
-        let mut new_cached_map = (self.viewer.get_graph_highlight(), Vec::new());
-        let blocks = self.viewer.get_map_full();
-        let start = ui.max_rect().min;
-        let end = ui.max_rect().max;
-
-        let mut cur_x = 0.0;
-        let mut cur_y = 0.0;
-
-        let mut consecutive_identical_blocks = 0;
-
-        for (index, block) in blocks.iter().enumerate() {
-            if let Some(prev_block) = blocks.get(index.saturating_sub(1)) {
-                if prev_block == block {
-                    consecutive_identical_blocks += 1;
-                } else {
-                    consecutive_identical_blocks = 0;
+        ScrollArea::vertical().show(ui, |ui| {
+            if let Some(cached_map) = self.get_cached_map() {
+                for (rect, color) in cached_map {
+                    ui.painter().rect_filled(*rect, 0.0, *color);
                 }
             }
 
-            if consecutive_identical_blocks > 2048 {
-                continue;
+            // Otherwise, cache a new map
+            let mut new_cached_map = (self.viewer.get_graph_highlight(), Vec::new());
+            let blocks = self.viewer.get_map_full();
+            let start = ui.min_rect().min;
+            let end = ui.min_rect().max;
+
+            let mut cur_x = 0.0;
+            let mut cur_y = 0.0;
+
+            let mut consecutive_identical_blocks = 0;
+
+            for (index, block) in blocks.iter().enumerate() {
+                if let Some(prev_block) = blocks.get(index.saturating_sub(1)) {
+                    if prev_block == block {
+                        consecutive_identical_blocks += 1;
+                    } else {
+                        consecutive_identical_blocks = 0;
+                    }
+                }
+
+                if consecutive_identical_blocks > 2048 {
+                    continue;
+                }
+
+                if cur_x >= end.x {
+                    cur_x = 0.0;
+                    cur_y += DEFAULT_CELL_WIDTH;
+                } else {
+                    cur_x += DEFAULT_CELL_WIDTH;
+                }
+
+                let rect = Rect::from_min_size(
+                    start + vec2(cur_x, cur_y),
+                    vec2(DEFAULT_CELL_WIDTH, DEFAULT_CELL_WIDTH),
+                );
+
+                let color = match block {
+                    MemoryStatus::Allocated(..) => Color32::RED,
+                    MemoryStatus::PartiallyAllocated(..) => Color32::YELLOW,
+                    MemoryStatus::Free(..) => Color32::GREEN,
+                    MemoryStatus::Unused => Color32::WHITE,
+                };
+
+                new_cached_map.1.push((rect, color));
             }
-
-            if cur_x >= end.x {
-                cur_x = 0.0;
-                cur_y += DEFAULT_CELL_WIDTH;
-            } else {
-                cur_x += DEFAULT_CELL_WIDTH;
-            }
-
-            if cur_y > end.y {
-                break;
-            }
-
-            let rect = Rect::from_min_size(
-                start + vec2(cur_x, cur_y),
-                vec2(DEFAULT_CELL_WIDTH, DEFAULT_CELL_WIDTH),
-            );
-
-            let color = match block {
-                MemoryStatus::Allocated(..) => Color32::RED,
-                MemoryStatus::PartiallyAllocated(..) => Color32::YELLOW,
-                MemoryStatus::Free(..) => Color32::LIGHT_GREEN,
-                MemoryStatus::Unused => Color32::WHITE,
-            };
-
-            new_cached_map.1.push((rect, color));
-        }
-        self.memory_map_state.cache_map(new_cached_map);
+            self.memory_map_state.cache_map(new_cached_map);
+        });
     }
 
     fn get_cached_map(&self) -> Option<&Vec<(Rect, Color32)>> {
@@ -338,11 +348,25 @@ impl App {
     }
 
     fn draw_side_panel_default(&mut self, ctx: &Context) {
-        egui::SidePanel::new(Side::Right, "Right panel").show(ctx, |ui| {
+        egui::SidePanel::new(Side::Left, "Right panel").show(ctx, |ui| {
             self.draw_map_controls(ui);
             ui.separator();
             self.draw_operation_history(ui);
+            ui.separator();
+            ui.label(format!("{}", self.viewer.get_largest_free_block()));
+            ui.separator();
+            ui.label(format!("{}", self.viewer.get_free_blocks()));
         });
+    }
+
+    fn draw_debug_map(&mut self, ui: &mut egui::Ui) {
+        let start = ui.min_rect().min;
+        let end = ui.min_rect().max;
+
+        let start_rect = Rect::from_min_size(start, vec2(DEFAULT_CELL_WIDTH, DEFAULT_CELL_WIDTH));
+        let end_rect = Rect::from_min_size(end, vec2(DEFAULT_CELL_WIDTH, DEFAULT_CELL_WIDTH));
+        ui.painter().rect_filled(start_rect, 0.0, Color32::RED);
+        ui.painter().rect_filled(end_rect, 0.0, Color32::RED);
     }
 
     fn draw_map_controls(&mut self, ui: &mut egui::Ui) {

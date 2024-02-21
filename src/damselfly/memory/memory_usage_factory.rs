@@ -1,17 +1,25 @@
-use std::cmp::max;
+use std::cmp::{max, min};
+use rust_lapper::Lapper;
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use crate::damselfly::memory::memory_usage::MemoryUsage;
 use crate::damselfly::update_interval::distinct_block_counter::DistinctBlockCounter;
+use crate::damselfly::update_interval::update_interval_factory::UpdateIntervalFactory;
+use crate::damselfly::update_interval::UpdateInterval;
 
-#[derive(Default)]
 pub struct MemoryUsageFactory {
     memory_updates: Vec<MemoryUpdateType>,
+    lowest_address: usize,
+    highest_address: usize,
+    lapper: Lapper<usize, MemoryUpdateType>,
 }
 
 impl MemoryUsageFactory {
     pub fn new(memory_updates: Vec<MemoryUpdateType>) -> MemoryUsageFactory {
         MemoryUsageFactory {
             memory_updates,
+            lowest_address: usize::MAX,
+            highest_address: usize::MIN,
+            lapper: Lapper::new(vec![]),
         }
     }
 
@@ -19,24 +27,51 @@ impl MemoryUsageFactory {
         self.memory_updates = updates;
     }
 
-    pub fn calculate_usage_stats(&self) -> (Vec<MemoryUsage>, i128, usize) {
+    pub fn calculate_usage_stats(&mut self) -> (Vec<MemoryUsage>, i128, usize) {
         let mut current_usage = 0;
         let mut max_usage = 0;
         let mut memory_usages = Vec::new();
 
         let mut distinct_block_counter = DistinctBlockCounter::default();
         let mut max_distinct_blocks = 0;
+
         for (index, update) in self.memory_updates.iter().enumerate() {
+            eprintln!("enter {index}");
+            let (largest_free_block_size, free_blocks) =
+                Self::calculate_new_free_blocks(&mut self.lowest_address, &mut self.highest_address, &mut self.lapper, update.clone());
             current_usage += Self::get_total_usage_delta(update);
             max_usage = max(max_usage, current_usage);
 
+            eprintln!("exit {index}");
             distinct_block_counter.push_update(update);
             let distinct_blocks = distinct_block_counter.get_distinct_blocks();
             max_distinct_blocks = max(max_distinct_blocks, distinct_blocks);
 
-            memory_usages.push(MemoryUsage::new(current_usage, distinct_blocks, index));
+            memory_usages.push(MemoryUsage::new(current_usage, distinct_blocks, index, largest_free_block_size, free_blocks));
         }
         (memory_usages, max_usage, max_distinct_blocks)
+    }
+
+    fn calculate_new_free_blocks(cur_lowest_address: &mut usize, cur_highest_address: &mut usize, lapper: &mut Lapper<usize, MemoryUpdateType>, memory_update: MemoryUpdateType) -> (usize, usize) {
+        *cur_lowest_address = min(*cur_lowest_address, memory_update.get_absolute_address());
+        *cur_highest_address = max(*cur_highest_address, memory_update.get_absolute_address());
+        lapper.insert(UpdateIntervalFactory::convert_update_to_interval(&memory_update));
+
+        let mut largest_free_block_size = 0;
+        let mut free_blocks = 0;
+        let mut left = *cur_lowest_address;
+        let mut right = left + 1;
+
+        while right < *cur_highest_address {
+            while lapper.find(left, right).count() == 0 {
+                right += 1;
+            }
+            largest_free_block_size = max(largest_free_block_size, right - left);
+            free_blocks += 1;
+            left = right;
+            right = left + 1;
+        }
+        (largest_free_block_size, free_blocks)
     }
 
     fn get_total_usage_delta(memory_update: &MemoryUpdateType) -> i128 {
@@ -60,7 +95,7 @@ mod tests {
     fn initialise_test_log() -> (Vec<MemoryUsage>, i128, usize) {
         let mst_parser = MemorySysTraceParser::new();
         let updates = mst_parser.parse_log_directly(TEST_LOG, TEST_BINARY_PATH);
-        let memory_usage_factory = MemoryUsageFactory::new(updates);
+        let mut memory_usage_factory = MemoryUsageFactory::new(updates);
         memory_usage_factory.calculate_usage_stats()
     }
 

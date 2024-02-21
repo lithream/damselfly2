@@ -14,10 +14,11 @@ impl UpdateIntervalFactory {
             memory_updates,
         }
     }
-    pub fn append_instruction(&mut self, update: MemoryUpdateType)
+    pub fn append_update(&mut self, update: MemoryUpdateType)
     {
         self.memory_updates.push(update);
     }
+
     pub fn load_instructions(&mut self, updates: Vec<MemoryUpdateType>) {
         self.memory_updates = updates;
     }
@@ -30,5 +31,10 @@ impl UpdateIntervalFactory {
         }
 
         intervals
+    }
+
+    pub fn convert_update_to_interval(memory_update: &MemoryUpdateType) -> UpdateInterval {
+        let (start, stop) = Utility::get_start_and_stop(memory_update);
+        UpdateInterval{ start, stop, val: memory_update.clone() }
     }
 }

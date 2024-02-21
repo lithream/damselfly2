@@ -1,3 +1,4 @@
+use crate::damselfly::consts::DEFAULT_OPERATION_LOG_SIZE;
 use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
 use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::MemoryUpdateType;
@@ -50,6 +51,14 @@ impl DamselflyViewer {
         self.graph_viewer.get_distinct_blocks_plot_points()
     }
 
+    pub fn get_largest_free_block(&self) -> usize {
+        self.graph_viewer.get_largest_free_block()
+    }
+
+    pub fn get_free_blocks(&self) -> usize {
+        self.graph_viewer.get_free_blocks()
+    }
+
     pub fn get_total_operations(&self) -> usize {
         self.graph_viewer.get_total_operations()
     }
@@ -59,7 +68,7 @@ impl DamselflyViewer {
     }
 
     pub fn get_operation_history(&self) -> Vec<MemoryUpdateType> {
-        self.map_viewer.get_update_history(7)
+        self.map_viewer.get_update_history(DEFAULT_OPERATION_LOG_SIZE)
     }
 
     pub fn get_graph_highlight(&self) -> usize {

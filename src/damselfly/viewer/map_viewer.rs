@@ -40,10 +40,10 @@ impl MapViewer {
     pub fn get_update_history(&self, history_size: usize) -> Vec<MemoryUpdateType> {
         self.update_intervals
             .iter()
+            .take(self.current_timestamp)
             .rev()
             .take(history_size)
             .map(|update_interval| update_interval.val.clone())
-            .rev()
             .collect()
     }
 
