@@ -1,3 +1,5 @@
+use std::cmp::max;
+use rust_lapper::Lapper;
 use crate::damselfly::consts::DEFAULT_OPERATION_LOG_SIZE;
 use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
 use crate::damselfly::memory::memory_status::MemoryStatus;
@@ -51,12 +53,25 @@ impl DamselflyViewer {
         self.graph_viewer.get_distinct_blocks_plot_points()
     }
 
-    pub fn get_largest_free_block(&self) -> usize {
-        self.graph_viewer.get_largest_free_block()
-    }
+    pub fn get_free_blocks_stats(&self) -> (usize, usize) {
+        let updates_till_now = self.map_viewer.get_updates_from(0, self.get_graph_highlight());
+        let lapper = Lapper::new(updates_till_now);
+        let mut largest_free_block_size = 0;
+        let mut free_blocks = 0;
+        let mut left = self.map_viewer.get_lowest_address();
+        let mut right = left + 1;
+        let highest_address = self.map_viewer.get_highest_address();
 
-    pub fn get_free_blocks(&self) -> usize {
-        self.graph_viewer.get_free_blocks()
+        while right < highest_address {
+            while lapper.find(left, right).count() == 0{
+                right += 1;
+            }
+            largest_free_block_size = max(largest_free_block_size, right - left);
+            free_blocks += 1;
+            left = right;
+            right = left + 1;
+        }
+        (largest_free_block_size, free_blocks)
     }
 
     pub fn get_total_operations(&self) -> usize {

@@ -54,20 +54,6 @@ impl GraphViewer {
         self.memory_usage_snapshots.len()
     }
 
-    pub fn get_largest_free_block(&self) -> usize {
-        self.memory_usage_snapshots
-            .get(self.get_highlight())
-            .unwrap()
-            .get_largest_free_block()
-    }
-
-    pub fn get_free_blocks(&self) -> usize {
-        self.memory_usage_snapshots
-            .get(self.get_highlight())
-            .unwrap()
-            .get_free_blocks()
-    }
-
     pub fn get_highlight(&self) -> usize {
         if let Some(highlight) = self.current_highlight {
             return highlight;

@@ -353,9 +353,10 @@ impl App {
             ui.separator();
             self.draw_operation_history(ui);
             ui.separator();
-            ui.label(format!("{}", self.viewer.get_largest_free_block()));
+            let (largest_free_block, free_blocks) = self.viewer.get_free_blocks_stats();
+            ui.label(format!("{}", largest_free_block));
             ui.separator();
-            ui.label(format!("{}", self.viewer.get_free_blocks()));
+            ui.label(format!("{}", free_blocks));
         });
     }
 

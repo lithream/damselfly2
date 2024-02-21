@@ -47,8 +47,20 @@ impl MapViewer {
             .collect()
     }
 
+    pub fn get_updates_from(&self, start: usize, end: usize) -> Vec<UpdateInterval> {
+        self.update_intervals[start..=end].to_vec()
+    }
+
     pub fn get_update_intervals(&self) -> &Vec<UpdateInterval> {
         &self.update_intervals
+    }
+
+    pub fn get_lowest_address(&self) -> usize {
+        self.lowest_address
+    }
+
+    pub fn get_highest_address(&self) -> usize {
+        self.highest_address
     }
 
     pub fn set_timestamp(&mut self, new_timestamp: usize) {
