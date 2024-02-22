@@ -1,6 +1,7 @@
 use std::{error};
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::time::Instant;
 use eframe::Frame;
 use egui::{Button, Color32, Context, Rect, ScrollArea, vec2};
 use egui::panel::Side;
@@ -48,7 +49,7 @@ impl eframe::App for App {
         match self.mode {
             Mode::DEFAULT => {
                 self.draw_top_bottom_panel_default(ctx);
-                self.draw_side_panel_default(ctx);
+//                self.draw_side_panel_default(ctx);
                 self.draw_central_panel_default(ctx);
             }
             Mode::MEMORYMAP => {
@@ -162,7 +163,14 @@ impl App {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.columns(2, |columns| {
                 columns[0].label("USAGE");
-                columns[1].label("MEMORY");
+                /*
+                TableBuilder::new(columns[0])
+                    .column(Column::remainder())
+                    .body(|mut body| {
+                        body.row
+                    })
+                 */
+
                 match self.draw_graph(&mut columns[0]) {
                     GraphResponse::Hover(x, _) => {
                         if let Ok(temporary_graph_highlight) = self.validate_x_coordinate(x) {
@@ -183,6 +191,8 @@ impl App {
                 self.draw_callstack(&mut columns[0]);
                 self.viewer.set_map_block_size(self.default_state.block_size);
                 self.default_state.current_block = Some(self.viewer.get_current_operation());
+
+                columns[1].label("MEMORY");
                 self.draw_full_map(&mut columns[1]);
             })
         });
@@ -204,60 +214,67 @@ impl App {
      */
 
     fn draw_full_map(&mut self, ui: &mut egui::Ui) {
-        ScrollArea::vertical().show(ui, |ui| {
-            if let Some(cached_map) = self.get_cached_map() {
-                for (rect, color) in cached_map {
-                    ui.painter().rect_filled(*rect, 0.0, *color);
-                }
-            }
-
-            // Otherwise, cache a new map
-            let mut new_cached_map = (self.viewer.get_graph_highlight(), Vec::new());
-            let blocks = self.viewer.get_map_full();
-            let start = ui.min_rect().min;
-            let end = ui.min_rect().max;
-
-            let mut cur_x = 0.0;
-            let mut cur_y = 0.0;
-
-            let mut consecutive_identical_blocks = 0;
-
-            for (index, block) in blocks.iter().enumerate() {
-                if let Some(prev_block) = blocks.get(index.saturating_sub(1)) {
-                    if prev_block == block {
-                        consecutive_identical_blocks += 1;
-                    } else {
-                        consecutive_identical_blocks = 0;
+        ScrollArea::vertical().show(
+            ui,
+            |ui| {
+                if let Some(cached_map) = self.get_cached_map() {
+                    let start = Instant::now();
+                    for (rect, color) in cached_map {
+                        ui.painter().rect_filled(*rect, 0.0, *color);
                     }
+                    println!("Time to draw cached map: {:?}", start.elapsed());
                 }
 
-                if consecutive_identical_blocks > 2048 {
-                    continue;
+                // Otherwise, cache a new map
+                let start_time = Instant::now();
+                let mut new_cached_map = (self.viewer.get_graph_highlight(), Vec::new());
+                let blocks = self.viewer.get_map_full();
+                let start = ui.min_rect().min;
+                let end = ui.min_rect().max;
+
+                let mut cur_x = 0.0;
+                let mut cur_y = 0.0;
+
+                let mut consecutive_identical_blocks = 0;
+
+                for (index, block) in blocks.iter().enumerate() {
+                    if let Some(prev_block) = blocks.get(index.saturating_sub(1)) {
+                        if prev_block == block {
+                            consecutive_identical_blocks += 1;
+                        } else {
+                            consecutive_identical_blocks = 0;
+                        }
+                    }
+
+                    if consecutive_identical_blocks > 512 {
+                        continue;
+                    }
+
+                    if cur_x >= end.x {
+                        cur_x = 0.0;
+                        cur_y += DEFAULT_CELL_WIDTH;
+                    } else {
+                        cur_x += DEFAULT_CELL_WIDTH;
+                    }
+
+                    let rect = Rect::from_min_size(
+                        start + vec2(cur_x, cur_y),
+                        vec2(DEFAULT_CELL_WIDTH, DEFAULT_CELL_WIDTH),
+                    );
+
+                    let color = match block {
+                        MemoryStatus::Allocated(..) => Color32::RED,
+                        MemoryStatus::PartiallyAllocated(..) => Color32::YELLOW,
+                        MemoryStatus::Free(..) => Color32::GREEN,
+                        MemoryStatus::Unused => Color32::WHITE,
+                    };
+
+                    new_cached_map.1.push((rect, color));
                 }
-
-                if cur_x >= end.x {
-                    cur_x = 0.0;
-                    cur_y += DEFAULT_CELL_WIDTH;
-                } else {
-                    cur_x += DEFAULT_CELL_WIDTH;
-                }
-
-                let rect = Rect::from_min_size(
-                    start + vec2(cur_x, cur_y),
-                    vec2(DEFAULT_CELL_WIDTH, DEFAULT_CELL_WIDTH),
-                );
-
-                let color = match block {
-                    MemoryStatus::Allocated(..) => Color32::RED,
-                    MemoryStatus::PartiallyAllocated(..) => Color32::YELLOW,
-                    MemoryStatus::Free(..) => Color32::GREEN,
-                    MemoryStatus::Unused => Color32::WHITE,
-                };
-
-                new_cached_map.1.push((rect, color));
+                self.memory_map_state.cache_map(new_cached_map);
+                println!("Time to generate cached map: {:?}", start_time.elapsed());
             }
-            self.memory_map_state.cache_map(new_cached_map);
-        });
+        );
     }
 
     fn get_cached_map(&self) -> Option<&Vec<(Rect, Color32)>> {

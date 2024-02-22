@@ -77,24 +77,7 @@ impl DamselflyViewer {
                 free_blocks += 1;
             }
         }
-
-        let mut largest_free_block_size = 0;
-        let mut free_blocks = 0;
-        let mut left = self.map_viewer.get_lowest_address();
-        let mut right = left + 1;
-        let highest_address = self.map_viewer.get_highest_address();
-
-        eprintln!("looping {left} {highest_address}");
-        while right < highest_address {
-            while lapper.find(left, right).count() == 0{
-                right += 1;
-            }
-            largest_free_block_size = max(largest_free_block_size, right - left);
-            free_blocks += 1;
-            left = right;
-            right = left + 1;
-        }
-        eprintln!("exit loop");
+        
         (largest_free_block_size, free_blocks)
     }
 
