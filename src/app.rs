@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Instant;
 use eframe::Frame;
-use egui::{Button, Color32, Context, Rect, ScrollArea, vec2};
+use egui::{Align, Button, Color32, Context, Layout, Rect, ScrollArea, Ui, vec2, Vec2};
 use egui::panel::Side;
 use egui_plot::{Line, Plot, PlotPoint, PlotPoints};
 use egui_extras::{Column, TableBuilder};
@@ -162,6 +162,21 @@ impl App {
     fn draw_central_panel_default(&mut self, ctx: &Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.columns(2, |columns| {
+                columns[0].with_layout(Layout::top_down(Align::LEFT), |ui| {
+                    self.draw_graph(ui);
+                    ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
+                        self.draw_lower_panel(ui);
+                        self.draw_settings(ui);
+                        self.draw_operation_history(ui);
+                    });
+                });
+                self.draw_debug_map(&mut columns[1]);
+            });
+        });
+            // left half
+
+            /*
+            ui.columns(2, |columns| {
                 columns[0].label("USAGE");
                 /*
                 TableBuilder::new(columns[0])
@@ -196,6 +211,7 @@ impl App {
                 self.draw_full_map(&mut columns[1]);
             })
         });
+             */
     }
 
     fn draw_central_panel_memorymap(&mut self, ctx: &Context) {
@@ -288,7 +304,7 @@ impl App {
         None
     }
 
-    fn draw_graph(&mut self, ui: &mut egui::Ui) -> GraphResponse {
+    fn draw_graph(&mut self, ui: &mut Ui) -> GraphResponse {
         let hovered_point: Rc<RefCell<(f64, f64)>> = Default::default();
         let hovered_point_ref_clone: Rc<RefCell<(f64, f64)>> = Rc::clone(&hovered_point);
 
