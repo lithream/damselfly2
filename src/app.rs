@@ -4,10 +4,11 @@ use std::rc::Rc;
 use std::time::Instant;
 use eframe::Frame;
 use egui::{Align, Button, Color32, Context, Layout, Rect, ScrollArea, Ui, vec2, Vec2};
+use egui::accesskit::DefaultActionVerb::Click;
 use egui::panel::Side;
 use egui_plot::{Line, Plot, PlotPoint, PlotPoints};
 use egui_extras::{Column, TableBuilder};
-use crate::config::app_default_config::AppDefaultState;
+use crate::config::app_default_config::{AppDefaultState, LowerPanelMode};
 use crate::config::app_memory_map_config::AppMemoryMapState;
 use crate::consts::DEFAULT_CELL_WIDTH;
 use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, MAX_BLOCK_SIZE};
@@ -22,6 +23,8 @@ pub enum Mode {
     DEFAULT,
     MEMORYMAP,
 }
+
+
 
 /// Application.
 pub struct App {
@@ -49,7 +52,6 @@ impl eframe::App for App {
         match self.mode {
             Mode::DEFAULT => {
                 self.draw_top_bottom_panel_default(ctx);
-//                self.draw_side_panel_default(ctx);
                 self.draw_central_panel_default(ctx);
             }
             Mode::MEMORYMAP => {
@@ -163,14 +165,26 @@ impl App {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.columns(2, |columns| {
                 columns[0].with_layout(Layout::top_down(Align::LEFT), |ui| {
-                    self.draw_graph(ui);
+                    match self.draw_graph(ui) {
+                        GraphResponse::Hover(x, _) => {
+                            if let Ok(temporary_graph_highlight) = self.validate_x_coordinate(x) {
+                                self.viewer.set_graph_current_highlight(temporary_graph_highlight);
+                            }
+                        }
+                        GraphResponse::Click(x, _) => {
+                            if let Ok(persistent_graph_highlight) = self.validate_x_coordinate(x) {
+                                self.viewer.set_graph_saved_highlight(persistent_graph_highlight);
+                            }
+                        }
+                        GraphResponse::None => self.viewer.clear_graph_current_highlight(),
+                    }
+                    self.viewer.set_map_block_size(self.default_state.block_size);
+                    self.default_state.current_block = Some(self.viewer.get_current_operation());
                     ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
                         self.draw_lower_panel(ui);
-                        self.draw_settings(ui);
-                        self.draw_operation_history(ui);
                     });
                 });
-                self.draw_debug_map(&mut columns[1]);
+                self.draw_full_map(&mut columns[1]);
             });
         });
             // left half
@@ -213,6 +227,31 @@ impl App {
         });
              */
     }
+
+    fn draw_lower_panel(&mut self, ui: &mut Ui) {
+        ui.columns(2, |columns| {
+            self.draw_operation_history(&mut columns[0]);
+            columns[1].with_layout(Layout::top_down(Align::LEFT), |tabbed_panel| {
+                tabbed_panel.with_layout(Layout::left_to_right(Align::LEFT), |tabs| {
+                    if tabs.button("SETTINGS").clicked() { self.default_state.lower_panel_mode = LowerPanelMode::SETTINGS; }
+                    if tabs.button("CALLSTACK").clicked() { self.default_state.lower_panel_mode = LowerPanelMode::CALLSTACK; }
+                    if tabs.button("STATISTICS").clicked() { self.default_state.lower_panel_mode = LowerPanelMode::STATISTICS; }
+                });
+                match self.default_state.lower_panel_mode {
+                    LowerPanelMode::SETTINGS => self.draw_settings(tabbed_panel),
+                    LowerPanelMode::CALLSTACK => self.draw_callstack(tabbed_panel),
+                    LowerPanelMode::STATISTICS => self.draw_statistics(tabbed_panel),
+                }
+            })
+        });
+    }
+
+    fn draw_statistics(&self, ui: &mut Ui) {
+        let (largest_free_block, free_blocks) = self.viewer.get_free_blocks_stats();
+        ui.label(format!("Largest free block: {largest_free_block}"));
+        ui.label(format!("Free blocks: {free_blocks}"));
+    }
+
 
     fn draw_central_panel_memorymap(&mut self, ctx: &Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
