@@ -54,6 +54,14 @@ impl DamselflyViewer {
         self.graph_viewer.get_distinct_blocks_plot_points()
     }
 
+    pub fn get_lowest_address(&self) -> usize {
+        self.map_viewer.get_lowest_address()
+    }
+
+    pub fn get_highest_address(&self) -> usize {
+        self.map_viewer.get_highest_address()
+    }
+
     pub fn get_free_blocks_stats(&self) -> (usize, usize) {
         eprintln!("getting updates");
         let updates_till_now = self.map_viewer.get_updates_from(0, self.get_graph_highlight());
@@ -116,6 +124,18 @@ impl DamselflyViewer {
 
     pub fn set_map_block_size(&mut self, new_size: usize) {
         self.map_viewer.set_block_size(new_size);
+    }
+
+    pub fn lock_map_view(&mut self) {
+        self.map_viewer.lock_view();
+    }
+
+    pub fn unlock_map_view(&mut self) {
+        self.map_viewer.unlock_view();
+    }
+
+    pub fn toggle_map_view_lock(&mut self) {
+        self.map_viewer.toggle_lock();
     }
 
     pub fn set_map_span(&mut self, new_span: usize) {

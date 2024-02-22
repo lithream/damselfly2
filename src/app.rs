@@ -11,7 +11,7 @@ use egui_extras::{Column, TableBuilder};
 use crate::config::app_default_config::{AppDefaultState, LowerPanelMode};
 use crate::config::app_memory_map_config::AppMemoryMapState;
 use crate::consts::DEFAULT_CELL_WIDTH;
-use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, MAX_BLOCK_SIZE};
+use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORY_SIZE, MAX_BLOCK_SIZE};
 use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use crate::damselfly::viewer::damselfly_viewer::DamselflyViewer;
@@ -38,10 +38,12 @@ impl App {
     /// Constructs a new instance of [`App`].
     pub fn new(_: &eframe::CreationContext<'_>, log_path: String, binary_path: String) -> Self {
         let viewer = DamselflyViewer::new(log_path.as_str(), binary_path.as_str());
+        let lowest_address = viewer.get_lowest_address();
+        let highest_address = viewer.get_highest_address();
         App {
             viewer,
             mode: Mode::DEFAULT,
-            default_state: AppDefaultState::new(DEFAULT_BLOCK_SIZE, 4096, None),
+            default_state: AppDefaultState::new(DEFAULT_BLOCK_SIZE, 4096, lowest_address, highest_address, None),
             memory_map_state: AppMemoryMapState::new(DEFAULT_BLOCK_SIZE, 4096, None),
         }
     }
@@ -78,15 +80,13 @@ impl App {
 
     fn draw_callstack(&self, ui: &mut egui::Ui) {
         if self.default_state.current_block.is_none() { return };
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            let current_block = self.default_state.current_block.clone().unwrap();
-            match current_block {
-                MemoryUpdateType::Allocation(allocation) =>
-                    ui.label(allocation.get_callstack().to_string()),
-                MemoryUpdateType::Free(free) =>
-                    ui.label(free.get_callstack().to_string()),
-            };
-        });
+        let current_block = self.default_state.current_block.clone().unwrap();
+        match current_block {
+            MemoryUpdateType::Allocation(allocation) =>
+                ui.label(allocation.get_callstack().to_string()),
+            MemoryUpdateType::Free(free) =>
+                ui.label(free.get_callstack().to_string()),
+        };
     }
 
     fn draw_operation_history(&self, ui: &mut egui::Ui) {
@@ -98,27 +98,25 @@ impl App {
             egui::RichText::new(format!("{prepend_str} {}", operation)).color(color)
         };
 
-        ScrollArea::vertical().show(ui, |ui| {
-            let operation_history = self.viewer.get_operation_history();
-            TableBuilder::new(ui)
-                .column(Column::remainder())
-                .body(|mut body| {
-                    if let Some(first_operation) = operation_history.first() {
-                        body.row(10.0, |mut row| {
-                            row.col(|ui| {
-                                ui.label(label_operation("->", first_operation));
-                            });
+        let operation_history = self.viewer.get_operation_history();
+        TableBuilder::new(ui)
+            .column(Column::remainder())
+            .body(|mut body| {
+                if let Some(first_operation) = operation_history.first() {
+                    body.row(10.0, |mut row| {
+                        row.col(|ui| {
+                            ui.label(label_operation("->", first_operation));
                         });
-                    }
-                    for operation in operation_history.iter().skip(1) {
-                        body.row(10.0, |mut row| {
-                            row.col(|ui| {
-                                ui.label(label_operation("", operation));
-                            });
+                    });
+                }
+                for operation in operation_history.iter().skip(1) {
+                    body.row(10.0, |mut row| {
+                        row.col(|ui| {
+                            ui.label(label_operation("", operation));
                         });
-                    }
-                });
-        });
+                    });
+                }
+            });
     }
 
     fn validate_x_coordinate(&self, x: f64) -> Result<usize, ()> {
@@ -131,10 +129,16 @@ impl App {
     }
 
     fn draw_settings(&mut self, ui: &mut egui::Ui) {
-        ui.add(egui::Slider::new(&mut self.default_state.block_size, 16..=MAX_BLOCK_SIZE)
+        ui.add(egui::Slider::new(&mut self.default_state.block_size, 1..=MAX_BLOCK_SIZE)
             .logarithmic(true)
             .drag_value_speed(0.1)
+            .smart_aim(false)
             .text("BLOCK SIZE"));
+        ui.add(egui::Slider::new(&mut self.default_state.map_span, 1..=DEFAULT_MEMORY_SIZE)
+            .logarithmic(true)
+            .drag_value_speed(0.1)
+            .smart_aim(false)
+            .text("MAP SPAN"));
     }
 
     fn draw_title_bar(&mut self, ctx: &Context, ui: &mut egui::Ui) {
@@ -184,48 +188,10 @@ impl App {
                         self.draw_lower_panel(ui);
                     });
                 });
+                self.viewer.set_map_span(self.default_state.map_span);
                 self.draw_full_map(&mut columns[1]);
             });
         });
-            // left half
-
-            /*
-            ui.columns(2, |columns| {
-                columns[0].label("USAGE");
-                /*
-                TableBuilder::new(columns[0])
-                    .column(Column::remainder())
-                    .body(|mut body| {
-                        body.row
-                    })
-                 */
-
-                match self.draw_graph(&mut columns[0]) {
-                    GraphResponse::Hover(x, _) => {
-                        if let Ok(temporary_graph_highlight) = self.validate_x_coordinate(x) {
-                            self.viewer.set_graph_current_highlight(temporary_graph_highlight);
-                        }
-                    }
-                    GraphResponse::Click(x, _) => {
-                        if let Ok(persistent_graph_highlight) = self.validate_x_coordinate(x) {
-                            self.viewer.set_graph_saved_highlight(persistent_graph_highlight);
-                        }
-                    }
-                    GraphResponse::None => {
-                        self.viewer.clear_graph_current_highlight();
-                    }
-                }
-
-                columns[0].separator();
-                self.draw_callstack(&mut columns[0]);
-                self.viewer.set_map_block_size(self.default_state.block_size);
-                self.default_state.current_block = Some(self.viewer.get_current_operation());
-
-                columns[1].label("MEMORY");
-                self.draw_full_map(&mut columns[1]);
-            })
-        });
-             */
     }
 
     fn draw_lower_panel(&mut self, ui: &mut Ui) {
@@ -277,13 +243,13 @@ impl App {
                     for (rect, color) in cached_map {
                         ui.painter().rect_filled(*rect, 0.0, *color);
                     }
-                    println!("Time to draw cached map: {:?}", start.elapsed());
                 }
 
+                self.viewer.set_map_span(self.default_state.map_span);
                 // Otherwise, cache a new map
                 let start_time = Instant::now();
                 let mut new_cached_map = (self.viewer.get_graph_highlight(), Vec::new());
-                let blocks = self.viewer.get_map_full();
+                let blocks = self.viewer.get_map();
                 let start = ui.min_rect().min;
                 let end = ui.min_rect().max;
 
@@ -327,7 +293,6 @@ impl App {
                     new_cached_map.1.push((rect, color));
                 }
                 self.memory_map_state.cache_map(new_cached_map);
-                println!("Time to generate cached map: {:?}", start_time.elapsed());
             }
         );
     }

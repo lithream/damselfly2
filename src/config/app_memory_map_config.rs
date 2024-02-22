@@ -3,7 +3,7 @@ use crate::damselfly::memory::memory_update::MemoryUpdateType;
 
 pub struct AppMemoryMapState {
     block_size: usize,
-    map_span: usize,
+    pub map_span: usize,
     current_block: Option<MemoryUpdateType>,
     // (timestamp, Vec<rect, color>)
     cached_map: Option<(usize, Vec<(egui::Rect, egui::Color32)>)>,

@@ -12,6 +12,7 @@ pub struct MapViewer {
     block_size: usize,
     lowest_address: usize,
     highest_address: usize,
+    locked: bool
 }
 
 impl MapViewer {
@@ -34,6 +35,7 @@ impl MapViewer {
             block_size: DEFAULT_BLOCK_SIZE,
             lowest_address,
             highest_address,
+            locked: true,
         }
     }
 
@@ -61,6 +63,18 @@ impl MapViewer {
 
     pub fn get_highest_address(&self) -> usize {
         self.highest_address
+    }
+
+    pub fn lock_view(&mut self) {
+        self.locked = true;
+    }
+
+    pub fn unlock_view(&mut self) {
+        self.locked = false;
+    }
+
+    pub fn toggle_lock(&mut self) {
+        self.locked = !self.locked;
     }
 
     pub fn set_timestamp(&mut self, new_timestamp: usize) {
@@ -113,5 +127,7 @@ impl MapViewer {
         let current_update = self.update_intervals.get(self.current_timestamp)
             .expect("[MapViewer::snap_map_to_current_update]: Current timestamp out of bounds of update intervals");
         self.canvas_start = current_update.start.saturating_sub(self.canvas_span / 2);
+        eprintln!("canvas start: {}", self.canvas_start);
+        eprintln!("span: {}", self.canvas_span);
     }
 }
