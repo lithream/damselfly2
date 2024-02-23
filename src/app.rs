@@ -8,7 +8,7 @@ use egui::accesskit::DefaultActionVerb::Click;
 use egui::panel::Side;
 use egui_plot::{Line, Plot, PlotPoint, PlotPoints};
 use egui_extras::{Column, TableBuilder};
-use crate::config::app_default_config::{AppDefaultState, LowerPanelMode};
+use crate::config::app_default_config::{AppDefaultState, LowerPanelMode, MapMode};
 use crate::config::app_memory_map_config::AppMemoryMapState;
 use crate::consts::DEFAULT_CELL_WIDTH;
 use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORY_SIZE, MAX_BLOCK_SIZE};
@@ -23,8 +23,6 @@ pub enum Mode {
     DEFAULT,
     MEMORYMAP,
 }
-
-
 
 /// Application.
 pub struct App {
@@ -139,6 +137,12 @@ impl App {
             .drag_value_speed(0.1)
             .smart_aim(false)
             .text("MAP SPAN"));
+        if ui.button("TOGGLE SNAP").clicked() {
+            match self.default_state.map_mode {
+                MapMode::SNAP => self.default_state.map_mode = MapMode::FULL,
+                MapMode::FULL => self.default_state.map_mode = MapMode::SNAP,
+            }
+        }
     }
 
     fn draw_title_bar(&mut self, ctx: &Context, ui: &mut egui::Ui) {
@@ -189,7 +193,7 @@ impl App {
                     });
                 });
                 self.viewer.set_map_span(self.default_state.map_span);
-                self.draw_full_map(&mut columns[1]);
+                self.draw_map(&mut columns[1]);
             });
         });
     }
@@ -225,76 +229,63 @@ impl App {
         });
     }
 
-    /*
-    fn cache_maps(&mut self) {
-        let mut cached_maps = Vec::new();
-        for timestamp in 0..self.viewer.get_total_operations() {
-            cached_maps.push(self.viewer.get_map_full_at(timestamp));
-        }
-    }
-     */
-
-    fn draw_full_map(&mut self, ui: &mut egui::Ui) {
-        ScrollArea::vertical().show(
-            ui,
-            |ui| {
-                if let Some(cached_map) = self.get_cached_map() {
-                    let start = Instant::now();
-                    for (rect, color) in cached_map {
-                        ui.painter().rect_filled(*rect, 0.0, *color);
-                    }
-                }
-
-                self.viewer.set_map_span(self.default_state.map_span);
-                // Otherwise, cache a new map
-                let start_time = Instant::now();
-                let mut new_cached_map = (self.viewer.get_graph_highlight(), Vec::new());
-                let blocks = self.viewer.get_map();
-                let start = ui.min_rect().min;
-                let end = ui.min_rect().max;
-
-                let mut cur_x = 0.0;
-                let mut cur_y = 0.0;
-
-                let mut consecutive_identical_blocks = 0;
-
-                for (index, block) in blocks.iter().enumerate() {
-                    if let Some(prev_block) = blocks.get(index.saturating_sub(1)) {
-                        if prev_block == block {
-                            consecutive_identical_blocks += 1;
-                        } else {
-                            consecutive_identical_blocks = 0;
-                        }
-                    }
-
-                    if consecutive_identical_blocks > 512 {
-                        continue;
-                    }
-
-                    if cur_x >= end.x {
-                        cur_x = 0.0;
-                        cur_y += DEFAULT_CELL_WIDTH;
-                    } else {
-                        cur_x += DEFAULT_CELL_WIDTH;
-                    }
-
-                    let rect = Rect::from_min_size(
-                        start + vec2(cur_x, cur_y),
-                        vec2(DEFAULT_CELL_WIDTH, DEFAULT_CELL_WIDTH),
-                    );
-
-                    let color = match block {
-                        MemoryStatus::Allocated(..) => Color32::RED,
-                        MemoryStatus::PartiallyAllocated(..) => Color32::YELLOW,
-                        MemoryStatus::Free(..) => Color32::GREEN,
-                        MemoryStatus::Unused => Color32::WHITE,
-                    };
-
-                    new_cached_map.1.push((rect, color));
-                }
-                self.memory_map_state.cache_map(new_cached_map);
+    fn draw_map(&mut self, ui: &mut egui::Ui) {
+        if let Some(cached_map) = self.get_cached_map() {
+            for (rect, color) in cached_map {
+                ui.painter().rect_filled(*rect, 0.0, *color);
             }
-        );
+        }
+
+        self.viewer.set_map_span(self.default_state.map_span);
+        // Otherwise, cache a new map
+        let mut new_cached_map = (self.viewer.get_graph_highlight(), Vec::new());
+        let blocks = match self.default_state.map_mode {
+            MapMode::SNAP => self.viewer.get_map(),
+            MapMode::FULL => self.viewer.get_map_full(),
+        };
+        let start = ui.min_rect().min;
+        let end = ui.min_rect().max;
+
+        let mut cur_x = 0.0;
+        let mut cur_y = 0.0;
+
+        let mut consecutive_identical_blocks = 0;
+
+        for (index, block) in blocks.iter().enumerate() {
+            if let Some(prev_block) = blocks.get(index.saturating_sub(1)) {
+                if prev_block == block {
+                    consecutive_identical_blocks += 1;
+                } else {
+                    consecutive_identical_blocks = 0;
+                }
+            }
+
+            if consecutive_identical_blocks > 512 {
+                continue;
+            }
+
+            if cur_x >= end.x {
+                cur_x = 0.0;
+                cur_y += DEFAULT_CELL_WIDTH;
+            } else {
+                cur_x += DEFAULT_CELL_WIDTH;
+            }
+
+            let rect = Rect::from_min_size(
+                start + vec2(cur_x, cur_y),
+                vec2(DEFAULT_CELL_WIDTH, DEFAULT_CELL_WIDTH),
+            );
+
+            let color = match block {
+                MemoryStatus::Allocated(..) => Color32::RED,
+                MemoryStatus::PartiallyAllocated(..) => Color32::YELLOW,
+                MemoryStatus::Free(..) => Color32::GREEN,
+                MemoryStatus::Unused => Color32::WHITE,
+            };
+
+            new_cached_map.1.push((rect, color));
+        }
+        self.memory_map_state.cache_map(new_cached_map);
     }
 
     fn get_cached_map(&self) -> Option<&Vec<(Rect, Color32)>> {
@@ -338,50 +329,6 @@ impl App {
             graph_response = GraphResponse::Hover(point.0, point.1);
         }
         graph_response
-    }
-
-    fn draw_map(&mut self,
-                blocks: Vec<MemoryStatus>,
-                ui: &mut egui::Ui,
-                pane_width: f32
-    ) {
-        let cells_per_row = pane_width as usize / DEFAULT_CELL_WIDTH as usize;
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            egui::Grid::new("memory_map_grid")
-                .min_col_width(0.0)
-                .min_row_height(0.0)
-                .spacing(vec2(0.0, 0.0))
-                .show(ui, |ui| {
-                    for (index, block) in blocks.iter().enumerate() {
-                        if index % cells_per_row == 0 {
-                            ui.end_row();
-                        }
-
-                        match block {
-                            MemoryStatus::Allocated(parent_address, parent_size, callstack) => {
-                                if ui.add(Button::new("X".to_string()).fill(Color32::RED).small()).clicked() {
-                                    eprintln!("ALLOC 0x{:x} {}B {}", parent_address, parent_size, *callstack);
-                                }
-                            }
-                            MemoryStatus::PartiallyAllocated(parent_address, parent_size, callstack) => {
-                                if ui.add(Button::new("=".to_string()).fill(Color32::YELLOW).small()).clicked() {
-                                    eprintln!("0x{:x} {}B {}", parent_address, parent_size, *callstack);
-                                }
-                            }
-                            MemoryStatus::Free(parent_address, parent_size, callstack) => {
-                                if ui.add(Button::new("0".to_string()).fill(Color32::WHITE).small()).clicked() {
-                                    eprintln!("0x{:x} {}B {}", parent_address, parent_size, callstack);
-                                }
-                            }
-                            MemoryStatus::Unused => {
-                                if ui.add(Button::new("U".to_string()).fill(Color32::WHITE).small()).clicked() {
-                                    eprintln!("UNUSED");
-                                }
-                            }
-                        }
-                    }
-                });
-        });
     }
 
     fn draw_side_panel_default(&mut self, ctx: &Context) {
