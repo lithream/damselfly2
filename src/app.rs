@@ -173,6 +173,9 @@ impl App {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.columns(2, |columns| {
                 columns[0].with_layout(Layout::top_down(Align::LEFT), |ui| {
+                    columns[0].with_layout(Layout::left_to_right(Align::LEFT), |graph_controls| {
+                        graph_controls.add(egui::Slider::new(&mut self.))
+                    });
                     match self.draw_graph(ui) {
                         GraphResponse::Hover(x, _) => {
                             if let Ok(temporary_graph_highlight) = self.validate_x_coordinate(x) {
@@ -196,6 +199,10 @@ impl App {
                 self.draw_map(&mut columns[1]);
             });
         });
+    }
+    
+    fn draw_graph_controls(&self, ui: &mut Ui) {
+        
     }
 
     fn draw_lower_panel(&mut self, ui: &mut Ui) {
