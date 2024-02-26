@@ -173,9 +173,6 @@ impl App {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.columns(2, |columns| {
                 columns[0].with_layout(Layout::top_down(Align::LEFT), |ui| {
-                    columns[0].with_layout(Layout::left_to_right(Align::LEFT), |graph_controls| {
-                        graph_controls.add(egui::Slider::new(&mut self.))
-                    });
                     match self.draw_graph(ui) {
                         GraphResponse::Hover(x, _) => {
                             if let Ok(temporary_graph_highlight) = self.validate_x_coordinate(x) {
@@ -267,7 +264,7 @@ impl App {
                 }
             }
 
-            if consecutive_identical_blocks > 512 {
+            if consecutive_identical_blocks > 2048 {
                 continue;
             }
 
