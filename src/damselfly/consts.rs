@@ -6,6 +6,7 @@ pub const MIN_ROW_LENGTH: usize = 4;
 pub const DEFAULT_BLOCK_SIZE: usize = 64;
 pub const MAX_BLOCK_SIZE: usize = 16777216;
 pub const MAX_MAP_SPAN: usize = 16777216;
+pub const DEFAULT_BLOCKS_BEFORE_TRUNCATE: usize = 1024;
 pub const DEFAULT_OPERATION_LOG_SIZE: usize = 32;
 pub const TEST_LOG_PATH: &str = "./test.log";
 pub const DEFAULT_GADDR2LINE_PATH: &str = "/opt/ghs/arm2018.5.4a/gaddr2line";

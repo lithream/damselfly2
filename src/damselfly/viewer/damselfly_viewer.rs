@@ -63,14 +63,12 @@ impl DamselflyViewer {
     }
 
     pub fn get_free_blocks_stats(&self) -> (usize, usize) {
-        eprintln!("getting updates");
         let updates_till_now = self.map_viewer.get_updates_from(0, self.get_graph_highlight());
         let updates_till_now: Vec<MemoryUpdateType> = updates_till_now.iter()
             .map(|update| update.val.clone())
             .collect();
         let compressed_allocs = UpdateQueueCompressor::compress_to_allocs(&updates_till_now);
         let compressed_intervals = UpdateIntervalFactory::new(compressed_allocs).construct_enum_vector();
-        eprintln!("initialising lapper");
         let mut lapper = Lapper::new(compressed_intervals);
         lapper.merge_overlaps();
 

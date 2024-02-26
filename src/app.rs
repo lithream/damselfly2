@@ -11,7 +11,7 @@ use egui_extras::{Column, TableBuilder};
 use crate::config::app_default_config::{AppDefaultState, LowerPanelMode, MapMode};
 use crate::config::app_memory_map_config::AppMemoryMapState;
 use crate::consts::DEFAULT_CELL_WIDTH;
-use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORY_SIZE, MAX_BLOCK_SIZE};
+use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_BLOCKS_BEFORE_TRUNCATE, DEFAULT_MEMORY_SIZE, MAX_BLOCK_SIZE};
 use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use crate::damselfly::viewer::damselfly_viewer::DamselflyViewer;
@@ -41,7 +41,7 @@ impl App {
         App {
             viewer,
             mode: Mode::DEFAULT,
-            default_state: AppDefaultState::new(DEFAULT_BLOCK_SIZE, 4096, lowest_address, highest_address, None),
+            default_state: AppDefaultState::new(DEFAULT_BLOCK_SIZE, 4096, lowest_address, highest_address, DEFAULT_BLOCKS_BEFORE_TRUNCATE, None),
             memory_map_state: AppMemoryMapState::new(DEFAULT_BLOCK_SIZE, 4096, None),
         }
     }
@@ -127,6 +127,12 @@ impl App {
     }
 
     fn draw_settings(&mut self, ui: &mut egui::Ui) {
+        if ui.button("TOGGLE SNAP").clicked() {
+            match self.default_state.map_mode {
+                MapMode::SNAP => self.default_state.map_mode = MapMode::FULL,
+                MapMode::FULL => self.default_state.map_mode = MapMode::SNAP,
+            }
+        }
         ui.add(egui::Slider::new(&mut self.default_state.block_size, 1..=MAX_BLOCK_SIZE)
             .logarithmic(true)
             .drag_value_speed(0.1)
@@ -137,12 +143,11 @@ impl App {
             .drag_value_speed(0.1)
             .smart_aim(false)
             .text("MAP SPAN"));
-        if ui.button("TOGGLE SNAP").clicked() {
-            match self.default_state.map_mode {
-                MapMode::SNAP => self.default_state.map_mode = MapMode::FULL,
-                MapMode::FULL => self.default_state.map_mode = MapMode::SNAP,
-            }
-        }
+        ui.add(egui::Slider::new(&mut self.default_state.blocks_before_truncate, 1..=MAX_BLOCK_SIZE)
+            .logarithmic(true)
+            .drag_value_speed(0.1)
+            .smart_aim(false)
+            .text("BLOCKS BEFORE TRUNCATE"));
     }
 
     fn draw_title_bar(&mut self, ctx: &Context, ui: &mut egui::Ui) {
@@ -264,7 +269,7 @@ impl App {
                 }
             }
 
-            if consecutive_identical_blocks > 2048 {
+            if consecutive_identical_blocks > self.default_state.blocks_before_truncate {
                 continue;
             }
 
@@ -337,10 +342,8 @@ impl App {
 
     fn draw_side_panel_default(&mut self, ctx: &Context) {
         egui::SidePanel::new(Side::Left, "Right panel").show(ctx, |ui| {
-            eprintln!("drawing map");
             self.draw_map_controls(ui);
             ui.separator();
-            eprintln!("drawing operation");
             self.draw_operation_history(ui);
             ui.separator();
             eprintln!("calculating free");

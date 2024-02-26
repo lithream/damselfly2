@@ -127,7 +127,5 @@ impl MapViewer {
         let current_update = self.update_intervals.get(self.current_timestamp)
             .expect("[MapViewer::snap_map_to_current_update]: Current timestamp out of bounds of update intervals");
         self.canvas_start = current_update.start.saturating_sub(self.canvas_span / 2);
-        eprintln!("canvas start: {}", self.canvas_start);
-        eprintln!("span: {}", self.canvas_span);
     }
 }
