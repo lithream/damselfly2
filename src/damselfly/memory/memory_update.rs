@@ -43,14 +43,14 @@ impl MemoryUpdateType {
         }
     }
     
-    pub fn get_timestamp(&self) -> usize {
+    pub fn get_timestamp(&self) -> u64 {
         match self {
             MemoryUpdateType::Allocation(allocation) => allocation.get_timestamp(),
             MemoryUpdateType::Free(free) => free.get_timestamp(),
         }
     }
 
-    pub fn get_real_timestamp(&self) -> &String {
+    pub fn get_real_timestamp(&self) -> u64 {
         match self {
             MemoryUpdateType::Allocation(allocation) => allocation.get_real_timestamp(),
             MemoryUpdateType::Free(free) => free.get_real_timestamp(),
@@ -74,8 +74,8 @@ pub trait MemoryUpdate {
     fn get_absolute_address(&self) -> usize;
     fn get_absolute_size(&self) -> usize;
     fn get_callstack(&self) -> Arc<String>;
-    fn get_timestamp(&self) -> usize;
-    fn get_real_timestamp(&self) -> &String;
+    fn get_timestamp(&self) -> u64;
+    fn get_real_timestamp(&self) -> u64;
     fn wrap_in_enum(self) -> MemoryUpdateType;
 }
 
@@ -84,12 +84,12 @@ pub struct Allocation {
     address: usize,
     size: usize,
     callstack: Arc<String>,
-    timestamp: usize,
-    real_timestamp: String,
+    timestamp: u64,
+    real_timestamp: u64,
 }
 
 impl Allocation {
-    pub fn new(address: usize, size: usize, callstack: Arc<String>, timestamp: usize, real_timestamp: String) -> Allocation {
+    pub fn new(address: usize, size: usize, callstack: Arc<String>, timestamp: u64, real_timestamp: u64) -> Allocation {
         Allocation {
             address,
             size,
@@ -105,12 +105,12 @@ pub struct Free {
     address: usize,
     size: usize,
     callstack: Arc<String>,
-    timestamp: usize,
-    real_timestamp: String,
+    timestamp: u64,
+    real_timestamp: u64,
 }
 
 impl Free {
-    pub fn new(address: usize, size: usize, callstack: Arc<String>, timestamp: usize, real_timestamp: String) -> Free {
+    pub fn new(address: usize, size: usize, callstack: Arc<String>, timestamp: u64, real_timestamp: u64) -> Free {
         Free {
             address,
             size,
@@ -133,11 +133,11 @@ impl MemoryUpdate for Allocation {
         Arc::clone(&(self.callstack))
     }
 
-    fn get_timestamp(&self) -> usize {
+    fn get_timestamp(&self) -> u64 {
         self.timestamp
     }
-    fn get_real_timestamp(&self) -> &String {
-        &self.real_timestamp
+    fn get_real_timestamp(&self) -> u64 {
+        self.real_timestamp
     }
 
     fn wrap_in_enum(self) -> MemoryUpdateType {
@@ -158,11 +158,12 @@ impl MemoryUpdate for Free {
         Arc::clone(&(self.callstack))
     }
 
-    fn get_timestamp(&self) -> usize {
+    fn get_timestamp(&self) -> u64 {
         self.timestamp
     }
-    fn get_real_timestamp(&self) -> &String {
-        &self.real_timestamp
+
+    fn get_real_timestamp(&self) -> u64 {
+        self.real_timestamp
     }
 
     fn wrap_in_enum(self) -> MemoryUpdateType {

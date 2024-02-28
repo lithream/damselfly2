@@ -17,6 +17,11 @@ pub enum GraphMode {
     CURSOR,
 }
 
+pub enum GraphTimeMode {
+    OPERATION,
+    REALTIME,
+}
+
 pub struct AppDefaultState {
     pub block_size: usize,
     pub map_span: usize,
@@ -24,6 +29,7 @@ pub struct AppDefaultState {
     pub map_end: usize,
     pub blocks_before_truncate: usize,
     pub map_mode: MapMode,
+    pub graph_time_mode: GraphTimeMode,
     pub graph_mode: GraphMode,
     pub current_block: Option<MemoryUpdateType>,
     pub lower_panel_mode: LowerPanelMode,
@@ -39,6 +45,7 @@ impl AppDefaultState {
             blocks_before_truncate,
             map_mode: MapMode::SNAP,
             graph_mode: GraphMode::CURSOR,
+            graph_time_mode: GraphTimeMode::OPERATION,
             current_block,
             lower_panel_mode: LowerPanelMode::CALLSTACK
         }

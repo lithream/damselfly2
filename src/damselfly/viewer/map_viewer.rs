@@ -7,6 +7,7 @@ use crate::damselfly::viewer::memory_canvas::MemoryCanvas;
 pub struct MapViewer {
     update_intervals: Vec<UpdateInterval>,
     current_timestamp: usize,
+    current_real_timestamp: usize,
     canvas_start: usize,
     canvas_span: usize,
     block_size: usize,
@@ -30,6 +31,7 @@ impl MapViewer {
         MapViewer {
             update_intervals,
             current_timestamp,
+            current_real_timestamp: 0,
             canvas_start: 0,
             canvas_span: DEFAULT_MEMORYSPAN,
             block_size: DEFAULT_BLOCK_SIZE,
@@ -81,6 +83,10 @@ impl MapViewer {
         self.current_timestamp = new_timestamp.clamp(usize::MIN, self.update_intervals.len() - 1);
     }
 
+    pub fn set_real_timestamp(&mut self, new_real_timestamp: usize) {
+        self.current_real_timestamp = new_real_timestamp.clamp(usize::MIN, self.update_intervals.last().unwrap().val.get_real_timestamp() as usize);
+    }
+
     pub fn pan_forward(&mut self, units: usize) {
         self.canvas_start += units;
     }
@@ -105,15 +111,42 @@ impl MapViewer {
     }
     
     pub fn paint_map(&mut self) -> Vec<MemoryStatus> {
-        let updates_till_now = self.update_intervals[0..=self.current_timestamp].to_vec();
+        let updates_till_now = self.get_updates_range(0, self.current_timestamp);
         let mut canvas = MemoryCanvas::new(self.canvas_start, self.canvas_start + self.canvas_span, self.block_size, updates_till_now);
         canvas.render()
+    }
+
+    fn get_updates_range(&self, start: usize, stop_inclusive: usize) -> Vec<UpdateInterval> {
+        self.update_intervals[start..=stop_inclusive].to_vec()
     }
 
     pub fn paint_map_full(&self) -> Vec<MemoryStatus> {
         let updates_till_now = self.update_intervals[0..=self.current_timestamp].to_vec();
         let mut canvas = MemoryCanvas::new(self.lowest_address, self.highest_address, self.block_size, updates_till_now);
         canvas.render()
+    }
+
+    pub fn paint_map_realtime(&self) -> Vec<MemoryStatus> {
+        let updates_till_now = self.get_updates_realtime();
+        let mut canvas = MemoryCanvas::new(self.canvas_start, self.canvas_start + self.canvas_span, self.block_size, updates_till_now);
+        canvas.render()
+    }
+
+    pub fn paint_map_full_realtime(&self) -> Vec<MemoryStatus> {
+        let updates_till_now = self.get_updates_realtime();
+        let mut canvas = MemoryCanvas::new(self.lowest_address, self.highest_address, self.block_size, updates_till_now);
+        canvas.render()
+    }
+
+    pub fn get_updates_realtime(&self) -> Vec<UpdateInterval> {
+        let mut updates_searched: usize = 0;
+        for update in &self.update_intervals {
+            if update.val.get_real_timestamp() > self.current_real_timestamp as u64 {
+                break;
+            }
+            updates_searched += 1;
+        }
+        self.get_updates_range(0, updates_searched - 1)
     }
 
     pub fn get_current_operation(&self) -> MemoryUpdateType {

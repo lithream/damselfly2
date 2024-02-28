@@ -8,7 +8,7 @@ use egui::accesskit::DefaultActionVerb::Click;
 use egui::panel::Side;
 use egui_plot::{Line, Plot, PlotPoint, PlotPoints};
 use egui_extras::{Column, TableBuilder};
-use crate::config::app_default_config::{AppDefaultState, LowerPanelMode, MapMode};
+use crate::config::app_default_config::{AppDefaultState, LowerPanelMode, MapMode, GraphTimeMode};
 use crate::config::app_memory_map_config::AppMemoryMapState;
 use crate::consts::DEFAULT_CELL_WIDTH;
 use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_BLOCKS_BEFORE_TRUNCATE, DEFAULT_MEMORY_SIZE, MAX_BLOCK_SIZE};
@@ -133,6 +133,14 @@ impl App {
                 MapMode::FULL => self.default_state.map_mode = MapMode::SNAP,
             }
         }
+
+        if ui.button("TOGGLE REALTIME").clicked() {
+            match self.default_state.graph_time_mode {
+                GraphTimeMode::OPERATION => self.default_state.graph_time_mode = GraphTimeMode::REALTIME,
+                GraphTimeMode::REALTIME => self.default_state.graph_time_mode = GraphTimeMode::OPERATION,
+            }
+        }
+
         ui.add(egui::Slider::new(&mut self.default_state.block_size, 1..=MAX_BLOCK_SIZE)
             .logarithmic(true)
             .drag_value_speed(0.1)

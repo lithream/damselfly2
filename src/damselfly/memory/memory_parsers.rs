@@ -11,16 +11,16 @@ use crate::damselfly::memory::memory_update::{Allocation, Free, MemoryUpdate, Me
 #[derive(Clone)]
 pub enum RecordType {
     // (address, size, callstack, real_timestamp)
-    Allocation(usize, usize, String, String),
+    Allocation(usize, usize, String, u64),
     // (address, callstack, real_timestamp)
-    Free(usize, String, String),
+    Free(usize, String, u64),
     // (address, callstack)
     StackTrace(usize, String),
 }
 
 #[derive(Default)]
 pub struct MemorySysTraceParser {
-    time: usize,
+    time: u64,
     record_queue: Vec<RecordType>,
     memory_updates: Vec<MemoryUpdateType>,
     symbols: HashMap<usize, String>,
@@ -349,7 +349,13 @@ impl MemorySysTraceParser {
         }
         let units = units.unwrap().trim();
 
-        let full_timestamp = format!("{timestamp} {units}");
+        let timestamp_float: f64 = timestamp.parse().unwrap();
+        let timestamp_u64: u64;
+        match units {
+            "s" => timestamp_u64 = (timestamp_float * 1000000.0) as u64,
+            "ms" => timestamp_u64 = (timestamp_float * 1000.0) as u64,
+            _ => timestamp_u64 = timestamp_float as u64,
+        }
 
         let dataline = dataline.unwrap().trim();
         let split_dataline = dataline.split(' ').collect::<Vec<_>>();
@@ -359,8 +365,8 @@ impl MemorySysTraceParser {
 
         let mut record;
         match split_dataline[0] {
-            "+" => record = RecordType::Allocation(0, 0, String::new(), String::new()),
-            "-" => record = RecordType::Free(0, String::new(), String::new()),
+            "+" => record = RecordType::Allocation(0, 0, String::new(), 0),
+            "-" => record = RecordType::Free(0, String::new(), 0),
             "^" => record = {
                 let symbol = self.lookup_symbol(Self::extract_trace_address(split_dataline[2]))
                     .or(Some("[INVALID_SYMBOL]".to_string()));
@@ -376,11 +382,11 @@ impl MemorySysTraceParser {
                 *default_address = address;
                 *default_size = usize::from_str_radix(split_dataline[2], 16)
                     .expect("[MemorySysTraceParser::parse_line]: Failed to read size");
-                *default_real_timestamp = full_timestamp;
+                *default_real_timestamp = timestamp_u64;
             },
             RecordType::Free(ref mut default_address, _, ref mut default_real_timestamp) => {
                 *default_address = address;
-                *default_real_timestamp = full_timestamp;
+                *default_real_timestamp = timestamp_u64;
             },
             RecordType::StackTrace(ref mut default_address, _) => *default_address = address,
         }
@@ -416,7 +422,7 @@ mod tests {
     #[test]
     fn bake_memory_update_alloc_test() {
         let mut mst_parser = MemorySysTraceParser::new();
-        mst_parser.record_queue.push(RecordType::Allocation(0, 4, "".to_string(), "".to_string()));
+        mst_parser.record_queue.push(RecordType::Allocation(0, 4, "".to_string(), 0));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "1".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "2".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "3".to_string()));
@@ -432,7 +438,7 @@ mod tests {
     #[test]
     fn bake_memory_update_free_test() {
         let mut mst_parser = MemorySysTraceParser::new();
-        mst_parser.record_queue.push(RecordType::Free(0, "".to_string(), "".to_string()));
+        mst_parser.record_queue.push(RecordType::Free(0, "".to_string(), 0));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "1".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "2".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "3".to_string()));
@@ -465,7 +471,7 @@ mod tests {
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
-        mst_parser.record_queue.push(RecordType::Allocation(0, 4, "callstack".to_string(), "".to_string()));
+        mst_parser.record_queue.push(RecordType::Allocation(0, 4, "callstack".to_string(), 0));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
@@ -479,7 +485,7 @@ mod tests {
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
-        mst_parser.record_queue.push(RecordType::Free(0, "callstack".to_string(), "".to_string()));
+        mst_parser.record_queue.push(RecordType::Free(0, "callstack".to_string(), 0));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
         mst_parser.record_queue.push(RecordType::StackTrace(0, "callstack".to_string()));
@@ -489,7 +495,7 @@ mod tests {
     #[test]
     fn process_alloc_or_free_first_record_test(){
         let mut mst_parser = MemorySysTraceParser::new();
-        let record = RecordType::Allocation(0, 4, "callstack".to_string(), "".to_string());
+        let record = RecordType::Allocation(0, 4, "callstack".to_string(), 0);
         let instruction = mst_parser.process_alloc_or_free(Some(record));
         assert!(instruction.is_none());
         assert_eq!(mst_parser.record_queue.len(), 1);
@@ -507,7 +513,7 @@ mod tests {
     #[test]
     fn process_alloc_or_free_existing_records_test() {
         let mut mst_parser = MemorySysTraceParser::new();
-        let alloc_record = RecordType::Allocation(0, 4, "".to_string(), "".to_string());
+        let alloc_record = RecordType::Allocation(0, 4, "".to_string(), 0);
         let records = vec![
             RecordType::StackTrace(0, "1".to_string()),
             RecordType::StackTrace(0, "2".to_string()),
@@ -522,7 +528,7 @@ mod tests {
         // Current queue status
         // | Alloc0 | Trace1 | Trace2 | Trace3 |
         let memory_update = mst_parser.process_alloc_or_free(
-            Some(RecordType::Allocation(4, 4, "".to_string(), "".to_string()))
+            Some(RecordType::Allocation(4, 4, "".to_string(), 0))
         ).unwrap();
         // | Alloc4 |
         // instruction = Alloc0 with Trace 1-3
@@ -548,7 +554,7 @@ mod tests {
 
         // | Alloc4 | Trace4 | Trace5 | Trace6 |
         let memory_update = mst_parser.process_alloc_or_free(
-            Some(RecordType::Free(0, "callstack3".to_string(), "".to_string()))
+            Some(RecordType::Free(0, "callstack3".to_string(), 0))
         ).unwrap();
         // | Free0 |
         // instruction = Alloc4 with Trace 1-3
@@ -595,7 +601,7 @@ mod tests {
                 assert_eq!(address, 3780124780);
                 assert_eq!(size, 32);
                 assert!(callstack.is_empty());
-                assert_eq!(real_timestamp, "0003.678 s");
+                assert_eq!(real_timestamp, 3678000);
             }
             RecordType::Free(..) => panic!("Wrong record type: Free"),
             RecordType::StackTrace(..) => panic!("Wrong record type: Stacktrace"),
@@ -612,7 +618,7 @@ mod tests {
             RecordType::Free(address, callstack, real_timestamp) => {
                 assert_eq!(address, 3780124716);
                 assert!(callstack.is_empty());
-                assert_eq!(real_timestamp, "0003.677");
+                assert_eq!(real_timestamp, 3677000);
             }
             RecordType::StackTrace(..) => panic!("Wrong type: Stacktrace"),
         }
@@ -684,7 +690,7 @@ mod tests {
         if let MemoryUpdateType::Allocation(allocation) = alloc {
             assert_eq!(allocation.get_absolute_address(), 3780124716);
             assert_eq!(allocation.get_absolute_size(), 20);
-            assert_eq!(allocation.get_real_timestamp(), "0003.677 s");
+            assert_eq!(allocation.get_real_timestamp(), 3677000);
         }
         let free = memory_updates.get(1).unwrap();
         if let MemoryUpdateType::Free(free) = free {
@@ -724,7 +730,8 @@ mod tests {
 00000828: 039da2f5 |V|A|002|        0 us   0003.677 s    < DT:0xE14DEEBC> SSC::Received Activity Monitor State 2 Change Event
 00000830: 039da3f2 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> - e150204c 14
 0 ";
-        let addresses = MemorySysTraceParser::extract_addresses_from_log(log);
+        let mut addresses = MemorySysTraceParser::extract_addresses_from_log(log);
+        addresses.sort_unstable();
         assert_eq!(addresses, vec![0xe045d83b, 0xe04865ef]);
     }
 

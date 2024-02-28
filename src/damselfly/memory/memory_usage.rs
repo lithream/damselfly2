@@ -15,9 +15,7 @@ impl MemoryUsage {
             latest_operation,
         }
     }
-}
 
-impl MemoryUsage {
     pub fn get_memory_used_absolute(&self) -> i128 {
         self.memory_used_absolute
     }

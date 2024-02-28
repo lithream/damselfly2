@@ -48,6 +48,10 @@ impl MemoryUsageFactory {
         (memory_usages, max_usage, max_distinct_blocks)
     }
 
+    pub fn get_memory_updates(self) -> Vec<MemoryUpdateType> {
+        self.memory_updates
+    }
+
     fn get_total_usage_delta(memory_update: &MemoryUpdateType) -> i128 {
         match memory_update {
             MemoryUpdateType::Allocation(allocation) => {
