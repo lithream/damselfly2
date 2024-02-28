@@ -24,7 +24,7 @@ pub enum GraphTimeMode {
 
 pub struct AppDefaultState {
     pub block_size: usize,
-    pub pixel_size: usize,
+    pub pixel_size: f32,
     pub map_span: usize,
     pub map_start: usize,
     pub map_end: usize,
@@ -37,7 +37,7 @@ pub struct AppDefaultState {
 }
 
 impl AppDefaultState {
-    pub fn new(block_size: usize, pixel_size: usize, map_span: usize, map_start: usize, map_end: usize, blocks_before_truncate: usize, current_block: Option<MemoryUpdateType>) -> AppDefaultState {
+    pub fn new(block_size: usize, pixel_size: f32, map_span: usize, map_start: usize, map_end: usize, blocks_before_truncate: usize, current_block: Option<MemoryUpdateType>) -> AppDefaultState {
         AppDefaultState {
             block_size,
             pixel_size,

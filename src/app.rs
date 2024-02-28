@@ -11,7 +11,7 @@ use egui_extras::{Column, TableBuilder};
 use crate::config::app_default_config::{AppDefaultState, LowerPanelMode, MapMode, GraphTimeMode};
 use crate::config::app_memory_map_config::AppMemoryMapState;
 use crate::consts::DEFAULT_CELL_WIDTH;
-use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_BLOCKS_BEFORE_TRUNCATE, DEFAULT_MEMORY_SIZE, MAX_BLOCK_SIZE};
+use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_BLOCKS_BEFORE_TRUNCATE, DEFAULT_MEMORY_SIZE, DEFAULT_PIXEL_SIZE, MAX_BLOCK_SIZE};
 use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use crate::damselfly::viewer::damselfly_viewer::DamselflyViewer;
@@ -41,7 +41,7 @@ impl App {
         App {
             viewer,
             mode: Mode::DEFAULT,
-            default_state: AppDefaultState::new(DEFAULT_BLOCK_SIZE, 4096, lowest_address, highest_address, DEFAULT_BLOCKS_BEFORE_TRUNCATE, None),
+            default_state: AppDefaultState::new(DEFAULT_BLOCK_SIZE, DEFAULT_PIXEL_SIZE, 4096, lowest_address, highest_address, DEFAULT_BLOCKS_BEFORE_TRUNCATE, None),
             memory_map_state: AppMemoryMapState::new(DEFAULT_BLOCK_SIZE, 4096, None),
         }
     }
@@ -156,6 +156,9 @@ impl App {
             .drag_value_speed(0.1)
             .smart_aim(false)
             .text("BLOCKS BEFORE TRUNCATE"));
+        ui.add(egui::Slider::new(&mut self.default_state.pixel_size, 1.0..=16.0)
+            .drag_value_speed(1.0)
+            .text("PIXEL SIZE"));
     }
 
     fn draw_title_bar(&mut self, ctx: &Context, ui: &mut egui::Ui) {
@@ -283,14 +286,14 @@ impl App {
 
             if cur_x >= end.x {
                 cur_x = 0.0;
-                cur_y += DEFAULT_CELL_WIDTH;
+                cur_y += self.default_state.pixel_size;
             } else {
-                cur_x += DEFAULT_CELL_WIDTH;
+                cur_x += self.default_state.pixel_size;
             }
 
             let rect = Rect::from_min_size(
                 start + vec2(cur_x, cur_y),
-                vec2(DEFAULT_CELL_WIDTH, DEFAULT_CELL_WIDTH),
+                vec2(self.default_state.pixel_size, self.default_state.pixel_size),
             );
 
             let color = match block {

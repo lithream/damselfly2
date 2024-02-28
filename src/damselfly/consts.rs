@@ -4,6 +4,7 @@ pub const DEFAULT_MEMORY_SIZE: usize = 4294967295;
 pub const DEFAULT_ROW_LENGTH: usize = 512;
 pub const MIN_ROW_LENGTH: usize = 4;
 pub const DEFAULT_BLOCK_SIZE: usize = 64;
+pub const DEFAULT_PIXEL_SIZE: f32 = 5.0;
 pub const MAX_BLOCK_SIZE: usize = 16777216;
 pub const MAX_MAP_SPAN: usize = 16777216;
 pub const DEFAULT_BLOCKS_BEFORE_TRUNCATE: usize = 1024;
