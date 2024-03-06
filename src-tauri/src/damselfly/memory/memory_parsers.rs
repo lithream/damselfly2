@@ -69,6 +69,7 @@ impl MemorySysTraceParser {
             let memory_update = self.process_instruction(&mut log_iter);
             self.memory_updates.push(memory_update);
         }
+        println!("Processing complete.");
         self.memory_updates
     }
 

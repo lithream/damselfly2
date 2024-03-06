@@ -1,4 +1,5 @@
 /target
 /input
+/src-tauri/target
 .idea/
 threadxApp

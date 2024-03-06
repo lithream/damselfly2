@@ -1,4 +1,5 @@
 use std::cmp::{max, min};
+use owo_colors::OwoColorize;
 use rust_lapper::Lapper;
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use crate::damselfly::memory::memory_usage::MemoryUsage;
@@ -34,6 +35,7 @@ impl MemoryUsageFactory {
         let mut max_distinct_blocks = 0;
 
         for (index, update) in self.memory_updates.iter().enumerate() {
+            println!("Processing usage stats: {}", update.cyan());
             current_usage += Self::get_total_usage_delta(update);
             max_usage = max(max_usage, current_usage);
 
