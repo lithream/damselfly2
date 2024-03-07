@@ -13,8 +13,25 @@
   z-index: 1000;
 }
 
+.container {
+  display: flex;
+  flex-direction: column;
+}
+
 .controlPanel {
   position: fixed;
   bottom: 10px;
   display: flex;
+}
+
+.top {
+  display: flex;
+}
+
+.bottom {
+  display: flex;
+}
+
+.memoryMap {
+
 }

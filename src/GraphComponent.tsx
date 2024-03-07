@@ -5,11 +5,13 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'r
 type GraphDataItem = { x: number; y: number };
 
 interface GraphProps {
-    dataLoadedTrigger: boolean
+    dataLoaded: boolean,
+    setXClick: (x: number) => void;
+    setXHover: (x: number) => void;
 }
 
-function Graph({ dataLoadedTrigger }: GraphProps) {
-  const [data, setData] = useState<GraphDataItem[]>([]); // Explicitly type the state here
+function Graph({ dataLoaded , setXClick , setXHover }: GraphProps) {
+  const [data, setData] = useState<GraphDataItem[]>([]);
 
   const fetchData = async () => {
     try {
@@ -23,11 +25,34 @@ function Graph({ dataLoadedTrigger }: GraphProps) {
 
   useEffect(() => {
     fetchData();
-  }, [dataLoadedTrigger]);
+  }, [dataLoaded]);
+
+  const handlePointClick = (e: any) => {
+    if (e && e.activePayload && e.activePayload.length > 0) {
+      const xValue = e.activePayload[0].payload.x;
+      setXClick(xValue);
+    }
+  }
+
+  const handleCursorEnter = (e: any) => {
+    if (e && e.activePayload && e.activePayload.length > 0) {
+      const xValue = e.activePayload[0].payload.x;
+      setXHover(xValue);
+    }
+  }
+
+  const handleCursorLeave = (e: any) => {
+    if (e && e.activePayload && e.activePayload.length > 0) {
+      setXHover(-1);
+    }
+  }
 
   return (
     <LineChart width={600} height={300} data={data}
-      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+      onClick={handlePointClick}
+      onMouseEnter={handleCursorEnter}
+      onMouseLeave={handleCursorLeave}>
       <CartesianGrid strokeDasharray="3 3" />
       <XAxis dataKey="x" />
       <YAxis />

@@ -1,6 +1,6 @@
 use std::cmp::max;
 use rust_lapper::Lapper;
-use crate::damselfly::consts::DEFAULT_OPERATION_LOG_SIZE;
+use crate::damselfly::consts::{DEFAULT_BLOCKS_TO_TRUNCATE, DEFAULT_OPERATION_LOG_SIZE};
 use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
 use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::MemoryUpdateType;
@@ -41,9 +41,48 @@ impl DamselflyViewer {
         self.map_viewer.paint_map_full()
     }
 
+    pub fn get_map_full_nosync(&self) -> Vec<MemoryStatus> {
+        self.map_viewer.paint_map_full()
+    }
+
     pub fn get_map_full_at(&mut self, timestamp: usize) -> Vec<MemoryStatus> {
+        eprintln!("get map full at {timestamp}");
         self.set_graph_saved_highlight(timestamp);
         self.map_viewer.paint_map_full()
+    }
+
+    pub fn get_map_full_at_nosync(&mut self, timestamp: usize) -> Vec<MemoryStatus> {
+        self.map_viewer.set_timestamp(timestamp);
+        self.map_viewer.paint_map_full()
+    }
+
+    pub fn get_map_full_at_nosync_colours(&mut self, timestamp: u64, grid_width: u64) -> Vec<u64> {
+        self.map_viewer.set_timestamp(timestamp as usize);
+        let full_map = self.map_viewer.paint_map_full();
+
+        let mut result: Vec<u64> = Vec::new();
+        let mut blocks_till_truncate = DEFAULT_BLOCKS_TO_TRUNCATE;
+        let mut prev_block: Option<&MemoryStatus> = None;
+        let mut map_iter = full_map.iter();
+
+        loop {
+            let cur_block = map_iter.next();
+            if cur_block.is_none() { break; }
+            let cur_block = cur_block.unwrap();
+
+            if let Some(prev_block) = prev_block {
+                if prev_block == cur_block {
+                    blocks_till_truncate -= 1;
+                } else {
+                    blocks_till_truncate = DEFAULT_BLOCKS_TO_TRUNCATE;
+                }
+                if blocks_till_truncate <= 0 {
+                    continue;
+                }
+            }
+        }
+
+        result
     }
 
     pub fn get_usage_graph(&self) -> Vec<[f64; 2]> {
