@@ -19,8 +19,9 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             initialise_viewer,
             get_viewer_graph,
-            get_viewer_map_full_at,
+            get_viewer_map_full_at_colours,
             choose_files,
+            set_block_size,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -71,10 +72,21 @@ fn get_viewer_map_full_at(state: tauri::State<AppState>, timestamp: usize) -> Re
 }
 
 #[tauri::command]
-fn get_viewer_map_full_at_colours(state: tauri::State<AppState>, timestamp: u64, canvas_width: u64, canvas_height: u64, grid_width: u64, block_size: u64) -> Result<Vec<u64>, String> {
+fn get_viewer_map_full_at_colours(state: tauri::State<AppState>, timestamp: u64, truncate_after: u64) -> Result<(u64, Vec<(i64, u64)>), String> {
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = viewer_lock.deref_mut() {
-        Ok(viewer.get_map_full_at_nosync_colours(timestamp, canvas_width, canvas_height, grid_width, block_size))
+        Ok(viewer.get_map_full_at_nosync_colours_truncate(timestamp, truncate_after))
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }
+}
+
+#[tauri::command]
+fn set_block_size(state: tauri::State<AppState>, new_block_size: u64) -> Result<(), String> {
+    let mut viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = viewer_lock.deref_mut() {
+        viewer.set_map_block_size(new_block_size as usize);
+        Ok(())
     } else {
         Err("Viewer is not initialised".to_string())
     }

@@ -1,81 +1,82 @@
-import {useRef, useEffect} from "react";
 
-type BlockStatus = "Allocated" | "PartiallyAllocated" | "Free" | "Unused";
+import {useRef, useEffect, useState} from "react";
+import {invoke} from "@tauri-apps/api/tauri";
 
-interface MapGridProps {
-    data: BlockStatus[];
+type Data = {
+    timestamp: number;
+    data: number[];
 }
 
-function MapGrid({ data }: MapGridProps ) {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    useEffect(() => {
-        if (data) {
-            console.log("redrawing data");
-            console.log(data);
-            drawGrid(data);
-        }
-    }, [data]);
+interface MapGridProps {
+    data: Data;
+}
 
-    const drawGrid = (data: string[]) => {
+function MapGrid({ data }: MapGridProps) {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [blockSize, setBlockSize] = useState<number>(5);
+
+    useEffect(() => {
+        if (data && data[1]) {
+            drawGrid(data[1], window.innerWidth);
+        }
+    }, [data, blockSize]);
+
+
+    const drawGrid = (data: number[], width: number) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
         const blockSize = 5;
-        const gridWidth = Math.sqrt(data.length);
+        const gridWidth = width / 2;
+        // Dynamically calculate the required height based on data length and gridWidth
+        const rows = Math.ceil(data.length * blockSize / gridWidth);
+        const gridHeight = rows * blockSize;
+
+        // Set canvas dimensions
+        canvas.width = gridWidth;
+        canvas.height = gridHeight;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        canvas.width = gridWidth * blockSize;
-        canvas.height = gridWidth * blockSize;
-
-        let blocksTillTruncate = 256;
-        let prevBlock = data[0];
-        let curBlock;
-        let truncations = 0;
+        let curX = -blockSize;
+        let curY = 0;
 
         for (let i = 0; i < data.length; ++i) {
-            curBlock = data[i];
+            const curBlock = data[i];
 
-            if (curBlock === prevBlock) {
-                blocksTillTruncate--;
-                if (blocksTillTruncate <= 0) {
-                    truncations++;
-                    continue;
-                } 
-            } else {
-                blocksTillTruncate = 256; // Reset counter if block state changes
-                prevBlock = curBlock;
+            curX += blockSize;
+            if (curX >= canvas.width) {
+                curX = 0;
+                curY += blockSize;
             }
 
-            let parts = curBlock.split(' ');
-
-            let relativeI = i - truncations;
-
-            const x = (relativeI % gridWidth) * blockSize; // Fixed calculation
-            const y = Math.floor(relativeI / gridWidth) * blockSize;
-
-            switch(parts[0]) {
-                case "A":
-                    ctx.fillStyle = "red";
-                    break;
-                case "P":
-                    ctx.fillStyle = "yellow";
-                    break;
-                case "F":
-                    ctx.fillStyle = "green";
-                    break;
-                default:
-                    ctx.fillStyle = "lightgrey";
-            }
-
-            ctx.fillRect(x, y, blockSize, blockSize);
+            ctx.fillStyle = getColorForBlock(curBlock[1]);
+            ctx.fillRect(curX, curY, blockSize, blockSize);
         }
+    };
+
+    const getColorForBlock = (blockValue: number) => {
+        switch(blockValue) {
+            case 0: return "lightgrey";
+            case 1: return "green";
+            case 2: return "yellow";
+            default: return "red";
+        }
+    };
+
+    const handleChangeBlockSize = async (increase_by: number) => {
+        setBlockSize(blockSize + increase_by);
+        await invoke("set_block_size", { newBlockSize: blockSize });
+        console.log(blockSize);
     };
 
     return (
         <div>
+            <div><label>{data[0]}</label></div>
+            <button onClick={() => handleChangeBlockSize(10)}>+</button>
+            <button onClick={() => handleChangeBlockSize(-10)}>-</button>
             <canvas ref={canvasRef} />
         </div>
     );

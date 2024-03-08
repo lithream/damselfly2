@@ -56,33 +56,42 @@ impl DamselflyViewer {
         self.map_viewer.paint_map_full()
     }
 
-    pub fn get_map_full_at_nosync_colours(&mut self, timestamp: u64, grid_width: u64) -> Vec<u64> {
+    pub fn get_map_full_at_nosync_colours_truncate(&mut self, timestamp: u64, truncate_after: u64) -> (u64, Vec<(i64, u64)>) {
         self.map_viewer.set_timestamp(timestamp as usize);
         let full_map = self.map_viewer.paint_map_full();
 
-        let mut result: Vec<u64> = Vec::new();
-        let mut blocks_till_truncate = DEFAULT_BLOCKS_TO_TRUNCATE;
-        let mut prev_block: Option<&MemoryStatus> = None;
-        let mut map_iter = full_map.iter();
+        let mut result: Vec<(i64, u64)> = Vec::new();
+        let mut consecutive_identical_blocks = 0;
 
-        loop {
-            let cur_block = map_iter.next();
-            if cur_block.is_none() { break; }
-            let cur_block = cur_block.unwrap();
-
-            if let Some(prev_block) = prev_block {
-                if prev_block == cur_block {
-                    blocks_till_truncate -= 1;
+        for (index, block) in full_map.iter().enumerate() {
+            if let Some(prev_block) = full_map.get(index.saturating_sub(1)) {
+                if prev_block == block {
+                    consecutive_identical_blocks += 1;
                 } else {
-                    blocks_till_truncate = DEFAULT_BLOCKS_TO_TRUNCATE;
-                }
-                if blocks_till_truncate <= 0 {
-                    continue;
+                    consecutive_identical_blocks = 0;
                 }
             }
+
+            if consecutive_identical_blocks > truncate_after {
+                continue;
+            }
+            
+            let status = match block {
+                MemoryStatus::Allocated(_, _, _) => 3,
+                MemoryStatus::PartiallyAllocated(_, _, _) => 2,
+                MemoryStatus::Free(_, _, _) => 1,
+                MemoryStatus::Unused => 0,
+            };
+            
+            let parent_address: i64 = if block.get_parent_address().is_none() {
+                -1
+            } else {
+                block.get_parent_address().unwrap() as i64
+            };
+            result.push((parent_address, status));
         }
 
-        result
+        (timestamp, result)
     }
 
     pub fn get_usage_graph(&self) -> Vec<[f64; 2]> {
