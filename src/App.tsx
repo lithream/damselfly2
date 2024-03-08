@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/tauri";
 import "./App.css";
 import Graph from "./GraphComponent";
 import MapGrid from "./MapGridComponent";
+import OperationLog from "./OperationLogComponent.tsx";
 
 type Data = {
   timestamp: number;
@@ -14,6 +15,7 @@ function App() {
   const [xClick, setXClick] = useState<number>(0);
   const [xHover, setXHover] = useState<number>(0);
   const [memoryData, setMemoryData] = useState<Data>({ timestamp: 0, data: [] });
+  const [blockSize, setBlockSize] = useState<number>(5);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -32,7 +34,7 @@ function App() {
       }
     };
     fetchData();
-  }, [xClick, xHover, dataLoaded]); // Depend on xChangedTrigger and dataLoadedTrigger
+  }, [xClick, xHover, dataLoaded, blockSize]); // Depend on xChangedTrigger and dataLoadedTrigger
 
   const selectFilesAndInitialiseViewer = async () => {
     try {
@@ -50,6 +52,22 @@ function App() {
     }
   }
 
+  const increaseBlockSize = async () => {
+    setBlockSize(blockSize * 2);
+    await invoke("set_block_size", { newBlockSize: Math.ceil(blockSize) });
+    console.log(blockSize);
+  };
+
+  const decreaseBlockSize = async () => {
+    if (blockSize <= 1) {
+      setBlockSize(1);
+      return;
+    }
+    setBlockSize(blockSize / 2);
+    await invoke("set_block_size", { newBlockSize: Math.ceil(blockSize) });
+    console.log(blockSize);
+  }
+
   return (
     <div className="container">
       <div className="top">
@@ -57,12 +75,15 @@ function App() {
          setXClick={setXClick}
          setXHover={setXHover}
           />
+        <OperationLog dataLoaded={dataLoaded} xClick={xClick} xHover={xHover}></OperationLog>
       </div>
       <div className="bottom">
         <MapGrid data={memoryData}></MapGrid>
       </div>
       <div className="controlPanel">
         <button onClick={selectFilesAndInitialiseViewer}>Load</button>
+        <button onClick={() => increaseBlockSize()}>+</button>
+        <button onClick={() => decreaseBlockSize()}>-</button>
       </div>
     </div>
   );

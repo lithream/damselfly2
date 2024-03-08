@@ -183,7 +183,7 @@ impl Display for Allocation {
 
 impl Display for Free {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let str = format!("[{} {}] FREE: 0x{:x} {}",
+        let str = format!("[{} {}] FREE: 0x{:x} {}B",
                           self.get_timestamp(),
                           self.get_real_timestamp(),
                           self.get_absolute_address(),

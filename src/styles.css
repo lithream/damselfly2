@@ -107,3 +107,18 @@ button {
     background-color: #0f0f0f69;
   }
 }
+
+.log-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.log-entry {
+  padding: 3px;
+  font-size: small;
+  border: 1px solid #ccc;
+  margin-bottom: 2px;
+  background-color: #f9f9f9;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}

@@ -56,7 +56,7 @@ impl MemorySysTraceParser {
         let log = std::fs::read_to_string(log_path).unwrap();
         self.parse_log_contents(log.as_str(), binary_path)
     }
-    
+
     fn parse_log_contents(mut self, log: &str, binary_path: &str) -> Vec<MemoryUpdateType> {
         self.parse_symbols(log, binary_path);
         let mut log_iter = log.split('\n').peekable();

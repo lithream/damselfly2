@@ -1,6 +1,5 @@
 
 import {useRef, useEffect, useState} from "react";
-import {invoke} from "@tauri-apps/api/tauri";
 
 type Data = {
     timestamp: number;
@@ -9,11 +8,11 @@ type Data = {
 
 interface MapGridProps {
     data: Data;
+    blockSize: number;
 }
 
-function MapGrid({ data }: MapGridProps) {
+function MapGrid({ data, blockSize }: MapGridProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [blockSize, setBlockSize] = useState<number>(5);
 
     useEffect(() => {
         if (data && data[1]) {
@@ -28,11 +27,11 @@ function MapGrid({ data }: MapGridProps) {
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
-        const blockSize = 5;
+        const blockWidth = 5;
         const gridWidth = width / 2;
         // Dynamically calculate the required height based on data length and gridWidth
-        const rows = Math.ceil(data.length * blockSize / gridWidth);
-        const gridHeight = rows * blockSize;
+        const rows = Math.ceil(data.length * blockWidth / gridWidth);
+        const gridHeight = rows * blockWidth;
 
         // Set canvas dimensions
         canvas.width = gridWidth;
@@ -40,20 +39,20 @@ function MapGrid({ data }: MapGridProps) {
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        let curX = -blockSize;
+        let curX = -blockWidth;
         let curY = 0;
 
         for (let i = 0; i < data.length; ++i) {
             const curBlock = data[i];
 
-            curX += blockSize;
+            curX += blockWidth;
             if (curX >= canvas.width) {
                 curX = 0;
-                curY += blockSize;
+                curY += blockWidth;
             }
 
             ctx.fillStyle = getColorForBlock(curBlock[1]);
-            ctx.fillRect(curX, curY, blockSize, blockSize);
+            ctx.fillRect(curX, curY, blockWidth, blockWidth);
         }
     };
 
@@ -66,17 +65,10 @@ function MapGrid({ data }: MapGridProps) {
         }
     };
 
-    const handleChangeBlockSize = async (increase_by: number) => {
-        setBlockSize(blockSize + increase_by);
-        await invoke("set_block_size", { newBlockSize: blockSize });
-        console.log(blockSize);
-    };
 
     return (
         <div>
             <div><label>{data[0]}</label></div>
-            <button onClick={() => handleChangeBlockSize(10)}>+</button>
-            <button onClick={() => handleChangeBlockSize(-10)}>-</button>
             <canvas ref={canvasRef} />
         </div>
     );

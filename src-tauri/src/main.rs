@@ -22,6 +22,7 @@ fn main() {
             get_viewer_map_full_at_colours,
             choose_files,
             set_block_size,
+            get_operation_log,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -87,6 +88,20 @@ fn set_block_size(state: tauri::State<AppState>, new_block_size: u64) -> Result<
     if let Some(viewer) = viewer_lock.deref_mut() {
         viewer.set_map_block_size(new_block_size as usize);
         Ok(())
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_operation_log(state: tauri::State<AppState>) -> Result<Vec<String>, String> {
+    let mut viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = viewer_lock.deref_mut() {
+        Ok(viewer.get_operation_history()
+            .iter()
+            .take(7)
+            .map(|update| update.to_string())
+            .collect())
     } else {
         Err("Viewer is not initialised".to_string())
     }
