@@ -1,19 +1,18 @@
 [package]
-name = "map"
+name = "damselfly4"
 version = "0.1.0"
-authors = ["pseudograph <sauravvm237@gmail.com>"]
-license = "MIT"
 edition = "2021"
 
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [dependencies]
-crossterm = "0.27.0"
-ratatui = "0.24.0"
-rand = "0.8.5"
-log = "0.4.20"
 addr2line = "0.21.0"
-object = "0.32.2"
+dioxus = { version = "0.5.0-alpha.0", features = ["desktop"] }
+manganis = "0.2.0"
 nohash-hasher = "0.2.0"
-crossbeam = "0.8.4"
-crossbeam-channel = "0.5.11"
-symbolic = "12.8.0"
 owo-colors = "4.0.0"
+rfd = "0.14.0"
+rust-lapper = "1.1.0"
+serde = "1.0.197"
+log = "0.4.21"
+dioxus-charts = "0.1.3"
