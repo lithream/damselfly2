@@ -12,7 +12,8 @@ impl UpdateSampler {
             updates
         }
     }
-    
+
+    /*
     pub fn sample(&self, tick_rate: u64) -> Vec<Vec<MemoryStatus>> {
         let mut current_update_queue = Vec::new();
         let mut min_address = usize::MAX;
@@ -24,7 +25,9 @@ impl UpdateSampler {
                 max_address = max(max_address, update.get_absolute_address());
             });
         for (index, update) in self.updates {
-            
+
         }
     }
+
+     */
 }

@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import {LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine} from 'recharts';
 
 type GraphDataItem = { x: number; y: number };
 
 interface GraphProps {
     dataLoaded: boolean,
     setXClick: (x: number) => void;
-    setXHover: (x: number) => void;
+    xClick: number;
 }
 
-function Graph({ dataLoaded , setXClick , setXHover }: GraphProps) {
+function Graph({ dataLoaded , setXClick , xClick }: GraphProps) {
   const [data, setData] = useState<GraphDataItem[]>([]);
 
   const fetchData = async () => {
@@ -32,33 +32,18 @@ function Graph({ dataLoaded , setXClick , setXHover }: GraphProps) {
       const xValue = e.activePayload[0].payload.x;
       setXClick(xValue);
     }
-  }
-
-  const handleCursorEnter = (e: any) => {
-    if (e && e.activePayload && e.activePayload.length > 0) {
-      const xValue = e.activePayload[0].payload.x;
-      setXHover(xValue);
-    }
-  }
-
-  const handleCursorLeave = (e: any) => {
-    if (e && e.activePayload && e.activePayload.length > 0) {
-      setXHover(-1);
-    }
-  }
+  };
 
   return (
     <LineChart width={600} height={300} data={data}
-      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-      onClick={handlePointClick}
-      onMouseEnter={handleCursorEnter}
-      onMouseLeave={handleCursorLeave}>
+      onClick={handlePointClick}>
       <CartesianGrid strokeDasharray="3 3" />
       <XAxis dataKey="x" />
       <YAxis />
       <Tooltip />
       <Legend />
       <Line type="monotone" dataKey="y" stroke="#8884d8" activeDot={{ r: 8 }} />
+        {dataLoaded && <ReferenceLine x={xClick} stroke="red" label="Selected" />}
     </LineChart>
   );
 }

@@ -4,6 +4,11 @@ import "./App.css";
 import Graph from "./GraphComponent";
 import MapGrid from "./MapGridComponent";
 import OperationLog from "./OperationLogComponent.tsx";
+import GraphSlider from "./GraphSliderComponent.tsx";
+import '@fontsource/roboto/300.css';
+import '@fontsource/roboto/400.css';
+import '@fontsource/roboto/500.css';
+import '@fontsource/roboto/700.css';
 
 type Data = {
   timestamp: number;
@@ -13,7 +18,6 @@ type Data = {
 function App() {
   const [dataLoaded, setDataLoaded] = useState<boolean>(false);
   const [xClick, setXClick] = useState<number>(0);
-  const [xHover, setXHover] = useState<number>(0);
   const [memoryData, setMemoryData] = useState<Data>({ timestamp: 0, data: [] });
   const [blockSize, setBlockSize] = useState<number>(5);
 
@@ -21,20 +25,19 @@ function App() {
     const fetchData = async () => {
       if (dataLoaded) {
         try {
-          if (xHover > -1) {
-            const data: Data = await invoke("get_viewer_map_full_at_colours", { timestamp: xHover, truncateAfter: 256 });
-            setMemoryData(data);
-          } else {
-            const data: Data = await invoke("get_viewer_map_full_at_colours", { timestamp: xClick, truncateAfter: 256 });
-            setMemoryData(data);
-          }
+          const data: [number, number[]] = await invoke("get_viewer_map_full_at_colours", { timestamp: xClick, truncateAfter: 256 });
+          const memoryData: Data = {
+            timestamp: data[0],
+            data: data[1],
+          };
+          setMemoryData(memoryData);
         } catch (error) {
           console.error("Error fetching memory data: ", error);
         }
       }
     };
-    fetchData();
-  }, [xClick, xHover, dataLoaded, blockSize]); // Depend on xChangedTrigger and dataLoadedTrigger
+    fetchData().then();
+  }, [xClick, dataLoaded, blockSize]);
 
   const selectFilesAndInitialiseViewer = async () => {
     try {
@@ -71,14 +74,14 @@ function App() {
   return (
     <div className="container">
       <div className="top">
-        <Graph dataLoaded={dataLoaded}
-         setXClick={setXClick}
-         setXHover={setXHover}
-          />
-        <OperationLog dataLoaded={dataLoaded} xClick={xClick} xHover={xHover}></OperationLog>
+        <div className="graph">
+          <Graph dataLoaded={dataLoaded} setXClick={setXClick} xClick={xClick} />
+          <GraphSlider xClick={xClick} setXClick={setXClick} />
+        </div>
+        <OperationLog memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick}></OperationLog>
       </div>
       <div className="bottom">
-        <MapGrid data={memoryData}></MapGrid>
+        <MapGrid memoryData={memoryData} blockSize={4}></MapGrid>
       </div>
       <div className="controlPanel">
         <button onClick={selectFilesAndInitialiseViewer}>Load</button>

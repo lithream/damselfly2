@@ -1,13 +1,18 @@
 import {invoke} from "@tauri-apps/api/tauri";
 import {useEffect, useState} from "react";
 
-interface OperationLogProps {
-    dataLoaded: boolean;
-    xClick: number;
-    xHover: number;
+type Data = {
+    timestamp: number;
+    data: number[];
 }
 
-function OperationLog({ dataLoaded, xClick, xHover }: OperationLogProps) {
+interface OperationLogProps {
+    memoryData: Data;
+    dataLoaded: boolean;
+    xClick: number;
+}
+
+function OperationLog({ memoryData }: OperationLogProps) {
     const [log, setLog] = useState<string[]>([]);
     useEffect(() => {
         const fetchLog = async () => {
@@ -18,10 +23,8 @@ function OperationLog({ dataLoaded, xClick, xHover }: OperationLogProps) {
                 console.error("Failed to fetch operation log", error);
             }
         }
-        if (dataLoaded) {
-            fetchLog();
-        }
-    }, [dataLoaded, xClick, xHover]);
+        fetchLog().then();
+    }, [memoryData]);
 
     return (
         <div className="log-container">

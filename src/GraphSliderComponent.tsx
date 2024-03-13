@@ -14,8 +14,8 @@ const Input = styled(MuiInput)`
     width: 42px;
 `;
 
-function Slider({ xClick, setXClick }: SliderProps) {
-    const handleSliderChange = (event: Event, newValue: number | number[]) => {
+function GraphSlider({ xClick, setXClick }: SliderProps) {
+    const handleSliderChange = (_event: Event, newValue: number | number[]) => {
         setXClick(newValue as number);
     };
 
@@ -60,4 +60,4 @@ function Slider({ xClick, setXClick }: SliderProps) {
     );
 }
 
-export default Slider;
+export default GraphSlider;

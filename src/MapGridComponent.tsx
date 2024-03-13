@@ -1,5 +1,5 @@
 
-import {useRef, useEffect, useState} from "react";
+import {useRef, useEffect} from "react";
 
 type Data = {
     timestamp: number;
@@ -7,21 +7,28 @@ type Data = {
 }
 
 interface MapGridProps {
-    data: Data;
+    memoryData: Data;
     blockSize: number;
 }
 
-function MapGrid({ data, blockSize }: MapGridProps) {
+function MapGrid({ memoryData, blockSize }: MapGridProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    console.log("log");
+    console.log(memoryData);
+    console.log(memoryData.data);
 
     useEffect(() => {
-        if (data && data[1]) {
-            drawGrid(data[1], window.innerWidth);
+        if (memoryData && memoryData.data.length > 0) {
+            console.log("memorydata");
+            console.log(memoryData);
+            drawGrid(memoryData.data, window.innerWidth);
         }
-    }, [data, blockSize]);
+    }, [memoryData, blockSize]);
 
 
     const drawGrid = (data: number[], width: number) => {
+        console.log("data");
+        console.log(data);
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext("2d");
@@ -42,6 +49,7 @@ function MapGrid({ data, blockSize }: MapGridProps) {
         let curX = -blockWidth;
         let curY = 0;
 
+        console.log(data);
         for (let i = 0; i < data.length; ++i) {
             const curBlock = data[i];
 
@@ -68,7 +76,6 @@ function MapGrid({ data, blockSize }: MapGridProps) {
 
     return (
         <div>
-            <div><label>{data[0]}</label></div>
             <canvas ref={canvasRef} />
         </div>
     );
