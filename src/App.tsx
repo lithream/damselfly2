@@ -5,19 +5,17 @@ import Graph from "./GraphComponent";
 import MapGrid from "./MapGridComponent";
 import OperationLog from "./OperationLogComponent.tsx";
 import GraphSlider from "./GraphSliderComponent.tsx";
+import Callstack from "./CallstackComponent.tsx";
+import Data from "./Data.tsx";
 import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
 
-type Data = {
-  timestamp: number;
-  data: number[];
-}
-
 function App() {
   const [dataLoaded, setDataLoaded] = useState<boolean>(false);
   const [xClick, setXClick] = useState<number>(0);
+  const [xLimit, setXLimit] = useState<number>(0);
   const [memoryData, setMemoryData] = useState<Data>({ timestamp: 0, data: [] });
   const [blockSize, setBlockSize] = useState<number>(5);
 
@@ -25,7 +23,7 @@ function App() {
     const fetchData = async () => {
       if (dataLoaded) {
         try {
-          const data: [number, number[]] = await invoke("get_viewer_map_full_at_colours", { timestamp: xClick, truncateAfter: 256 });
+          const data: [number, number[][]] = await invoke("get_viewer_map_full_at_colours", { timestamp: xClick, truncateAfter: 256 });
           const memoryData: Data = {
             timestamp: data[0],
             data: data[1],
@@ -71,13 +69,14 @@ function App() {
     <div className="container">
       <div className="top">
         <div className="graph">
-          <Graph dataLoaded={dataLoaded} setXClick={setXClick} xClick={xClick} />
-          <GraphSlider xClick={xClick} setXClick={setXClick} />
+          <Graph dataLoaded={dataLoaded} setXClick={setXClick} xClick={xClick} setXLimit={setXLimit} />
+          <GraphSlider xClick={xClick} setXClick={setXClick} xLimit={xLimit}/>
         </div>
-        <OperationLog memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick}></OperationLog>
+        <OperationLog memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} />
       </div>
       <div className="bottom">
         <MapGrid memoryData={memoryData} blockSize={4}></MapGrid>
+        <Callstack xClick={xClick}/>
       </div>
       <div className="controlPanel">
         <button onClick={selectFilesAndInitialiseViewer}>Load</button>

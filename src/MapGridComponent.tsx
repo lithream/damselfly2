@@ -1,10 +1,5 @@
-
 import {useRef, useEffect} from "react";
-
-type Data = {
-    timestamp: number;
-    data: number[];
-}
+import Data from "./Data.tsx";
 
 interface MapGridProps {
     memoryData: Data;
@@ -21,7 +16,7 @@ function MapGrid({ memoryData, blockSize }: MapGridProps) {
     }, [memoryData, blockSize]);
 
 
-    const drawGrid = (data: number[], width: number) => {
+    const drawGrid = (data: number[][], width: number) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext("2d");

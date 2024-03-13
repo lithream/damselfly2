@@ -23,6 +23,7 @@ fn main() {
             choose_files,
             set_block_size,
             get_operation_log,
+            get_callstack,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -102,6 +103,16 @@ fn get_operation_log(state: tauri::State<AppState>) -> Result<Vec<String>, Strin
             .take(7)
             .map(|update| update.to_string())
             .collect())
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_callstack(state: tauri::State<AppState>) -> Result<String, String> {
+    let mut viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = viewer_lock.deref_mut() {
+        Ok(viewer.get_current_operation().get_callstack().to_string())
     } else {
         Err("Viewer is not initialised".to_string())
     }

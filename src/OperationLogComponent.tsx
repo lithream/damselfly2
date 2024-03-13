@@ -1,10 +1,6 @@
 import {invoke} from "@tauri-apps/api/tauri";
 import {useEffect, useState} from "react";
-
-type Data = {
-    timestamp: number;
-    data: number[];
-}
+import Data from "./Data.tsx";
 
 interface OperationLogProps {
     memoryData: Data;

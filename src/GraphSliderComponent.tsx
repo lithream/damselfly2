@@ -8,15 +8,16 @@ import MuiInput from '@mui/material/Input';
 interface SliderProps {
     xClick: number;
     setXClick: (x: number) => void;
+    xLimit: number;
 }
 
 const Input = styled(MuiInput)`
     width: 42px;
 `;
 
-function GraphSlider({ xClick, setXClick }: SliderProps) {
+function GraphSlider({ xClick, setXClick, xLimit }: SliderProps) {
     const handleSliderChange = (_event: Event, newValue: number | number[]) => {
-        setXClick(newValue as number);
+        setXClick(Math.min(newValue as number, xLimit));
     };
 
     const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -29,8 +30,10 @@ function GraphSlider({ xClick, setXClick }: SliderProps) {
         }
     }
 
+    console.log(xLimit);
+
     return (
-        <Box sx={{ width: 250 }}>
+        <Box className="slider" sx={{ width: 250 }}>
             <Typography id="input-slider" gutterBottom>
                 Time
             </Typography>
@@ -39,6 +42,8 @@ function GraphSlider({ xClick, setXClick }: SliderProps) {
                     value={typeof xClick === "number" ? xClick : 0}
                     onChange={handleSliderChange}
                     aria-labelledby="input-slider"
+                    min={0}
+                    max={xLimit}
                 />
             </Grid>
             <Grid item>
@@ -48,9 +53,9 @@ function GraphSlider({ xClick, setXClick }: SliderProps) {
                     onChange={handleInputChange}
                     onBlur={handleBlur}
                     inputProps={{
-                        step: 10,
+                        step: 1,
                         min: 0,
-                        max: 100,
+                        max: {xLimit},
                         type: 'number',
                         'aria-labelledby': 'input-slider',
                     }}

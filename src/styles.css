@@ -16,11 +16,10 @@
 
 .container {
   margin: 0;
-  padding-top: 10vh;
+  padding-top: 1vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  text-align: center;
 }
 
 .logo {
@@ -127,4 +126,21 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.callstack {
+  display: flex;
+  max-width: 50%;
+  flex-wrap: wrap;
+  overflow-wrap: break-word;
+  padding-left: 60px;
+  overflow-y: auto;
+  overflow-x: auto;
+  max-height: 40vh;
+}
+
+.slider {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
 }

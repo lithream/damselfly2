@@ -8,9 +8,10 @@ interface GraphProps {
     dataLoaded: boolean,
     setXClick: (x: number) => void;
     xClick: number;
+    setXLimit: (x: number) => void;
 }
 
-function Graph({ dataLoaded , setXClick , xClick }: GraphProps) {
+function Graph({ dataLoaded , setXClick , xClick, setXLimit }: GraphProps) {
   const [data, setData] = useState<GraphDataItem[]>([]);
 
   const fetchData = async () => {
@@ -18,13 +19,14 @@ function Graph({ dataLoaded , setXClick , xClick }: GraphProps) {
       const graphData: Array<[number, number]> = await invoke('get_viewer_graph');
       const formattedData = graphData.map((item): GraphDataItem => ({ x: item[0], y: item[1] }));
       setData(formattedData);
+      setXLimit(graphData.length - 1);
     } catch (error) {
       console.error('Error fetching graph data:', error);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData().then();
   }, [dataLoaded]);
 
   const handlePointClick = (e: any) => {
@@ -35,14 +37,14 @@ function Graph({ dataLoaded , setXClick , xClick }: GraphProps) {
   };
 
   return (
-    <LineChart width={600} height={300} data={data}
+    <LineChart width={1000} height={300} data={data}
       onClick={handlePointClick}>
       <CartesianGrid strokeDasharray="3 3" />
       <XAxis dataKey="x" />
       <YAxis />
       <Tooltip />
       <Legend />
-      <Line type="monotone" dataKey="y" stroke="#8884d8" activeDot={{ r: 8 }} />
+      <Line type="monotone" dataKey="y" stroke="#8884d8" dot={false} activeDot={false} />
         {dataLoaded && <ReferenceLine x={xClick} stroke="red" label="Selected" />}
     </LineChart>
   );
