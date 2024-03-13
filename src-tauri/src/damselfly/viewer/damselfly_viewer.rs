@@ -75,14 +75,14 @@ impl DamselflyViewer {
             if consecutive_identical_blocks > truncate_after {
                 continue;
             }
-            
+
             let status = match block {
                 MemoryStatus::Allocated(_, _, _) => 3,
                 MemoryStatus::PartiallyAllocated(_, _, _) => 2,
                 MemoryStatus::Free(_, _, _) => 1,
                 MemoryStatus::Unused => 0,
             };
-            
+
             let parent_address: i64 = if block.get_parent_address().is_none() {
                 -1
             } else {

@@ -129,13 +129,11 @@ button {
 }
 
 .callstack {
-  display: flex;
-  max-width: 50%;
-  flex-wrap: wrap;
-  overflow-wrap: break-word;
+  width: 50%;
   padding-left: 60px;
   overflow-y: auto;
-  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
   max-height: 40vh;
 }
 
