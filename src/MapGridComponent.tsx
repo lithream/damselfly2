@@ -13,22 +13,15 @@ interface MapGridProps {
 
 function MapGrid({ memoryData, blockSize }: MapGridProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    console.log("log");
-    console.log(memoryData);
-    console.log(memoryData.data);
 
     useEffect(() => {
         if (memoryData && memoryData.data.length > 0) {
-            console.log("memorydata");
-            console.log(memoryData);
             drawGrid(memoryData.data, window.innerWidth);
         }
     }, [memoryData, blockSize]);
 
 
     const drawGrid = (data: number[], width: number) => {
-        console.log("data");
-        console.log(data);
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext("2d");
@@ -49,7 +42,6 @@ function MapGrid({ memoryData, blockSize }: MapGridProps) {
         let curX = -blockWidth;
         let curY = 0;
 
-        console.log(data);
         for (let i = 0; i < data.length; ++i) {
             const curBlock = data[i];
 

@@ -43,8 +43,6 @@ function App() {
     try {
       const logFilePath = await invoke("choose_files");
       const binaryFilePath = await invoke("choose_files");
-      console.log(logFilePath);
-      console.log(binaryFilePath);
 
       if (logFilePath && binaryFilePath) {
         await invoke("initialise_viewer", { log_path: logFilePath, binary_path: binaryFilePath });
@@ -58,7 +56,6 @@ function App() {
   const increaseBlockSize = async () => {
     setBlockSize(blockSize * 2);
     await invoke("set_block_size", { newBlockSize: Math.ceil(blockSize) });
-    console.log(blockSize);
   };
 
   const decreaseBlockSize = async () => {
@@ -68,7 +65,6 @@ function App() {
     }
     setBlockSize(blockSize / 2);
     await invoke("set_block_size", { newBlockSize: Math.ceil(blockSize) });
-    console.log(blockSize);
   }
 
   return (
