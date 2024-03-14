@@ -25,6 +25,7 @@ pub struct MemorySysTraceParser {
     memory_updates: Vec<MemoryUpdateType>,
     symbols: HashMap<usize, String>,
     prefix: String,
+    counter: u64,
 }
 
 impl MemorySysTraceParser {
@@ -34,7 +35,8 @@ impl MemorySysTraceParser {
             record_queue: Vec::new(),
             memory_updates: Vec::new(),
             symbols: HashMap::new(),
-            prefix: String::new()
+            prefix: String::new(),
+            counter: 0,
         }
     }
 
@@ -65,9 +67,12 @@ impl MemorySysTraceParser {
                 log_iter.next();
                 continue;
             }
-            println!("Processing instruction: {}", line.cyan());
+            if self.counter % 1000 == 0 {
+                println!("Processing instruction: {}", line.cyan());
+            }
             let memory_update = self.process_instruction(&mut log_iter);
             self.memory_updates.push(memory_update);
+            self.counter += 1;
         }
         println!("Processing complete.");
         self.memory_updates

@@ -18,7 +18,8 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             initialise_viewer,
-            get_viewer_graph,
+            get_viewer_usage_graph,
+            get_viewer_fragmentation_graph,
             get_viewer_map_full_at_colours,
             choose_files,
             set_block_size,
@@ -43,10 +44,20 @@ async fn choose_files() -> Result<String, String> {
 }
 
 #[tauri::command]
-fn get_viewer_graph(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>, String> {
+fn get_viewer_usage_graph(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>, String> {
     let viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &*viewer_lock {
         Ok(viewer.get_usage_graph())
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_viewer_fragmentation_graph(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>, String> {
+    let viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = &*viewer_lock {
+        Ok(viewer.get_distinct_blocks_graph())
     } else {
         Err("Viewer is not initialised".to_string())
     }

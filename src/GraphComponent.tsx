@@ -13,7 +13,8 @@ interface GraphProps {
 }
 
 function Graph({ dataLoaded , setXClick , xClick, setXLimit }: GraphProps) {
-    const [data, setData] = useState<GraphDataItem[]>([]);
+    const [usageData, setUsageData] = useState<GraphDataItem[]>([]);
+    const [fragmentationData, setFragmentationData] = useState<GraphDataItem[]>([]);
     const [chartWidth, setChartWidth] = useState(window.innerWidth / 2);
     const [chartHeight, _setChartHeight] = useState(300); // Maintain a fixed height or adjust as needed
 
@@ -24,10 +25,18 @@ function Graph({ dataLoaded , setXClick , xClick, setXLimit }: GraphProps) {
 
     const fetchData = async () => {
         try {
-            const graphData: Array<[number, number]> = await invoke('get_viewer_graph');
-            const formattedData = graphData.map((item): GraphDataItem => ({ x: item[0], y: item[1] }));
-            setData(formattedData);
-            setXLimit(graphData.length - 1);
+            const usageData: Array<[number, number]> = await invoke('get_viewer_usage_graph');
+            const formattedUsageData = usageData.map((item): GraphDataItem => ({ x: item[0], y: item[1] }));
+            let formattedData;
+
+            
+            const fragmentationData: Array<[number, number]> = await invoke('get_viewer_fragmentation_graph');
+            const formattedFragmentationData = fragmentationData.map((item): GraphDataItem => ({ x: item[0], y: item[1] }));
+            console.log(formattedUsageData);
+            console.log(formattedFragmentationData);
+            setUsageData(formattedUsageData);
+            setFragmentationData(formattedFragmentationData);
+            setXLimit(usageData.length - 1);
         } catch (error) {
             console.error('Error fetching graph data:', error);
         }
@@ -50,14 +59,15 @@ function Graph({ dataLoaded , setXClick , xClick, setXLimit }: GraphProps) {
     };
 
     return (
-        <LineChart width={chartWidth} height={chartHeight} data={data}
+        <LineChart width={chartWidth} height={chartHeight}
                    onClick={handlePointClick}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="x" />
             <YAxis />
             <Tooltip />
             <Legend />
-            <Line type="monotone" dataKey="y" stroke="#8884d8" dot={false} activeDot={false} />
+            <Line data={usageData} type="monotone" dataKey="y" stroke="#8884d8" dot={false} activeDot={false} />
+            <Line data={fragmentationData} type="monotone" dataKey="y" stroke="#82ca9d" dot={false} activeDot={false} />
             {dataLoaded && <ReferenceLine x={xClick} stroke="red" label="Selected" />}
         </LineChart>
     );

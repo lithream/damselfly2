@@ -1,4 +1,5 @@
 use std::cmp::{max, min};
+use std::time::Instant;
 use owo_colors::OwoColorize;
 use rust_lapper::Lapper;
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
@@ -10,6 +11,7 @@ pub struct MemoryUsageFactory {
     lowest_address: usize,
     highest_address: usize,
     lapper: Lapper<usize, MemoryUpdateType>,
+    counter: u64,
 }
 
 impl MemoryUsageFactory {
@@ -19,6 +21,7 @@ impl MemoryUsageFactory {
             lowest_address: usize::MAX,
             highest_address: usize::MIN,
             lapper: Lapper::new(vec![]),
+            counter: 0,
         }
     }
 
@@ -35,15 +38,17 @@ impl MemoryUsageFactory {
         let mut max_distinct_blocks = 0;
 
         for (index, update) in self.memory_updates.iter().enumerate() {
-            println!("Processing usage stats: {}", update.cyan());
+            if self.counter % 1000 == 0 {
+                println!("Processing usage stats: {}", update.cyan());
+            }
             current_usage += Self::get_total_usage_delta(update);
             max_usage = max(max_usage, current_usage);
-
             distinct_block_counter.push_update(update);
             let distinct_blocks = distinct_block_counter.get_distinct_blocks();
             max_distinct_blocks = max(max_distinct_blocks, distinct_blocks);
 
             memory_usages.push(MemoryUsage::new(current_usage, distinct_blocks, index));
+            self.counter += 1;
         }
         (memory_usages, max_usage, max_distinct_blocks)
     }
