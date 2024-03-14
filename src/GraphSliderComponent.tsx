@@ -30,8 +30,6 @@ function GraphSlider({ xClick, setXClick, xLimit }: SliderProps) {
         }
     }
 
-    console.log(xLimit);
-
     return (
         <Box className="slider" sx={{ width: 250 }}>
             <Typography id="input-slider" gutterBottom>

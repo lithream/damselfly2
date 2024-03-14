@@ -28,8 +28,10 @@ function App() {
             timestamp: data[0],
             data: data[1],
           };
+          console.log("memory data set");
           setMemoryData(memoryData);
         } catch (error) {
+          console.log("error");
           console.error("Error fetching memory data: ", error);
         }
       }
