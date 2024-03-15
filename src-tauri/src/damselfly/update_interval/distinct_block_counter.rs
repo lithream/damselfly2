@@ -1,4 +1,5 @@
 use std::cmp::{max, min};
+use std::collections::HashSet;
 use std::time::Instant;
 use rust_lapper::Lapper;
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
@@ -11,7 +12,9 @@ pub struct DistinctBlockCounter {
     stop: usize,
     memory_updates: NoHashMap<usize, MemoryUpdateType>,
     lapper: Lapper<usize, MemoryUpdateType>,
-//    memory_updates: Vec<MemoryUpdateType>,
+    starts: HashSet<usize>,
+    ends: HashSet<usize>,
+    distinct_blocks: i64,
 }
 
 impl Default for DistinctBlockCounter {
@@ -21,6 +24,9 @@ impl Default for DistinctBlockCounter {
             stop: 0,
             memory_updates: NoHashMap::default(),
             lapper: Lapper::new(vec![]),
+            starts: HashSet::new(),
+            ends: HashSet::new(),
+            distinct_blocks: 0,
         }
     }
 }
@@ -35,22 +41,65 @@ impl DistinctBlockCounter {
             stop: usize::MIN,
             memory_updates: memory_updates_map,
             lapper: Lapper::new(vec![]),
+            starts: HashSet::new(),
+            ends: HashSet::new(),
+            distinct_blocks: 0,
         }
     }
 
     pub fn push_update(&mut self, update: &MemoryUpdateType) {
+        let start = update.get_start();
+        let end = update.get_end();
+        let mut left_attached = false;
+        let mut right_attached = false;
+        let mut block_delta: i64 = 0;
+        
+        if self.ends.contains(&start) {
+            left_attached = true;
+        }
+        if self.starts.contains(&end) {
+            right_attached = true;
+        }
+
+        
         match update {
             MemoryUpdateType::Allocation(allocation) => {
-                // skip remaking lapper as we can just insert the new interval into it
-                self.memory_updates.insert(allocation.get_absolute_address(), update.clone());
-                self.lapper.insert(UpdateIntervalFactory::convert_update_to_interval(update));
+                // glues together two blocks, reducing fragmentation
+                if left_attached && right_attached {
+                    block_delta = -1;
+                }
+
+                // island block with no blocks surrounding it, increasing fragmentation
+                if !left_attached && !right_attached {
+                    block_delta = 1;
+                }
+
+                // otherwise, glues onto an existing block, leaving fragmentation unchanged
+                self.starts.insert(start);
+                self.ends.insert(end);
             }
             MemoryUpdateType::Free(free) => {
-                // remake lapper as there is no way to remove intervals directly from the lapper
-                self.memory_updates.remove(&free.get_absolute_address());
-                self.initialise_lapper();
+                // breaks a block into two blocks, increasing fragmentation
+                if left_attached && right_attached {
+                    block_delta = 1;
+                }
+                
+                // frees an island block, reducing fragmentation
+                if !left_attached && !right_attached {
+                    block_delta = -1;
+                }
+                
+                // otherwise, frees a block glued onto another, leaving fragmentation unchanged
+                self.starts.remove(&start);
+                self.ends.remove(&end);
             }
         };
+        
+        self.calculate_new_memory_bounds(update);
+        self.distinct_blocks = self.distinct_blocks.saturating_add(block_delta);
+    }
+    
+    fn calculate_new_memory_bounds(&mut self, update: &MemoryUpdateType) {
         let new_start;
         let new_stop;
         match update {
@@ -72,9 +121,13 @@ impl DistinctBlockCounter {
             self.memory_updates.values().cloned().collect()).construct_enum_vector());
     }
     
-    pub fn get_distinct_blocks(&mut self) -> usize {
+    pub fn get_distinct_blocks(&mut self) -> i64 {
+        self.distinct_blocks
+        /*
         self.lapper.merge_overlaps();
         self.lapper.find(self.start, self.stop).count()
+        
+         */
     }
 }
 

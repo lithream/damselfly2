@@ -85,11 +85,10 @@ impl MemoryCanvas {
     }
 
     pub fn paint_blocks(&mut self) {
-        self.arm_window_lapper();
         self.insert_blocks();
         for block in &mut self.blocks {
             let mut overlapping_operations
-                = self.window_lapper.find(block.get_block_start(), block.get_block_stop())
+                = self.full_lapper.find(block.get_block_start(), block.get_block_stop())
                         .collect::<Vec<&UpdateInterval>>();
             UpdateIntervalSorter::sort_by_timestamp(&mut overlapping_operations);
             for update_interval in overlapping_operations {
@@ -147,9 +146,5 @@ impl MemoryCanvas {
             res.push(overlap.clone());
         }
         res
-    }
-
-    fn arm_window_lapper(&mut self) {
-        self.window_lapper = Lapper::new(self.get_intervals_overlapping_window());
     }
 }

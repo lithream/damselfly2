@@ -1,4 +1,5 @@
 use std::cmp::{max, min};
+use std::collections::HashSet;
 use std::time::Instant;
 use owo_colors::OwoColorize;
 use rust_lapper::Lapper;
@@ -47,10 +48,10 @@ impl MemoryUsageFactory {
             let distinct_blocks = distinct_block_counter.get_distinct_blocks();
             max_distinct_blocks = max(max_distinct_blocks, distinct_blocks);
 
-            memory_usages.push(MemoryUsage::new(current_usage, distinct_blocks, index));
+            memory_usages.push(MemoryUsage::new(current_usage, distinct_blocks as usize, index));
             self.counter += 1;
         }
-        (memory_usages, max_usage, max_distinct_blocks)
+        (memory_usages, max_usage, max_distinct_blocks as usize)
     }
 
     fn get_total_usage_delta(memory_update: &MemoryUpdateType) -> i128 {

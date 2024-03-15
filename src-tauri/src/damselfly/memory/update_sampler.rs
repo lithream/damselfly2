@@ -1,5 +1,3 @@
-use std::cmp::{max, min};
-use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::MemoryUpdateType;
 
 pub struct UpdateSampler {
