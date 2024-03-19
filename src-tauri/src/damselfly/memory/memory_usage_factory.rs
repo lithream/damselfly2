@@ -46,9 +46,11 @@ impl MemoryUsageFactory {
             max_usage = max(max_usage, current_usage);
             distinct_block_counter.push_update(update);
             let distinct_blocks = distinct_block_counter.get_distinct_blocks();
+            let free_blocks = distinct_block_counter.get_free_blocks();
+            let largest_free_block = distinct_block_counter.get_largest_free_block().unwrap();
             max_distinct_blocks = max(max_distinct_blocks, distinct_blocks);
 
-            memory_usages.push(MemoryUsage::new(current_usage, distinct_blocks as usize, index));
+            memory_usages.push(MemoryUsage::new(current_usage, distinct_blocks as usize, largest_free_block, free_blocks.len(), index));
             self.counter += 1;
         }
         (memory_usages, max_usage, max_distinct_blocks as usize)

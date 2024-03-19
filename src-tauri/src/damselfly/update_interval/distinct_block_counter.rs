@@ -1,5 +1,5 @@
-use std::cmp::{max, min};
-use std::collections::HashSet;
+use std::cmp::{max, min, Ordering};
+use std::collections::{BTreeSet, HashSet};
 use std::time::Instant;
 use rust_lapper::Lapper;
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
@@ -12,9 +12,12 @@ pub struct DistinctBlockCounter {
     stop: usize,
     memory_updates: NoHashMap<usize, MemoryUpdateType>,
     lapper: Lapper<usize, MemoryUpdateType>,
-    starts: HashSet<usize>,
-    ends: HashSet<usize>,
+    starts_set: HashSet<usize>,
+    ends_set: HashSet<usize>,
+    starts_tree: BTreeSet<usize>,
+    ends_tree: BTreeSet<usize>,
     distinct_blocks: i64,
+    free_blocks: Vec<(usize, usize)>,
 }
 
 impl Default for DistinctBlockCounter {
@@ -24,9 +27,12 @@ impl Default for DistinctBlockCounter {
             stop: 0,
             memory_updates: NoHashMap::default(),
             lapper: Lapper::new(vec![]),
-            starts: HashSet::new(),
-            ends: HashSet::new(),
+            starts_set: HashSet::new(),
+            ends_set: HashSet::new(),
+            starts_tree: BTreeSet::new(),
+            ends_tree: BTreeSet::new(),
             distinct_blocks: 0,
+            free_blocks: Vec::new(),
         }
     }
 }
@@ -41,9 +47,12 @@ impl DistinctBlockCounter {
             stop: usize::MIN,
             memory_updates: memory_updates_map,
             lapper: Lapper::new(vec![]),
-            starts: HashSet::new(),
-            ends: HashSet::new(),
+            starts_set: HashSet::new(),
+            ends_set: HashSet::new(),
+            starts_tree: BTreeSet::new(),
+            ends_tree: BTreeSet::new(),
             distinct_blocks: 0,
+            free_blocks: Vec::new(),
         }
     }
 
@@ -54,10 +63,10 @@ impl DistinctBlockCounter {
         let mut right_attached = false;
         let mut block_delta: i64 = 0;
         
-        if self.ends.contains(&start) {
+        if self.ends_set.contains(&start) {
             left_attached = true;
         }
-        if self.starts.contains(&end) {
+        if self.starts_set.contains(&end) {
             right_attached = true;
         }
 
@@ -75,8 +84,10 @@ impl DistinctBlockCounter {
                 }
 
                 // otherwise, glues onto an existing block, leaving fragmentation unchanged
-                self.starts.insert(start);
-                self.ends.insert(end);
+                self.starts_set.insert(start);
+                self.ends_set.insert(end);
+                self.starts_tree.insert(start);
+                self.ends_tree.insert(start);
             }
             MemoryUpdateType::Free(free) => {
                 // breaks a block into two blocks, increasing fragmentation
@@ -90,13 +101,59 @@ impl DistinctBlockCounter {
                 }
                 
                 // otherwise, frees a block glued onto another, leaving fragmentation unchanged
-                self.starts.remove(&start);
-                self.ends.remove(&end);
+                self.starts_set.remove(&start);
+                self.ends_set.remove(&end);
+                self.starts_tree.remove(&start);
+                self.ends_tree.remove(&end);
             }
         };
         
         self.calculate_new_memory_bounds(update);
+        self.calculate_free_blocks();
         self.distinct_blocks = self.distinct_blocks.saturating_add(block_delta);
+    }
+
+    pub fn calculate_free_blocks(&mut self) {
+        let mut starts_iter = self.starts_tree.iter();
+        let mut ends_iter = self.ends_tree.iter();
+        let mut cur_start = starts_iter.next();
+        let mut cur_end = ends_iter.next();
+        let mut free_blocks: Vec<(usize, usize)> = Vec::new();
+        // free blocks start from the end of an alloc and last until the start of a new alloc.
+        // exception: adjacent allocs, as they are not merged
+            while let (Some(cur_start_val), Some(cur_end_val)) = (cur_start, cur_end) {
+                // continue loop until start >= end
+                if cur_start_val < cur_end_val {
+                    cur_start = starts_iter.next();
+                    continue;
+                }
+
+                // if start == end, there is an adjacent alloc with no space in between, so there is no free block
+                // move on to the next end
+                if cur_start_val == cur_end_val {
+                    cur_end = ends_iter.next();
+                    continue;
+                }
+
+                // if start > end, we have a free block spanning from [end..start)
+                if cur_start_val > cur_end_val {
+                    free_blocks.push((*cur_start_val, *cur_end_val));
+                }
+            } 
+        
+        self.free_blocks = free_blocks;
+    }
+
+    // returns (start, end, size)
+    pub fn get_largest_free_block(&self) -> Option<(usize, usize, usize)> {
+        let largest_block = self.free_blocks
+            .iter()
+            .max_by(|prev, next| {
+                let prev_size = prev.1 - prev.0;
+                let next_size = next.1 - next.0;
+                prev_size.cmp(&next_size)
+            });
+        largest_block.map(|largest_block| (largest_block.0, largest_block.1, largest_block.1 - largest_block.0))
     }
     
     fn calculate_new_memory_bounds(&mut self, update: &MemoryUpdateType) {
@@ -123,11 +180,14 @@ impl DistinctBlockCounter {
     
     pub fn get_distinct_blocks(&mut self) -> i64 {
         self.distinct_blocks
-        /*
-        self.lapper.merge_overlaps();
-        self.lapper.find(self.start, self.stop).count()
-        
-         */
+    }
+
+    pub fn get_free_blocks(&self) -> Vec<(usize, usize)> {
+        self.free_blocks.clone()
+    }
+
+    pub fn get_memory_bounds(&self) -> (usize, usize) {
+        (self.start, self.stop)
     }
 }
 

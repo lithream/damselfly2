@@ -64,6 +64,26 @@ fn get_viewer_fragmentation_graph(state: tauri::State<AppState>) -> Result<Vec<[
 }
 
 #[tauri::command]
+fn get_viewer_largest_block_graph(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>, String> {
+    let viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = &*viewer_lock {
+        Ok(viewer.get_largest_block_graph())
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_viewer_free_blocks_graph(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>, String> {
+    let viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = &*viewer_lock {
+        Ok(viewer.get_free_blocks_graph())
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }
+}
+
+#[tauri::command]
 fn get_viewer_map(state: tauri::State<AppState>) -> Result<Vec<MemoryStatus>, String> {
     let viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &*viewer_lock {

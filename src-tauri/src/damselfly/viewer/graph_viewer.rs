@@ -49,6 +49,22 @@ impl GraphViewer {
         }
         vector
     }
+    
+    pub fn get_largest_free_block_plot_points(&self) -> Vec<[f64; 2]> {
+        let mut vector = Vec::new();
+        for (index, usage) in self.memory_usage_snapshots.iter().enumerate() {
+            vector.push([index as f64, usage.get_largest_free_block().2 as f64]);
+        }
+        vector
+    }
+    
+    pub fn get_free_blocks_plot_points(&self) -> Vec<[f64; 2]> {
+        let mut vector = Vec::new();
+        for (index, usage) in self.memory_usage_snapshots.iter().enumerate() {
+            vector.push([index as f64, usage.get_free_blocks() as f64]);
+        }
+        vector
+    }
 
     pub fn get_total_operations(&self) -> usize {
         self.memory_usage_snapshots.len()

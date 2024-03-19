@@ -4,14 +4,18 @@ use std::cmp::Ordering;
 pub struct MemoryUsage {
     memory_used_absolute: i128,
     distinct_blocks: usize,
+    largest_free_block: (usize, usize, usize),
+    free_blocks: usize,
     latest_operation: usize,
 }
 
 impl MemoryUsage {
-    pub fn new(memory_used_absolute: i128, distinct_blocks: usize, latest_operation: usize) -> MemoryUsage {
+    pub fn new(memory_used_absolute: i128, distinct_blocks: usize, largest_free_block: (usize, usize, usize), free_blocks: usize, latest_operation: usize) -> MemoryUsage {
         MemoryUsage {
             memory_used_absolute,
             distinct_blocks,
+            largest_free_block,
+            free_blocks,
             latest_operation,
         }
     }
@@ -29,6 +33,10 @@ impl MemoryUsage {
     pub fn get_latest_operation(&self) -> usize {
         self.latest_operation
     }
+
+    pub fn get_largest_free_block(&self) -> (usize, usize, usize) { self.largest_free_block }
+
+    pub fn get_free_blocks(&self) -> usize { self.free_blocks }
 }
 
 impl Eq for MemoryUsage {}
@@ -56,9 +64,9 @@ mod tests {
 
     #[test]
     fn ordering_test() {
-        let base = MemoryUsage::new(128, 4, 4);
-        let larger = MemoryUsage::new(256, 3, 3);
-        let equal = MemoryUsage::new(128, 32, 32);
+        let base = MemoryUsage::new(128, 4, 0, 4);
+        let larger = MemoryUsage::new(256, 3, 0, 3);
+        let equal = MemoryUsage::new(128, 32, 0, 32);
         assert_eq!(base, equal);
         assert!(base < larger);
         assert!(equal < larger);

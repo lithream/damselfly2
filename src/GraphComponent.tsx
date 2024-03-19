@@ -14,6 +14,8 @@ type GraphData = {
     timestamp: number,
     usage: number,
     fragmentation: number,
+    largest_free_block: number,
+    free_blocks: number,
 }
 
 function Graph({ dataLoaded , setXClick , xClick, setXLimit }: GraphProps) {
@@ -30,15 +32,21 @@ function Graph({ dataLoaded , setXClick , xClick, setXLimit }: GraphProps) {
         try {
             const usageData: Array<[number, number]> = await invoke('get_viewer_usage_graph');
             const fragmentationData: Array<[number, number]> = await invoke('get_viewer_fragmentation_graph');
+            const largestFreeBlockData: Array<[number, number]> = await invoke('get_viewer_largest_block_graph');
+            const freeBlocksData: Array<[number, number]> = await invoke('get_viewer_free_blocks_graph');
 
             let formattedData = [];
             for (let i = 0; i < usageData.length; i++) {
                 let usage = usageData[i][1];
                 let fragmentation = fragmentationData[i][1];
+                let largestFreeBlock = largestFreeBlockData[i][1];
+                let freeBlocks = freeBlocksData[i][1];
                 let datapoint: GraphData = {
                     timestamp: i,
                     usage: usage,
                     fragmentation: fragmentation,
+                    largest_free_block: largestFreeBlock,
+                    free_blocks: freeBlocks,
                 };
                 formattedData.push(datapoint);
             }

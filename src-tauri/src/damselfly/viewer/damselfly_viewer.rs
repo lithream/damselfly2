@@ -101,6 +101,14 @@ impl DamselflyViewer {
     pub fn get_distinct_blocks_graph(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_distinct_blocks_plot_points()
     }
+    
+    pub fn get_largest_block_graph(&self) -> Vec<[f64; 2]> {
+        self.graph_viewer.get_largest_free_block_plot_points()
+    }
+    
+    pub fn get_free_blocks_graph(&self) -> Vec<[f64; 2]> {
+        self.graph_viewer.get_free_blocks_plot_points()
+    }
 
     pub fn get_free_blocks_stats(&self) -> (usize, usize) {
         eprintln!("getting updates");
