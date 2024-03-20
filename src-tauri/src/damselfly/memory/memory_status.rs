@@ -1,8 +1,7 @@
 use std::fmt::{Display, Formatter};
 use std::mem;
 use std::sync::Arc;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use crate::damselfly::memory::memory_update::MemoryUpdateType;
+use serde::{Serialize, Serializer};
 
 #[derive(Debug, Clone)]
 pub enum MemoryStatus {

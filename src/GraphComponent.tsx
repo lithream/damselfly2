@@ -83,6 +83,7 @@ function Graph({ dataLoaded , setXClick , xClick, setXLimit }: GraphProps) {
             <Legend />
             <Line type="monotone" dataKey="usage" stroke="#8884d8" dot={false} activeDot={false} />
             <Line type="monotone" dataKey="fragmentation" stroke="#82ca9d" dot={false} activeDot={false} />
+            <Line type="monotone" dataKey="free_blocks" stroke="#82ffff" dot={false} activeDot={false} />
             {dataLoaded && <ReferenceLine x={xClick} stroke="red" label="Selected" />}
         </LineChart>
     );

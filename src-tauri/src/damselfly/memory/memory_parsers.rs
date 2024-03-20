@@ -618,7 +618,7 @@ mod tests {
             RecordType::Free(address, callstack, real_timestamp) => {
                 assert_eq!(address, 3780124716);
                 assert!(callstack.is_empty());
-                assert_eq!(real_timestamp, "0003.677");
+                assert_eq!(real_timestamp, "0003.677 s");
             }
             RecordType::StackTrace(..) => panic!("Wrong type: Stacktrace"),
         }
@@ -745,10 +745,9 @@ mod tests {
 00000830: 039da3f2 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> - e150204c 14
 0 ";
         mst_parser.parse_symbols(log, TEST_BINARY_PATH);
-        "/work/hpdev/dune/src/fw/framework/threadx/5.8.1/src/tx_thread_shell_entry.c:171";
 
         assert_eq!(mst_parser.symbols.get(&usize::from_str_radix("e045d83b", 16).unwrap()).unwrap(),
-                   &String::from("/work/hpdev/dune/src/fw/sox_adapters/framework/mem/src/mem_mgr.cpp:1056"));
+                   &String::from("/work/hpdev/dune/src/fw/print/engine/PageBasedEngine/Bratwurst/Remote/LibBratwurstProtobuf/src/FormatterRasterInterfaceMessages.pb-c.c:208"));
     }
 
     #[test]

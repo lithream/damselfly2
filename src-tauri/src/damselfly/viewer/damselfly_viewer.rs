@@ -1,4 +1,5 @@
 use std::cmp::max;
+use std::time::Instant;
 use rust_lapper::Lapper;
 use crate::damselfly::consts::{DEFAULT_BLOCKS_TO_TRUNCATE, DEFAULT_OPERATION_LOG_SIZE};
 use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
@@ -57,8 +58,11 @@ impl DamselflyViewer {
     }
 
     pub fn get_map_full_at_nosync_colours_truncate(&mut self, timestamp: u64, truncate_after: u64) -> (u64, Vec<(i64, u64)>) {
+        let start = Instant::now();
         self.map_viewer.set_timestamp(timestamp as usize);
         let full_map = self.map_viewer.paint_map_full();
+        let stop = start.elapsed();
+        eprintln!("get map full at nosync colours truncate: paint map full: {}", stop.as_micros());
 
         let mut result: Vec<(i64, u64)> = Vec::new();
         let mut consecutive_identical_blocks = 0;
@@ -111,14 +115,12 @@ impl DamselflyViewer {
     }
 
     pub fn get_free_blocks_stats(&self) -> (usize, usize) {
-        eprintln!("getting updates");
         let updates_till_now = self.map_viewer.get_updates_from(0, self.get_graph_highlight());
         let updates_till_now: Vec<MemoryUpdateType> = updates_till_now.iter()
             .map(|update| update.val.clone())
             .collect();
         let compressed_allocs = UpdateQueueCompressor::compress_to_allocs(&updates_till_now);
         let compressed_intervals = UpdateIntervalFactory::new(compressed_allocs).construct_enum_vector();
-        eprintln!("initialising lapper");
         let mut lapper = Lapper::new(compressed_intervals);
         lapper.merge_overlaps();
 
@@ -140,7 +142,6 @@ impl DamselflyViewer {
         let mut right = left + 1;
         let highest_address = self.map_viewer.get_highest_address();
 
-        eprintln!("looping {left} {highest_address}");
         while right < highest_address {
             while lapper.find(left, right).count() == 0{
                 right += 1;
@@ -150,7 +151,6 @@ impl DamselflyViewer {
             left = right;
             right = left + 1;
         }
-        eprintln!("exit loop");
         (largest_free_block_size, free_blocks)
     }
 

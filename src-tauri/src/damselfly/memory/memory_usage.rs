@@ -64,9 +64,9 @@ mod tests {
 
     #[test]
     fn ordering_test() {
-        let base = MemoryUsage::new(128, 4, 0, 4);
-        let larger = MemoryUsage::new(256, 3, 0, 3);
-        let equal = MemoryUsage::new(128, 32, 0, 32);
+        let base = MemoryUsage::new(128, 4, (0, 0, 0), 0, 4);
+        let larger = MemoryUsage::new(256, 3, (0, 0, 0), 0, 3);
+        let equal = MemoryUsage::new(128, 32, (0, 0, 0), 0, 32);
         assert_eq!(base, equal);
         assert!(base < larger);
         assert!(equal < larger);

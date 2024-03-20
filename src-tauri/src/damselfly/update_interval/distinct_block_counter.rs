@@ -137,7 +137,8 @@ impl DistinctBlockCounter {
 
                 // if start > end, we have a free block spanning from [end..start)
                 if cur_start_val > cur_end_val {
-                    free_blocks.push((*cur_start_val, *cur_end_val));
+                    free_blocks.push((*cur_end_val, *cur_start_val));
+                    cur_end = ends_iter.next();
                 }
             } 
         
@@ -145,15 +146,17 @@ impl DistinctBlockCounter {
     }
 
     // returns (start, end, size)
-    pub fn get_largest_free_block(&self) -> Option<(usize, usize, usize)> {
-        let largest_block = self.free_blocks
-            .iter()
-            .max_by(|prev, next| {
-                let prev_size = prev.1 - prev.0;
-                let next_size = next.1 - next.0;
-                prev_size.cmp(&next_size)
-            });
-        largest_block.map(|largest_block| (largest_block.0, largest_block.1, largest_block.1 - largest_block.0))
+    pub fn get_largest_free_block(&self) -> (usize, usize, usize) {
+        let mut largest_block = (0, 0, 0);
+        for block in &self.free_blocks {
+            let size = block.1 - block.0;
+            if size > largest_block.1 - largest_block.0 {
+                largest_block.0 = block.0;
+                largest_block.1 = block.1;
+                largest_block.2 = size;
+            }
+        }
+        largest_block
     }
     
     fn calculate_new_memory_bounds(&mut self, update: &MemoryUpdateType) {
