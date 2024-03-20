@@ -17,7 +17,7 @@ function App() {
   const [xClick, setXClick] = useState<number>(0);
   const [xLimit, setXLimit] = useState<number>(0);
   const [memoryData, setMemoryData] = useState<Data>({ timestamp: 0, data: [] });
-  const [blockSize, setBlockSize] = useState<number>(5);
+  const [blockSize, setBlockSize] = useState<number>(256);
 
   useEffect(() => {
     const fetchData = async () => {

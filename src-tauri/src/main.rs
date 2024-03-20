@@ -115,6 +115,7 @@ fn get_viewer_map_full_at_colours(state: tauri::State<AppState>, timestamp: u64,
         let res = viewer.get_map_full_at_nosync_colours_truncate(timestamp, truncate_after);
         let stop = start.elapsed();
         eprintln!("get_viewer_map_full_at_colors: {}", stop.as_micros());
+        eprintln!("block size{}", viewer.get_block_size());
         Ok(res)
 //        Ok(viewer.get_map_full_at_nosync_colours_truncate(timestamp, truncate_after))
     } else {

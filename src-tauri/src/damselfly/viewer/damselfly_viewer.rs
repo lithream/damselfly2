@@ -63,6 +63,7 @@ impl DamselflyViewer {
         let full_map = self.map_viewer.paint_map_full();
         let stop = start.elapsed();
         eprintln!("get map full at nosync colours truncate: paint map full: {}", stop.as_micros());
+        eprintln!("full map size: {}", full_map.len());
 
         let mut result: Vec<(i64, u64)> = Vec::new();
         let mut consecutive_identical_blocks = 0;
@@ -182,10 +183,13 @@ impl DamselflyViewer {
         self.graph_viewer.set_saved_highlight(new_highlight);
     }
 
+    pub fn get_block_size(&self) -> usize {
+        self.map_viewer.get_block_size()
+    }
+
     pub fn clear_graph_current_highlight(&mut self) {
         self.graph_viewer.clear_current_highlight();
     }
-
 
     pub fn set_map_block_size(&mut self, new_size: usize) {
         self.map_viewer.set_block_size(new_size);
@@ -198,5 +202,33 @@ impl DamselflyViewer {
     pub fn sync_viewers(&mut self) {
         let current_timestamp = self.graph_viewer.get_highlight();
         self.map_viewer.set_timestamp(current_timestamp);
+    }
+}
+
+mod tests {
+    use crate::damselfly::consts::{TEST_BINARY_PATH, TEST_LOG, TEST_LOG_PATH};
+    use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
+    use crate::damselfly::memory::memory_usage::MemoryUsage;
+    use crate::damselfly::memory::memory_usage_factory::MemoryUsageFactory;
+    use crate::damselfly::viewer::damselfly_viewer::DamselflyViewer;
+
+    fn initialise_test_log() -> DamselflyViewer {
+        let mst_parser = MemorySysTraceParser::new();
+        let updates = mst_parser.parse_log_directly(TEST_LOG, TEST_BINARY_PATH);
+        let viewer = DamselflyViewer::new(TEST_LOG_PATH, TEST_BINARY_PATH);
+        viewer
+    }
+    
+    fn initialise_log(log_path: &str) -> DamselflyViewer {
+        let mst_parser = MemorySysTraceParser::new();
+        let updates = mst_parser.parse_log_directly(TEST_LOG, TEST_BINARY_PATH);
+        let viewer = DamselflyViewer::new(log_path, TEST_BINARY_PATH);
+        viewer
+    }
+    
+    #[test]
+    fn benchmark() {
+        let mut viewer = initialise_log("./tracequarter.log");
+        viewer.get_map_full_at_nosync_colours_truncate(13000, 256);
     }
 }

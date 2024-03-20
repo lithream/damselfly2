@@ -1,4 +1,5 @@
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
+use crate::damselfly::update_interval::UpdateInterval;
 
 pub struct UpdateQueueCompressor { }
 
@@ -47,6 +48,29 @@ impl UpdateQueueCompressor {
                             .expect("[UpdateQueueCompressor::strip_frees_and_corresponding_allocs]: Cannot find alloc corresponding to free"));
                 }
             };
+        }
+        compressed_updates
+    }
+    
+    pub fn compress_intervals(updates: Vec<&UpdateInterval>) -> Vec<MemoryUpdateType> {
+        let mut compressed_updates = Vec::new();
+        for update in updates {
+            match &update.val {
+                MemoryUpdateType::Allocation(allocation) => compressed_updates.push(allocation.clone().wrap_in_enum()),
+                MemoryUpdateType::Free(free) => {
+                    compressed_updates.remove(
+                        compressed_updates
+                            .iter()
+                            .position(|update| {
+                                match update {
+                                    MemoryUpdateType::Allocation(allocation) => 
+                                        allocation.get_absolute_address() == free.get_absolute_address(),
+                                    MemoryUpdateType::Free(_) => panic!("[UpdateQueueCompressor::compress_intervals]: Free found in compressed_updates"),
+                                }
+                            })
+                            .expect("[UpdateQueueCompressor::strip_frees_and_corresponding_allocs]: Cannot find alloc corresponding to free"));
+                }
+            }
         }
         compressed_updates
     }

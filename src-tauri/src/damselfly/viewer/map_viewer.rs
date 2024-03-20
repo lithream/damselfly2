@@ -79,6 +79,10 @@ impl MapViewer {
         self.canvas_span = new_span;
     }
 
+    pub fn get_block_size(&self) -> usize {
+        self.block_size
+    }
+    
     pub fn set_block_size(&mut self, new_size: usize) {
         let span_scale_factor = new_size as f64 / self.block_size as f64;
         self.set_map_span((self.canvas_span as f64 * span_scale_factor).round() as usize);

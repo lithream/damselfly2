@@ -6,8 +6,10 @@ use rust_lapper::Lapper;
 use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use crate::damselfly::update_interval::update_interval_sorter::UpdateIntervalSorter;
+use crate::damselfly::update_interval::update_queue_compressor::UpdateQueueCompressor;
 use crate::damselfly::update_interval::UpdateInterval;
 
+#[derive(Clone)]
 pub struct Block {
     block_bounds: (usize, usize),
     remaining_bytes: usize,
@@ -23,13 +25,13 @@ impl Block {
         }
     }
 
-    pub fn paint_block(&mut self, update_interval: &UpdateInterval) {
+    pub fn paint_block(&mut self, update_interval: &MemoryUpdateType) {
         let constrained_bounds = (
-            max(self.block_bounds.0, update_interval.start),
-            min(self.block_bounds.1, update_interval.stop)
+            max(self.block_bounds.0, update_interval.get_start()),
+            min(self.block_bounds.1, update_interval.get_end())
         );
         let bytes_consumed = constrained_bounds.1 - constrained_bounds.0;
-        match &update_interval.val {
+        match &update_interval {
             MemoryUpdateType::Allocation(allocation) => {
                 self.remaining_bytes = self.remaining_bytes.saturating_sub(bytes_consumed);
                 self.update_block_status(allocation.get_absolute_address(), allocation.get_absolute_size(), allocation.get_callstack());
@@ -40,6 +42,10 @@ impl Block {
                 self.update_block_status(free.get_absolute_address(), free.get_absolute_size(), free.get_callstack());
             }
         }
+    }
+
+    pub fn get_block_status(&self) -> &MemoryStatus {
+        &self.block_status
     }
 
     pub fn get_block_start(&self) -> usize {
@@ -63,13 +69,13 @@ impl Block {
     }
 }
 
+#[derive(Clone)]
 pub struct MemoryCanvas {
     block_size: usize,
     start: usize,
     stop: usize,
     blocks: Vec<Block>,
     full_lapper: Lapper<usize, MemoryUpdateType>,
-    window_lapper: Lapper<usize, MemoryUpdateType>
 }
 
 impl MemoryCanvas {
@@ -80,7 +86,6 @@ impl MemoryCanvas {
             stop,
             blocks: Vec::new(),
             full_lapper: Lapper::new(update_intervals),
-            window_lapper: Lapper::new(vec![])
         }
     }
 
@@ -91,8 +96,15 @@ impl MemoryCanvas {
                 = self.full_lapper.find(block.get_block_start(), block.get_block_stop())
                         .collect::<Vec<&UpdateInterval>>();
             UpdateIntervalSorter::sort_by_timestamp(&mut overlapping_operations);
-            for update_interval in overlapping_operations {
-                block.paint_block(update_interval);
+            let compressed_intervals = UpdateQueueCompressor::compress_intervals(overlapping_operations);
+            let mut interval_iter = compressed_intervals.iter().rev();
+            loop {
+                if let MemoryStatus::Allocated(_, _, _) = block.get_block_status() { break }
+                if let Some(update_interval) = interval_iter.next() {
+                    block.paint_block(update_interval);
+                } else {
+                    break;
+                }
             }
         }
     }
