@@ -108,6 +108,26 @@ impl MemoryCanvas {
             }
         }
     }
+    
+    pub fn paint_over_blocks(&mut self, temporary_updates: Vec<UpdateInterval>) {
+        let temp_lapper = Lapper::new(temporary_updates);
+        for block in &mut self.blocks {
+            let mut overlapping_operations
+                = self.full_lapper.find(block.get_block_start(), block.get_block_stop())
+                        .collect::<Vec<&UpdateInterval>>();
+            UpdateIntervalSorter::sort_by_timestamp(&mut overlapping_operations);
+            let compressed_intervals = UpdateQueueCompressor::compress_intervals(overlapping_operations);
+            let mut interval_iter = compressed_intervals.iter().rev();
+            loop {
+                if let MemoryStatus::Allocated(_, _, _) = block.get_block_status() { break; }
+                if let Some(update_interval) = interval_iter.next() {
+                    block.paint_block(update_interval);
+                } else {
+                    break;
+                }
+            }
+        }
+    }
 
     pub fn render(&mut self) -> Vec<MemoryStatus> {
         self.paint_blocks();
