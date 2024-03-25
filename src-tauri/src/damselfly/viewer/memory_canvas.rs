@@ -1,4 +1,5 @@
 use std::cmp::{max, min};
+use std::collections::HashSet;
 use std::iter::StepBy;
 use std::ops::Range;
 use std::sync::Arc;
@@ -8,66 +9,8 @@ use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use crate::damselfly::update_interval::update_interval_sorter::UpdateIntervalSorter;
 use crate::damselfly::update_interval::update_queue_compressor::UpdateQueueCompressor;
 use crate::damselfly::update_interval::UpdateInterval;
+use crate::damselfly::viewer::memory_block::Block;
 
-#[derive(Clone)]
-pub struct Block {
-    block_bounds: (usize, usize),
-    remaining_bytes: usize,
-    block_status: MemoryStatus,
-}
-
-impl Block {
-    pub fn new(block_index: usize, block_size: usize) -> Block {
-        Block {
-            block_bounds: (block_index, block_index + block_size),
-            remaining_bytes: block_size,
-            block_status: MemoryStatus::Unused,
-        }
-    }
-
-    pub fn paint_block(&mut self, update_interval: &MemoryUpdateType) {
-        let constrained_bounds = (
-            max(self.block_bounds.0, update_interval.get_start()),
-            min(self.block_bounds.1, update_interval.get_end())
-        );
-        let bytes_consumed = constrained_bounds.1 - constrained_bounds.0;
-        match &update_interval {
-            MemoryUpdateType::Allocation(allocation) => {
-                self.remaining_bytes = self.remaining_bytes.saturating_sub(bytes_consumed);
-                self.update_block_status(allocation.get_absolute_address(), allocation.get_absolute_size(), allocation.get_callstack());
-            }
-            MemoryUpdateType::Free(free) => {
-                self.remaining_bytes = self.remaining_bytes.saturating_add(bytes_consumed)
-                    .clamp(usize::MIN, self.block_bounds.1 - self.block_bounds.0);
-                self.update_block_status(free.get_absolute_address(), free.get_absolute_size(), free.get_callstack());
-            }
-        }
-    }
-
-    pub fn get_block_status(&self) -> &MemoryStatus {
-        &self.block_status
-    }
-
-    pub fn get_block_start(&self) -> usize {
-        self.block_bounds.0
-    }
-
-    pub fn get_block_stop(&self) -> usize {
-        self.block_bounds.1
-    }
-
-    fn update_block_status(&mut self, absolute_address: usize, absolute_size: usize, callstack: Arc<String>) {
-        if self.remaining_bytes == 0 {
-            self.block_status = MemoryStatus::Allocated(absolute_address, absolute_size, callstack);
-        } else if self.remaining_bytes < (self.block_bounds.1 - self.block_bounds.0) {
-            self.block_status = MemoryStatus::PartiallyAllocated(absolute_address, absolute_size, callstack);
-        } else if self.remaining_bytes == (self.block_bounds.1 - self.block_bounds.0) {
-            self.block_status = MemoryStatus::Free(absolute_address, absolute_size, callstack);
-        } else {
-            panic!("[MemoryCanvas::update_block_status]: Remaining bytes exceeds span");
-        }
-    }
-}
 
 #[derive(Clone)]
 pub struct MemoryCanvas {
@@ -96,12 +39,22 @@ impl MemoryCanvas {
                 = self.full_lapper.find(block.get_block_start(), block.get_block_stop())
                         .collect::<Vec<&UpdateInterval>>();
             UpdateIntervalSorter::sort_by_timestamp(&mut overlapping_operations);
-            let compressed_intervals = UpdateQueueCompressor::compress_intervals(overlapping_operations);
-            let mut interval_iter = compressed_intervals.iter().rev();
+            let mut update_blacklist = HashSet::new();
+//            let compressed_intervals = UpdateQueueCompressor::compress_intervals(overlapping_operations);
+            let mut interval_iter = overlapping_operations.iter().rev();
             loop {
                 if let MemoryStatus::Allocated(_, _, _) = block.get_block_status() { break }
                 if let Some(update_interval) = interval_iter.next() {
-                    block.paint_block(update_interval);
+                    match &update_interval.val {
+                        MemoryUpdateType::Allocation(allocation) => {
+                            if !update_blacklist.contains(&allocation.get_absolute_address()) {
+                                block.paint_block(&update_interval.val);
+                            }
+                        }
+                        MemoryUpdateType::Free(free) => {
+                            update_blacklist.insert(free.get_absolute_address());
+                        }
+                    }
                 } else {
                     break;
                 }
@@ -178,5 +131,35 @@ impl MemoryCanvas {
             res.push(overlap.clone());
         }
         res
+    }
+}
+
+mod tests {
+    use std::sync::Arc;
+    use crate::damselfly::memory::memory_status::MemoryStatus;
+    use crate::damselfly::memory::memory_update::{Allocation, MemoryUpdateType};
+    use crate::damselfly::update_interval::update_interval_factory::UpdateIntervalFactory;
+    use crate::damselfly::viewer::memory_canvas::MemoryCanvas;
+
+    #[test]
+    fn only_allocs() {
+        let updates = vec![
+            MemoryUpdateType::Allocation(Allocation::new(0, 4, Arc::new("test".to_string()), 0, "0".to_string())),
+            MemoryUpdateType::Allocation(Allocation::new(8, 4, Arc::new("test".to_string()), 0, "0".to_string())),
+            MemoryUpdateType::Allocation(Allocation::new(12, 4, Arc::new("test".to_string()), 0, "0".to_string())),
+            MemoryUpdateType::Allocation(Allocation::new(22, 4, Arc::new("test".to_string()), 0, "0".to_string())),
+        ];
+        let update_intervals = UpdateIntervalFactory::new(updates).construct_enum_vector();
+        let mut canvas = MemoryCanvas::new(0, 128, 4, update_intervals);
+        let canvas_status = canvas.render();
+        assert!(matches!(canvas_status[0], MemoryStatus::Allocated(..)));
+        assert!(matches!(canvas_status[1], MemoryStatus::Unused));
+        assert!(matches!(canvas_status[2], MemoryStatus::Allocated(..)));
+        assert!(matches!(canvas_status[3], MemoryStatus::Allocated(..)));
+        assert!(matches!(canvas_status[4], MemoryStatus::Unused));
+        assert!(matches!(canvas_status[5], MemoryStatus::PartiallyAllocated(..)));
+        assert!(matches!(canvas_status[6], MemoryStatus::PartiallyAllocated(..)));
+        assert!(matches!(canvas_status[7], MemoryStatus::Unused));
+        assert!(matches!(canvas_status[8], MemoryStatus::Unused));
     }
 }

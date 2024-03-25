@@ -68,7 +68,7 @@ impl UpdateQueueCompressor {
                                     MemoryUpdateType::Free(_) => panic!("[UpdateQueueCompressor::compress_intervals]: Free found in compressed_updates"),
                                 }
                             })
-                            .expect("[UpdateQueueCompressor::strip_frees_and_corresponding_allocs]: Cannot find alloc corresponding to free"));
+                            .expect("[UpdateQueueCompressor::compress_intervals]: Cannot find alloc corresponding to free"));
                 }
             }
         }
