@@ -7,6 +7,7 @@ pub mod memory_usage;
 pub mod memory_parsers;
 pub mod memory_usage_factory;
 pub mod memory_status;
-mod update_sampler;
-mod memory_cache;
+pub mod update_sampler;
+pub mod memory_cache;
+pub mod memory_cache_snapshot;
 

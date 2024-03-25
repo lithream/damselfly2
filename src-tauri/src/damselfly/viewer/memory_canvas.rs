@@ -37,7 +37,7 @@ impl MemoryCanvas {
         for block in &mut self.blocks {
             let mut overlapping_operations
                 = self.full_lapper.find(block.get_block_start(), block.get_block_stop())
-                        .collect::<Vec<&UpdateInterval>>();
+                .collect::<Vec<&UpdateInterval>>();
             UpdateIntervalSorter::sort_by_timestamp(&mut overlapping_operations);
             let mut update_blacklist = HashSet::new();
 //            let compressed_intervals = UpdateQueueCompressor::compress_intervals(overlapping_operations);
@@ -62,24 +62,36 @@ impl MemoryCanvas {
         }
     }
     
-    pub fn paint_over_blocks(&mut self, temporary_updates: Vec<UpdateInterval>) {
+    pub fn paint_over_blocks(&self, temporary_updates: Vec<UpdateInterval>) -> Vec<Block> {
         let temp_lapper = Lapper::new(temporary_updates);
-        for block in &mut self.blocks {
+        let mut blocks = self.blocks.clone();
+        for block in &mut blocks {
             let mut overlapping_operations
-                = self.full_lapper.find(block.get_block_start(), block.get_block_stop())
+                = temp_lapper.find(block.get_block_start(), block.get_block_stop())
                         .collect::<Vec<&UpdateInterval>>();
             UpdateIntervalSorter::sort_by_timestamp(&mut overlapping_operations);
-            let compressed_intervals = UpdateQueueCompressor::compress_intervals(overlapping_operations);
-            let mut interval_iter = compressed_intervals.iter().rev();
+            let mut update_blacklist = HashSet::new();
+//            let compressed_intervals = UpdateQueueCompressor::compress_intervals(overlapping_operations);
+            let mut interval_iter = overlapping_operations.iter().rev();
             loop {
-                if let MemoryStatus::Allocated(_, _, _) = block.get_block_status() { break; }
+                if let MemoryStatus::Allocated(_, _, _) = block.get_block_status() { break }
                 if let Some(update_interval) = interval_iter.next() {
-                    block.paint_block(update_interval);
+                    match &update_interval.val {
+                        MemoryUpdateType::Allocation(allocation) => {
+                            if !update_blacklist.contains(&allocation.get_absolute_address()) {
+                                block.paint_block(&update_interval.val);
+                            }
+                        }
+                        MemoryUpdateType::Free(free) => {
+                            update_blacklist.insert(free.get_absolute_address());
+                        }
+                    }
                 } else {
                     break;
                 }
             }
         }
+        blocks
     }
 
     pub fn render(&mut self) -> Vec<MemoryStatus> {
@@ -88,6 +100,15 @@ impl MemoryCanvas {
             .iter()
             .map(|block| block.block_status.clone())
             .collect()
+    }
+    
+    pub fn render_temporary(&self, temporary_updates: Vec<UpdateInterval>) -> Vec<MemoryStatus> {
+        let blocks = self.paint_over_blocks(temporary_updates);
+        let mut block_statuses = Vec::new();
+        for block in blocks {
+            block_statuses.push(block.block_status);
+        }
+        block_statuses
     }
 
     pub fn set_start(&mut self, new_start: usize) {
