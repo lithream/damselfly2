@@ -61,8 +61,37 @@ impl MemoryCanvas {
             }
         }
     }
+
+    pub fn paint_temporary_updates(&mut self, temporary_updates: Vec<UpdateInterval>) {
+        let temp_lapper = Lapper::new(temporary_updates);
+        for block in &mut self.blocks {
+            let mut overlapping_operations 
+                = temp_lapper.find(block.get_block_start(), block.get_block_stop())
+                        .collect::<Vec<&UpdateInterval>>();
+            UpdateIntervalSorter::sort_by_timestamp(&mut overlapping_operations);
+            let mut update_blacklist = HashSet::new();
+            let mut interval_iter = overlapping_operations.iter().rev();
+            loop {
+                if let MemoryStatus::Allocated(_, _, _) = block.get_block_status() { break }
+                if let Some(update_interval) = interval_iter.next() {
+                    match &update_interval.val {
+                        MemoryUpdateType::Allocation(allocation) => {
+                            if !update_blacklist.contains(&allocation.get_absolute_address()) {
+                                block.paint_block(&update_interval.val);
+                            }
+                        }
+                        MemoryUpdateType::Free(free) => {
+                            update_blacklist.insert(free.get_absolute_address());
+                        }
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+    }
     
-    pub fn paint_over_blocks(&self, temporary_updates: Vec<UpdateInterval>) -> Vec<Block> {
+    pub fn simulate_painting_temporary_updates(&self, temporary_updates: Vec<UpdateInterval>) -> Vec<Block> {
         let temp_lapper = Lapper::new(temporary_updates);
         let mut blocks = self.blocks.clone();
         for block in &mut blocks {
@@ -101,9 +130,9 @@ impl MemoryCanvas {
             .map(|block| block.block_status.clone())
             .collect()
     }
-    
+
     pub fn render_temporary(&self, temporary_updates: Vec<UpdateInterval>) -> Vec<MemoryStatus> {
-        let blocks = self.paint_over_blocks(temporary_updates);
+        let blocks = self.simulate_painting_temporary_updates(temporary_updates);
         let mut block_statuses = Vec::new();
         for block in blocks {
             block_statuses.push(block.block_status);

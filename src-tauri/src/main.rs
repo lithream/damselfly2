@@ -109,18 +109,11 @@ fn get_viewer_map_full_at(state: tauri::State<AppState>, timestamp: usize) -> Re
 
 #[tauri::command]
 fn get_viewer_map_full_at_colours(state: tauri::State<AppState>, timestamp: u64, truncate_after: u64) -> Result<(u64, Vec<(i64, u64)>), String> {
-    let start = Instant::now();
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = viewer_lock.deref_mut() {
         let res = viewer.get_map_full_at_nosync_colours_truncate(timestamp, truncate_after);
-        let stop = start.elapsed();
-        eprintln!("get_viewer_map_full_at_colors: {}", stop.as_micros());
-        eprintln!("block size{}", viewer.get_block_size());
         Ok(res)
-//        Ok(viewer.get_map_full_at_nosync_colours_truncate(timestamp, truncate_after))
     } else {
-        let stop = start.elapsed();
-        eprintln!("get_viewer_map_full_at_colors: {}", stop.as_micros());
         Err("Viewer is not initialised".to_string())
     }
 }

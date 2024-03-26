@@ -17,14 +17,15 @@ impl MemoryCache {
         let chunks = update_intervals.chunks(interval);
         let mut updates_till_now = Vec::new();
         let mut memory_cache_snapshots = Vec::new();
+        let mut new_snapshot = MemoryCanvas::new(start, stop, block_size, vec![]);
         for chunk in chunks {
             let mut temporary_updates = Vec::new();
-            let new_snapshot = MemoryCanvas::new(start, stop, block_size, updates_till_now.clone());
             for update in chunk {
                 temporary_updates.push(update.clone());
                 updates_till_now.push(update.clone());
             }
-            memory_cache_snapshots.push(MemoryCacheSnapshot::new(new_snapshot, temporary_updates));
+            memory_cache_snapshots.push(MemoryCacheSnapshot::new(new_snapshot.clone(), temporary_updates.clone()));
+            new_snapshot.paint_temporary_updates(temporary_updates);
         }
         Self {
             memory_cache_snapshots,

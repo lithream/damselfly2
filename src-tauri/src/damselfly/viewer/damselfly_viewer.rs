@@ -60,7 +60,7 @@ impl DamselflyViewer {
     pub fn get_map_full_at_nosync_colours_truncate(&mut self, timestamp: u64, truncate_after: u64) -> (u64, Vec<(i64, u64)>) {
         let start = Instant::now();
         self.map_viewer.set_timestamp(timestamp as usize);
-        let full_map = self.map_viewer.paint_map_full();
+        let full_map = self.map_viewer.paint_map_full_from_cache();
         let stop = start.elapsed();
         eprintln!("get map full at nosync colours truncate: paint map full: {}", stop.as_micros());
         eprintln!("full map size: {}", full_map.len());
@@ -228,7 +228,8 @@ mod tests {
     
     #[test]
     fn benchmark() {
-        let mut viewer = initialise_log("./tracequarter.log");
+        let mut viewer = DamselflyViewer::new("/home/oracle/dev/damselfly2/src-tauri/trace3.log", "/home/oracle/dev/damselfly2/src-tauri/threadxApp");
+//        let mut viewer = initialise_log("./tracequarter.log");
         viewer.get_map_full_at_nosync_colours_truncate(13000, 256);
     }
 }

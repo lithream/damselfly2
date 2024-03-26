@@ -1,10 +1,12 @@
 use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORYSPAN};
+use crate::damselfly::memory::memory_cache::MemoryCache;
 use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use crate::damselfly::update_interval::UpdateInterval;
 use crate::damselfly::viewer::memory_canvas::MemoryCanvas;
 
 pub struct MapViewer {
+    cache: MemoryCache,
     update_intervals: Vec<UpdateInterval>,
     current_timestamp: usize,
     canvas_start: usize,
@@ -27,6 +29,7 @@ impl MapViewer {
         }).expect("[MapViewer::new]: Cannot find highest address").val.get_absolute_address();
 
         MapViewer {
+            cache: MemoryCache::new(DEFAULT_BLOCK_SIZE, update_intervals.clone(), 1000),
             update_intervals,
             current_timestamp,
             canvas_start: 0,
@@ -104,6 +107,10 @@ impl MapViewer {
         let updates_till_now = self.update_intervals[0..=self.current_timestamp].to_vec();
         let mut canvas = MemoryCanvas::new(self.lowest_address, self.highest_address, self.block_size, updates_till_now);
         canvas.render()
+    }
+    
+    pub fn paint_map_full_from_cache(&self) -> Vec<MemoryStatus> {
+        self.cache.query_cache(self.current_timestamp).unwrap()
     }
 
     pub fn get_current_operation(&self) -> MemoryUpdateType {
