@@ -68,8 +68,9 @@ function Graph({ dataLoaded , setXClick , xClick, setXLimit }: GraphProps) {
     }, [updateDimensions]);
 
     const handlePointClick = (e: any) => {
+        console.log(e);
         if (e) {
-            setXClick(Math.round(e.activeCoordinate.x));
+            setXClick(Math.round(e.activeTooltipIndex));
         }
     };
 
