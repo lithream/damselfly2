@@ -1,4 +1,4 @@
-use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORYSPAN};
+use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_CACHE_INTERVAL, DEFAULT_MEMORYSPAN};
 use crate::damselfly::memory::memory_cache::MemoryCache;
 use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
@@ -29,7 +29,7 @@ impl MapViewer {
         }).expect("[MapViewer::new]: Cannot find highest address").val.get_absolute_address();
 
         MapViewer {
-            cache: MemoryCache::new(DEFAULT_BLOCK_SIZE, update_intervals.clone(), 1000),
+            cache: MemoryCache::new(DEFAULT_BLOCK_SIZE, update_intervals.clone(), DEFAULT_CACHE_INTERVAL),
             update_intervals,
             current_timestamp,
             canvas_start: 0,
@@ -90,6 +90,7 @@ impl MapViewer {
         let span_scale_factor = new_size as f64 / self.block_size as f64;
         self.set_map_span((self.canvas_span as f64 * span_scale_factor).round() as usize);
         self.block_size = new_size;
+        self.cache.change_block_size(new_size);
     }
 
     pub fn snap_and_paint_map(&mut self) -> Vec<MemoryStatus> {

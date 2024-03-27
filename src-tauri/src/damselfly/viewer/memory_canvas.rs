@@ -164,7 +164,7 @@ impl MemoryCanvas {
         self.stop = self.stop.saturating_sub(stop_delta);
     }
 
-    fn insert_blocks(&mut self) {
+    pub fn insert_blocks(&mut self) {
         for block_address in self.get_block_iter() {
             self.blocks.push(Block::new(block_address, self.block_size));
         }
