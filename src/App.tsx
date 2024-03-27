@@ -18,6 +18,7 @@ function App() {
   const [xLimit, setXLimit] = useState<number>(0);
   const [memoryData, setMemoryData] = useState<Data>({ timestamp: 0, data: [] });
   const [blockSize, setBlockSize] = useState<number>(32);
+  const [activeTab, setActiveTab] = useState('callstack');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -75,9 +76,16 @@ function App() {
             <Graph dataLoaded={dataLoaded} setXClick={setXClick} xClick={xClick} setXLimit={setXLimit} />
             <GraphSlider xClick={xClick} setXClick={setXClick} xLimit={xLimit}/>
           </div>
+          <div className="tabs">
+            <button onClick={() => setActiveTab('operationLog')} className={activeTab === 'operationLog' ? 'active' : ''}>Operation Log</button>
+            <button onClick={() => setActiveTab('callstack')} className={activeTab === 'callstack' ? 'active' : ''}>Callstack</button>
+          </div>
+          <div className="tabContent">
+            {activeTab === 'operationLog' && <OperationLog memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} />}
+            {activeTab === 'callstack' && <Callstack xClick={xClick} />}
+          </div>
           <div className="bottom">
-            <OperationLog memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} />
-            <Callstack xClick={xClick}/>
+            {/* GraphSlider or other components if needed */}
           </div>
         </div>
         <div className="right">

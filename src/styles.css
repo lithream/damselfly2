@@ -159,3 +159,33 @@ button {
   flex-direction: row;
   justify-content: space-around;
 }
+
+.tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px; /* Space between tabs and content */
+}
+
+.tabs button {
+  padding: 10px;
+  margin: 0 5px;
+  border: 1px solid #ccc;
+  background-color: #f9f9f9;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.tabs button:hover {
+  background-color: #e2e2e2;
+}
+
+.tabs button.active {
+  border-bottom-color: transparent;
+  background-color: white;
+  box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+}
+
+.tabContent {
+  flex: 1;
+  overflow-y: auto; /* Allows content to scroll if needed */
+}
