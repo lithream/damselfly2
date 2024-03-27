@@ -68,28 +68,29 @@ function App() {
   }
 
   return (
-      <div className="container">
-        <div className="top">
-          <div className="graph">
+    <div className="container">
+      <div className="mainContent">
+        <div className="left">
+          <div className="top">
             <Graph dataLoaded={dataLoaded} setXClick={setXClick} xClick={xClick} setXLimit={setXLimit} />
             <GraphSlider xClick={xClick} setXClick={setXClick} xLimit={xLimit}/>
           </div>
-          <OperationLog memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} />
-        </div>
-        <div className="bottom">
-          <MapGrid memoryData={memoryData} blockSize={4}></MapGrid>
-          <Callstack xClick={xClick}/>
-        </div>
-        <div className="controlPanel">
-          {/* Wrap buttons in a div for better alignment */}
-          <div className="buttonGroup">
-            <button onClick={selectFilesAndInitialiseViewer}>Load</button>
-            <button onClick={() => increaseBlockSize()}>+</button>
-            <button onClick={() => decreaseBlockSize()}>-</button>
+          <div className="bottom">
+            <OperationLog memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} />
+            <Callstack xClick={xClick}/>
           </div>
-
-          {/* Legend for memory block states */}
-          <div className="memoryStateLegend">
+        </div>
+        <div className="right">
+          <MapGrid memoryData={memoryData} blockSize={4}></MapGrid>
+        </div>
+      </div>
+      <div className="controlPanel">
+        <div className="buttonGroup">
+          <button onClick={selectFilesAndInitialiseViewer}>Load</button>
+          <button onClick={() => increaseBlockSize()}>+</button>
+          <button onClick={() => decreaseBlockSize()}>-</button>
+        </div>
+        <div className="memoryStateLegend">
             <div className="legend-item">
               <div className="legend-square" style={{ backgroundColor: 'red' }}></div>
               <span className="legend-text">ALLOCATED</span>

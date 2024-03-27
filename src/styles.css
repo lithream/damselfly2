@@ -15,11 +15,28 @@
 }
 
 .container {
-  margin: 0;
   padding-top: 1vh;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  height: 100vh;
+}
+
+.mainContent {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.left, .right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.top {
+  display: flex;
+  flex-direction: column;
 }
 
 .logo {
