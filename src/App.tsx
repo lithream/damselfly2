@@ -17,7 +17,7 @@ function App() {
   const [xClick, setXClick] = useState<number>(0);
   const [xLimit, setXLimit] = useState<number>(0);
   const [memoryData, setMemoryData] = useState<Data>({ timestamp: 0, data: [] });
-  const [blockSize, setBlockSize] = useState<number>(256);
+  const [blockSize, setBlockSize] = useState<number>(32);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -68,24 +68,43 @@ function App() {
   }
 
   return (
-    <div className="container">
-      <div className="top">
-        <div className="graph">
-          <Graph dataLoaded={dataLoaded} setXClick={setXClick} xClick={xClick} setXLimit={setXLimit} />
-          <GraphSlider xClick={xClick} setXClick={setXClick} xLimit={xLimit}/>
+      <div className="container">
+        <div className="top">
+          <div className="graph">
+            <Graph dataLoaded={dataLoaded} setXClick={setXClick} xClick={xClick} setXLimit={setXLimit} />
+            <GraphSlider xClick={xClick} setXClick={setXClick} xLimit={xLimit}/>
+          </div>
+          <OperationLog memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} />
         </div>
-        <OperationLog memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} />
+        <div className="bottom">
+          <MapGrid memoryData={memoryData} blockSize={4}></MapGrid>
+          <Callstack xClick={xClick}/>
+        </div>
+        <div className="controlPanel">
+          {/* Wrap buttons in a div for better alignment */}
+          <div className="buttonGroup">
+            <button onClick={selectFilesAndInitialiseViewer}>Load</button>
+            <button onClick={() => increaseBlockSize()}>+</button>
+            <button onClick={() => decreaseBlockSize()}>-</button>
+          </div>
+
+          {/* Legend for memory block states */}
+          <div className="memoryStateLegend">
+            <div className="legend-item">
+              <div className="legend-square" style={{ backgroundColor: 'red' }}></div>
+              <span className="legend-text">ALLOCATED</span>
+            </div>
+            <div className="legend-item">
+              <div className="legend-square" style={{ backgroundColor: 'yellow' }}></div>
+              <span className="legend-text">PARTIALLY ALLOCATED</span>
+            </div>
+            <div className="legend-item">
+              <div className="legend-square" style={{ backgroundColor: 'grey' }}></div>
+              <span className="legend-text">FREE</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div className="bottom">
-        <MapGrid memoryData={memoryData} blockSize={4}></MapGrid>
-        <Callstack xClick={xClick}/>
-      </div>
-      <div className="controlPanel">
-        <button onClick={selectFilesAndInitialiseViewer}>Load</button>
-        <button onClick={() => increaseBlockSize()}>+</button>
-        <button onClick={() => decreaseBlockSize()}>-</button>
-      </div>
-    </div>
   );
 }
 

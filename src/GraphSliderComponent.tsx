@@ -11,8 +11,14 @@ interface SliderProps {
     xLimit: number;
 }
 
-const Input = styled(MuiInput)`
-    width: 42px;
+interface InputProps {
+    widthMultiplier?: number;
+}
+
+const Input = styled(MuiInput, {
+    shouldForwardProp: (prop) => prop !== 'widthMultiplier',
+})<InputProps>`
+    width: ${({ widthMultiplier }) => Math.max(42, ((widthMultiplier || 0) * 10 + 22))}px;
 `;
 
 function GraphSlider({ xClick, setXClick, xLimit }: SliderProps) {
@@ -27,13 +33,17 @@ function GraphSlider({ xClick, setXClick, xLimit }: SliderProps) {
     const handleBlur = () => {
         if (xClick < 0) {
             setXClick(0);
+        } else if (xClick > xLimit) {
+            setXClick(xLimit);
         }
-    }
+    };
+
+    // Calculate size based on the length of xClick
+    const inputSize = xClick.toString().length;
 
     return (
         <Box className="slider" sx={{ width: 250 }}>
             <Typography id="input-slider" gutterBottom>
-                Time
             </Typography>
             <Grid item xs>
                 <Slider
@@ -46,16 +56,18 @@ function GraphSlider({ xClick, setXClick, xLimit }: SliderProps) {
             </Grid>
             <Grid item>
                 <Input
-                    value={xClick}
                     size="small"
+                    value={xClick}
                     onChange={handleInputChange}
                     onBlur={handleBlur}
                     inputProps={{
                         step: 1,
                         min: 0,
-                        max: {xLimit},
+                        max: xLimit,
                         type: 'number',
                         'aria-labelledby': 'input-slider',
+                        // Dynamically adjust the size based on the value length
+                        size: inputSize,
                     }}
                 />
             </Grid>

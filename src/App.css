@@ -19,10 +19,31 @@
 }
 
 .controlPanel {
-  position: fixed;
-  bottom: 10px;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  position: fixed; /* Fix the position relative to the viewport */
+  bottom: 0; /* Anchor it to the bottom */
+  left: 0; /* Stretch it across from the left */
+  right: 0; /* to the right, making it full width */
+  background-color: #fff; /* Optional: Background color for visibility */
+  padding: 10px 0; /* Optional: Add some padding */
+  box-shadow: 0 -2px 5px rgba(0,0,0,0.2); /* Optional: Add a subtle shadow for depth */
 }
+
+/*
+.controlPanel {
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 20px;
+position: fixed;
+bottom: 10px;
+display: flex;
+
+}
+ */
 
 .top {
   display: flex;
@@ -34,4 +55,23 @@
 
 .memoryMap {
 
+}
+
+
+.legend-item {
+  display: inline-block; /* Change this to display the items inline */
+  margin-right: 15px; /* Add some spacing to the right of each item */
+}
+
+.legend-square {
+  width: 20px;
+  height: 20px;
+  display: inline-block;
+  margin-right: 5px;
+  border: 1px solid #000; /* Optional: adds a border around the square */
+}
+
+.legend-text {
+  display: inline-block;
+  vertical-align: middle;
 }
