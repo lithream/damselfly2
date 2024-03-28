@@ -102,6 +102,11 @@ impl DamselflyViewer {
     pub fn get_usage_graph(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_usage_plot_points()
     }
+    
+    pub fn get_usage_graph_realtime_sampled(&self, sample_interval: u64) -> Vec<[f64; 2]> {
+        self.graph_viewer.get_usage_plot_points_realtime_sampled(sample_interval);
+        Vec::new()
+    }
 
     pub fn get_distinct_blocks_graph(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_distinct_blocks_plot_points()

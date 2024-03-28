@@ -39,6 +39,10 @@ impl GraphViewer {
         }
         vector
     }
+    
+    pub fn get_usage_plot_points_realtime_sampled(&self, sample_interval: u64) -> Vec<[f64; 2]> {
+        Vec::new()
+    }
 
     pub fn get_distinct_blocks_plot_points(&self) -> Vec<[f64; 2]> {
         let mut vector = Vec::new();

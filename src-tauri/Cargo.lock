@@ -553,6 +553,7 @@ dependencies = [
  "crossbeam",
  "crossbeam-channel",
  "nohash-hasher",
+ "num-traits",
  "object",
  "owo-colors",
  "rand 0.8.5",

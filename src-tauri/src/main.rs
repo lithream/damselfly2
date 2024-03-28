@@ -57,6 +57,16 @@ fn get_viewer_usage_graph(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>
 }
 
 #[tauri::command]
+fn get_viewer_usage_graph_realtime_sampled(state: tauri::State<AppState>, interval_ms: u64) -> Result<Vec<[f64; 2]>, String> {
+    let viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = &*viewer_lock {
+        Ok(viewer.get_usage_graph())
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }
+}
+
+#[tauri::command]
 fn get_viewer_fragmentation_graph(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>, String> {
     let viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &*viewer_lock {

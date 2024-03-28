@@ -23,6 +23,7 @@ crossbeam-channel = "0.5.11"
 symbolic = "12.8.0"
 owo-colors = "4.0.0"
 rust-lapper = "1.1.0"
+num-traits = "0.2.18"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

@@ -19,7 +19,12 @@ impl MemoryCache {
         let mut memory_cache_snapshots = Vec::new();
         let mut new_snapshot = MemoryCanvas::new(start, stop, block_size, vec![]);
         new_snapshot.insert_blocks();
+        println!("Caching operations for performance.");
+        let mut chunk_no = 1;
+        let chunks_len = (update_intervals.len() / interval) + 1;
         for chunk in chunks {
+            println!("Caching chunk {chunk_no} of {chunks_len}");
+            chunk_no += 1;
             let mut temporary_updates = Vec::new();
             for update in chunk {
                 temporary_updates.push(update.clone());
@@ -44,7 +49,7 @@ impl MemoryCache {
             Err("[MemoryCache::query_cache]: Cache index out of bounds.".to_string())
         }
     }
-    
+
     pub fn change_block_size(&mut self, new_block_size: usize) {
         eprintln!("[MemoryCache::change_block_size]: Recomputing cache. Changing block size to: {new_block_size}");
         let (start, stop) = Utility::get_canvas_span(&self.update_intervals);

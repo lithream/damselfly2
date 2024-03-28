@@ -1,0 +1,6 @@
+add time scale graph
+add total free space / largest block (1 is ideal), subtract 1 from metric
+
+press reset -> flush quickly to get full trace
+add udw command to find full memory pool bounds
+

@@ -10,4 +10,5 @@ pub mod memory_status;
 pub mod update_sampler;
 pub mod memory_cache;
 pub mod memory_cache_snapshot;
+pub(crate) mod utility;
 

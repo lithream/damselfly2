@@ -7,16 +7,18 @@ pub struct MemoryUsage {
     largest_free_block: (usize, usize, usize),
     free_blocks: usize,
     latest_operation: usize,
+    timestamp_microseconds: u64,
 }
 
 impl MemoryUsage {
-    pub fn new(memory_used_absolute: i128, distinct_blocks: usize, largest_free_block: (usize, usize, usize), free_blocks: usize, latest_operation: usize) -> MemoryUsage {
+    pub fn new(memory_used_absolute: i128, distinct_blocks: usize, largest_free_block: (usize, usize, usize), free_blocks: usize, latest_operation: usize, timestamp_microseconds: u64) -> MemoryUsage {
         MemoryUsage {
             memory_used_absolute,
             distinct_blocks,
             largest_free_block,
             free_blocks,
             latest_operation,
+            timestamp_microseconds,
         }
     }
 }
@@ -25,18 +27,43 @@ impl MemoryUsage {
     pub fn get_memory_used_absolute(&self) -> i128 {
         self.memory_used_absolute
     }
+    pub fn set_memory_used_absolute(&mut self, memory_used_absolute: i128) {
+        self.memory_used_absolute = memory_used_absolute;
+    }
     
     pub fn get_distinct_blocks(&self) -> usize {
         self.distinct_blocks
     }
     
+    pub fn set_distinct_blocks(&mut self, distinct_blocks: usize) {
+        self.distinct_blocks = distinct_blocks;
+    }
+    
     pub fn get_latest_operation(&self) -> usize {
         self.latest_operation
     }
+    
+    pub fn set_latest_operation(&mut self, latest_operation: usize) {
+        self.latest_operation = latest_operation;
+    }
 
     pub fn get_largest_free_block(&self) -> (usize, usize, usize) { self.largest_free_block }
+    
+    pub fn set_largest_free_block(&mut self, largest_free_block: (usize, usize, usize)) {
+        self.largest_free_block = largest_free_block;
+    }
 
     pub fn get_free_blocks(&self) -> usize { self.free_blocks }
+    
+    pub fn set_free_blocks(&mut self, free_blocks: usize) {
+        self.free_blocks = free_blocks;
+    }
+    
+    pub fn get_timestamp_microseconds(&self) -> u64 { self.timestamp_microseconds }
+    
+    pub fn set_timestamp_microseconds(&mut self, timestamp_microseconds: u64) {
+        self.timestamp_microseconds = timestamp_microseconds;
+    }
 }
 
 impl Eq for MemoryUsage {}
@@ -64,9 +91,9 @@ mod tests {
 
     #[test]
     fn ordering_test() {
-        let base = MemoryUsage::new(128, 4, (0, 0, 0), 0, 4);
-        let larger = MemoryUsage::new(256, 3, (0, 0, 0), 0, 3);
-        let equal = MemoryUsage::new(128, 32, (0, 0, 0), 0, 32);
+        let base = MemoryUsage::new(128, 4, (0, 0, 0), 0, 4, 0);
+        let larger = MemoryUsage::new(256, 3, (0, 0, 0), 0, 3, 0);
+        let equal = MemoryUsage::new(128, 32, (0, 0, 0), 0, 32, 0);
         assert_eq!(base, equal);
         assert!(base < larger);
         assert!(equal < larger);

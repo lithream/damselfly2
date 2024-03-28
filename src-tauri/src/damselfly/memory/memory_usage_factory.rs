@@ -3,6 +3,7 @@ use owo_colors::OwoColorize;
 use rust_lapper::Lapper;
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use crate::damselfly::memory::memory_usage::MemoryUsage;
+use crate::damselfly::memory::utility::Utility;
 use crate::damselfly::update_interval::distinct_block_counter::DistinctBlockCounter;
 
 pub struct MemoryUsageFactory {
@@ -46,9 +47,10 @@ impl MemoryUsageFactory {
             let distinct_blocks = distinct_block_counter.get_distinct_blocks();
             let free_blocks = distinct_block_counter.get_free_blocks();
             let largest_free_block = distinct_block_counter.get_largest_free_block();
+            let real_timestamp_microseconds = Utility::convert_to_microseconds(&update.get_real_timestamp());
             max_distinct_blocks = max(max_distinct_blocks, distinct_blocks);
 
-            memory_usages.push(MemoryUsage::new(current_usage, distinct_blocks as usize, largest_free_block, free_blocks.len(), index));
+            memory_usages.push(MemoryUsage::new(current_usage, distinct_blocks as usize, largest_free_block, free_blocks.len(), index, real_timestamp_microseconds));
             self.counter += 1;
         }
         (memory_usages, max_usage, max_distinct_blocks as usize)
