@@ -10,8 +10,8 @@ pub mod memory_status;
 pub mod update_sampler;
 pub mod memory_cache;
 pub mod memory_cache_snapshot;
-pub(crate) mod utility;
+pub mod utility;
 pub mod sampled_memory_usages_factory;
-mod sampled_memory_usages;
-mod memory_usage_sample;
+pub mod sampled_memory_usages;
+pub mod memory_usage_sample;
 

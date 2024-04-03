@@ -30,10 +30,10 @@ function Graph({ dataLoaded , setXClick , xClick, setXLimit }: GraphProps) {
 
     const fetchData = async () => {
         try {
-            const usageData: Array<[number, number]> = await invoke('get_viewer_usage_graph');
-            const fragmentationData: Array<[number, number]> = await invoke('get_viewer_fragmentation_graph');
-            const largestFreeBlockData: Array<[number, number]> = await invoke('get_viewer_largest_block_graph');
-            const freeBlocksData: Array<[number, number]> = await invoke('get_viewer_free_blocks_graph');
+            const usageData: Array<[number, number]> = await invoke('get_viewer_usage_graph_sampled');
+            const fragmentationData: Array<[number, number]> = await invoke('get_viewer_usage_graph_sampled');
+            const largestFreeBlockData: Array<[number, number]> = await invoke('get_viewer_usage_graph_sampled');
+            const freeBlocksData: Array<[number, number]> = await invoke('get_viewer_usage_graph_sampled');
 
             let formattedData = [];
             for (let i = 0; i < usageData.length; i++) {

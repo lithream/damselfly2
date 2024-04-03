@@ -1,5 +1,6 @@
 use crate::damselfly::memory::memory_usage::MemoryUsage;
 
+#[derive(Clone)]
 pub struct MemoryUsageSample {
     memory_usages: Vec<MemoryUsage>,
     first: u64,

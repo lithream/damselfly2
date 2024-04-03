@@ -29,6 +29,7 @@ impl MemoryUsageFactory {
         self.memory_updates = updates;
     }
 
+    // (memory_usages, max_usage, max_distinct_blocks)
     pub fn calculate_usage_stats(&mut self) -> (Vec<MemoryUsage>, i128, usize) {
         let mut current_usage = 0;
         let mut max_usage = 0;

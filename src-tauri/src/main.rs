@@ -20,6 +20,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             initialise_viewer,
             get_viewer_usage_graph,
+            get_viewer_usage_graph_sampled,
             get_viewer_fragmentation_graph,
             get_viewer_largest_block_graph,
             get_viewer_free_blocks_graph,
@@ -57,10 +58,10 @@ fn get_viewer_usage_graph(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>
 }
 
 #[tauri::command]
-fn get_viewer_usage_graph_realtime_sampled(state: tauri::State<AppState>, interval_ms: u64) -> Result<Vec<[f64; 2]>, String> {
+fn get_viewer_usage_graph_sampled(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>, String> {
     let viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &*viewer_lock {
-        Ok(viewer.get_usage_graph())
+        Ok(viewer.get_usage_graph_realtime_sampled())
     } else {
         Err("Viewer is not initialised".to_string())
     }

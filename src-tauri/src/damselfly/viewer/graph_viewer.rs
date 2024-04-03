@@ -1,4 +1,5 @@
 use crate::damselfly::memory::memory_usage::MemoryUsage;
+use crate::damselfly::memory::sampled_memory_usages::SampledMemoryUsages;
 
 enum GraphMode {
     NORMAL,
@@ -7,7 +8,7 @@ enum GraphMode {
 
 pub struct GraphViewer {
     memory_usage_snapshots: Vec<MemoryUsage>,
-    sampled_memory_usage_snapshots: Vec<((u64, u64), MemoryUsage)>,
+    sampled_memory_usage_snapshots: SampledMemoryUsages,
     current_highlight: Option<usize>,
     saved_highlight: usize,
     max_usage: i128,
@@ -18,7 +19,7 @@ pub struct GraphViewer {
 }
 
 impl GraphViewer {
-    pub fn new(memory_usage_snapshots: Vec<MemoryUsage>, sampled_memory_usage_snapshots: Vec<((u64, u64), MemoryUsage)>, max_usage: i128, max_distinct_blocks: usize, ) -> GraphViewer {
+    pub fn new(memory_usage_snapshots: Vec<MemoryUsage>, sampled_memory_usage_snapshots: SampledMemoryUsages, max_usage: i128, max_distinct_blocks: usize, ) -> GraphViewer {
         GraphViewer {
             memory_usage_snapshots,
             sampled_memory_usage_snapshots,
@@ -42,8 +43,18 @@ impl GraphViewer {
         vector
     }
     
-    pub fn get_usage_plot_points_realtime_sampled(&self, sample_interval: u64) {
-
+    pub fn get_usage_plot_points_realtime_sampled(&self) -> Vec<[f64; 2]> {
+        let mut vector = Vec::new();
+        for (index, snapshot) in self.sampled_memory_usage_snapshots.get_samples().iter().enumerate() {
+            let memory_used_percentage =
+                (snapshot.get_sampled_usage().get_memory_used_absolute() as f64 * 100.0) / self.get_max_usage() as f64;
+            vector.push([index as f64, memory_used_percentage]);
+        }
+        vector
+    }
+    
+    pub fn set_sample_interval(&mut self, new_sample_interval: u64) {
+        self.sampled_memory_usage_snapshots.set_sample_interval(new_sample_interval);
     }
 
     pub fn get_distinct_blocks_plot_points(&self) -> Vec<[f64; 2]> {

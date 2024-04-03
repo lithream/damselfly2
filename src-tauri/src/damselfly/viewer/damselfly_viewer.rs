@@ -6,6 +6,7 @@ use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
 use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::MemoryUpdateType;
 use crate::damselfly::memory::memory_usage_factory::MemoryUsageFactory;
+use crate::damselfly::memory::sampled_memory_usages::SampledMemoryUsages;
 use crate::damselfly::update_interval::update_interval_factory::UpdateIntervalFactory;
 use crate::damselfly::update_interval::update_queue_compressor::UpdateQueueCompressor;
 use crate::damselfly::update_interval::UpdateInterval;
@@ -24,7 +25,9 @@ impl DamselflyViewer {
         let memory_updates = mem_sys_trace_parser.parse_log(log_path, binary_path);
         let (memory_usages, max_usage, max_distinct_blocks) =
             MemoryUsageFactory::new(memory_updates.clone()).calculate_usage_stats();
-        let sampled_memory_usages = SampledMemoryUsagesFactory::new(1, memory_usages.clone()).divide_usages_into_buckets();
+        eprintln!("memory_usages len: {}", memory_usages.len());
+        let sampled_memory_usages = SampledMemoryUsages::new(10000, memory_usages.clone());
+        eprintln!("sampled len: {}", sampled_memory_usages.get_samples().len());
         let graph_viewer = GraphViewer::new(memory_usages, sampled_memory_usages, max_usage, max_distinct_blocks);
         let update_intervals = UpdateIntervalFactory::new(memory_updates).construct_enum_vector();
         let map_viewer = MapViewer::new(update_intervals);
@@ -105,9 +108,10 @@ impl DamselflyViewer {
         self.graph_viewer.get_usage_plot_points()
     }
     
-    pub fn get_usage_graph_realtime_sampled(&self, sample_interval: u64) -> Vec<[f64; 2]> {
-        self.graph_viewer.get_usage_plot_points_realtime_sampled(sample_interval);
-        Vec::new()
+    pub fn get_usage_graph_realtime_sampled(&self) -> Vec<[f64; 2]> {
+        let points = self.graph_viewer.get_usage_plot_points_realtime_sampled();
+        dbg!(points[64]);
+        points
     }
 
     pub fn get_distinct_blocks_graph(&self) -> Vec<[f64; 2]> {

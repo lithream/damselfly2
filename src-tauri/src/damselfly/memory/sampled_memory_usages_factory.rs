@@ -2,6 +2,7 @@ use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::slice::Iter;
 use crate::damselfly::memory::memory_usage::MemoryUsage;
+use crate::damselfly::memory::memory_usage_sample::MemoryUsageSample;
 use crate::damselfly::memory::sampled_memory_usages::SampledMemoryUsages;
 use crate::damselfly::memory::utility::Utility;
 
@@ -23,14 +24,14 @@ impl SampledMemoryUsagesFactory {
     // average usages in each bucket
     // push into vec
     // nonexistent timestamps should just dupe the previous one
-    pub fn divide_usages_into_buckets(&self) -> Vec<((u64, u64), MemoryUsage)> {
+    pub fn divide_usages_into_buckets(&self) -> Vec<MemoryUsageSample> {
         let mut buckets = HashMap::new();
         for usage in &self.memory_usages {
             let rounded_timestamp = Utility::round_to_nearest_multiple_of(usage.get_timestamp_microseconds(), self.sample_interval);
             buckets.entry(rounded_timestamp).or_insert(Vec::new()).push(usage.clone());
         }
 
-        let mut averaged_buckets: Vec<((u64, u64), MemoryUsage)> = Vec::new();
+        let mut averaged_buckets = Vec::new();
         let mut bucket_keys: Vec<u64> = buckets.keys().cloned().collect();
         bucket_keys.sort();
         let last_key = *bucket_keys.last().unwrap_or(&0);
@@ -39,7 +40,7 @@ impl SampledMemoryUsagesFactory {
         for key in (0..=last_key).step_by(self.sample_interval as usize) {
             match buckets.get(&key) {
                 None => {
-                    averaged_buckets.push((previous_first_last_operations, previous_averaged_usage.clone()));
+                    averaged_buckets.push(MemoryUsageSample::new(Vec::new(), previous_first_last_operations.0, previous_first_last_operations.1, previous_averaged_usage.clone()));
                 }
                 Some(usages) => {
                     let mut bucket_usage = 
@@ -78,7 +79,7 @@ impl SampledMemoryUsagesFactory {
                     bucket_usage.set_latest_operation(bucket_latest_operation);
                     previous_averaged_usage = bucket_usage.clone();
                     previous_first_last_operations = first_last_operations;
-                    averaged_buckets.push((first_last_operations, bucket_usage.clone()));
+                    averaged_buckets.push(MemoryUsageSample::new(usages.clone(), first_last_operations.0, first_last_operations.1, bucket_usage.clone()));
                 }
             }
         }
@@ -91,7 +92,11 @@ impl SampledMemoryUsagesFactory {
 }
 
 mod tests {
+    use crate::damselfly::consts::TEST_LOG;
+    use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
     use crate::damselfly::memory::memory_usage::MemoryUsage;
+    use crate::damselfly::memory::memory_usage_factory::MemoryUsageFactory;
+    use crate::damselfly::memory::memory_usage_sample::MemoryUsageSample;
     use crate::damselfly::memory::sampled_memory_usages_factory::SampledMemoryUsagesFactory;
 
     #[test]
@@ -106,14 +111,14 @@ mod tests {
             MemoryUsage::new(1, 1, (0, 0, 0), 1, 1, 0),
         ];
         let memory_usage_sampler = SampledMemoryUsagesFactory::new(1, memory_usages);
-        assert_eq!(memory_usage_sampler.divide_usages_into_buckets().first().unwrap().0.0, 1);
-        assert_eq!(memory_usage_sampler.divide_usages_into_buckets().first().unwrap().0.1, 1);
-        assert_eq!(memory_usage_sampler.divide_usages_into_buckets().first().unwrap().1.get_memory_used_absolute(), 1);
-        assert_eq!(memory_usage_sampler.divide_usages_into_buckets().first().unwrap().1.get_distinct_blocks(), 1);
-        assert_eq!(memory_usage_sampler.divide_usages_into_buckets().first().unwrap().1.get_free_blocks(), 1);
-        assert_eq!(memory_usage_sampler.divide_usages_into_buckets().first().unwrap().1.get_largest_free_block(), (0, 0, 0));
-        assert_eq!(memory_usage_sampler.divide_usages_into_buckets().first().unwrap().1.get_latest_operation(), 1);
-        assert_eq!(memory_usage_sampler.divide_usages_into_buckets().first().unwrap().1.get_timestamp_microseconds(), 0);
+        assert_eq!(memory_usage_sampler.divide_usages_into_buckets().first().unwrap().get_first(), 1);
+        assert_eq!(memory_usage_sampler.divide_usages_into_buckets().first().unwrap().get_last(), 1);
+        assert_eq!(memory_usage_sampler.divide_usages_into_buckets().first().unwrap().get_sampled_usage().get_memory_used_absolute(), 1);
+        assert_eq!(memory_usage_sampler.divide_usages_into_buckets().first().unwrap().get_sampled_usage().get_distinct_blocks(), 1);
+        assert_eq!(memory_usage_sampler.divide_usages_into_buckets().first().unwrap().get_sampled_usage().get_free_blocks(), 1);
+        assert_eq!(memory_usage_sampler.divide_usages_into_buckets().first().unwrap().get_sampled_usage().get_largest_free_block(), (0, 0, 0));
+        assert_eq!(memory_usage_sampler.divide_usages_into_buckets().first().unwrap().get_sampled_usage().get_latest_operation(), 1);
+        assert_eq!(memory_usage_sampler.divide_usages_into_buckets().first().unwrap().get_sampled_usage().get_timestamp_microseconds(), 0);
     }
 
     #[test]
@@ -125,33 +130,30 @@ mod tests {
         ];
         let memory_usage_sampler = SampledMemoryUsagesFactory::new(1, memory_usages);
         let buckets = memory_usage_sampler.divide_usages_into_buckets();
-        assert_eq!(buckets[0].1.get_memory_used_absolute(), 0);
-        assert_eq!(buckets[0].1.get_distinct_blocks(), 0);
-        assert_eq!(buckets[0].1.get_free_blocks(), 0);
-        assert_eq!(buckets[0].1.get_largest_free_block(), (0, 0, 0));
-        assert_eq!(buckets[0].1.get_latest_operation(), 0);
-        assert_eq!(buckets[0].1.get_timestamp_microseconds(), 0);
-
-        assert_eq!(buckets[1].1.get_memory_used_absolute(), 1);
-        assert_eq!(buckets[1].1.get_distinct_blocks(), 1);
-        assert_eq!(buckets[1].1.get_free_blocks(), 1);
-        assert_eq!(buckets[1].1.get_largest_free_block(), (1, 2, 1));
-        assert_eq!(buckets[1].1.get_latest_operation(), 1);
-        assert_eq!(buckets[1].1.get_timestamp_microseconds(), 1);
-
-        assert_eq!(buckets[2].1.get_memory_used_absolute(), 2);
-        assert_eq!(buckets[2].1.get_distinct_blocks(), 2);
-        assert_eq!(buckets[2].1.get_free_blocks(), 2);
-        assert_eq!(buckets[2].1.get_largest_free_block(), (2, 4, 2));
-        assert_eq!(buckets[2].1.get_latest_operation(), 2);
-        assert_eq!(buckets[2].1.get_timestamp_microseconds(), 2);
-
-        assert_eq!(buckets[3].1.get_memory_used_absolute(), 3);
-        assert_eq!(buckets[3].1.get_distinct_blocks(), 3);
-        assert_eq!(buckets[3].1.get_free_blocks(), 3);
-        assert_eq!(buckets[3].1.get_largest_free_block(), (3, 6, 3));
-        assert_eq!(buckets[3].1.get_latest_operation(), 3);
-        assert_eq!(buckets[3].1.get_timestamp_microseconds(), 3);
+        assert_eq!(buckets[0].get_sampled_usage().get_memory_used_absolute(), 0);
+        assert_eq!(buckets[0].get_sampled_usage().get_distinct_blocks(), 0);
+        assert_eq!(buckets[0].get_sampled_usage().get_free_blocks(), 0);
+        assert_eq!(buckets[0].get_sampled_usage().get_largest_free_block(), (0, 0, 0));
+        assert_eq!(buckets[0].get_sampled_usage().get_latest_operation(), 0);
+        assert_eq!(buckets[0].get_sampled_usage().get_timestamp_microseconds(), 0);
+        assert_eq!(buckets[1].get_sampled_usage().get_memory_used_absolute(), 1);
+        assert_eq!(buckets[1].get_sampled_usage().get_distinct_blocks(), 1);
+        assert_eq!(buckets[1].get_sampled_usage().get_free_blocks(), 1);
+        assert_eq!(buckets[1].get_sampled_usage().get_largest_free_block(), (1, 2, 1));
+        assert_eq!(buckets[1].get_sampled_usage().get_latest_operation(), 1);
+        assert_eq!(buckets[1].get_sampled_usage().get_timestamp_microseconds(), 1);
+        assert_eq!(buckets[2].get_sampled_usage().get_memory_used_absolute(), 2);
+        assert_eq!(buckets[2].get_sampled_usage().get_distinct_blocks(), 2);
+        assert_eq!(buckets[2].get_sampled_usage().get_free_blocks(), 2);
+        assert_eq!(buckets[2].get_sampled_usage().get_largest_free_block(), (2, 4, 2));
+        assert_eq!(buckets[2].get_sampled_usage().get_latest_operation(), 2);
+        assert_eq!(buckets[2].get_sampled_usage().get_timestamp_microseconds(), 2);
+        assert_eq!(buckets[3].get_sampled_usage().get_memory_used_absolute(), 3);
+        assert_eq!(buckets[3].get_sampled_usage().get_distinct_blocks(), 3);
+        assert_eq!(buckets[3].get_sampled_usage().get_free_blocks(), 3);
+        assert_eq!(buckets[3].get_sampled_usage().get_largest_free_block(), (3, 6, 3));
+        assert_eq!(buckets[3].get_sampled_usage().get_latest_operation(), 3);
+        assert_eq!(buckets[3].get_sampled_usage().get_timestamp_microseconds(), 3);
     }
     
     #[test]
@@ -173,30 +175,30 @@ mod tests {
         let memory_usage_sampler = SampledMemoryUsagesFactory::new(1, memory_usages);
         let buckets = memory_usage_sampler.divide_usages_into_buckets();       
         
-        assert_eq!(buckets[0].1.get_memory_used_absolute(), 0);
-        assert_eq!(buckets[0].1.get_distinct_blocks(), 0);
-        assert_eq!(buckets[0].1.get_largest_free_block(), (0, 0, 0));
-        assert_eq!(buckets[0].1.get_free_blocks(), 0);
-        assert_eq!(buckets[0].1.get_latest_operation(), 0);
-        assert_eq!(buckets[0].1.get_timestamp_microseconds(), 0);
-        assert_eq!(buckets[1].1.get_memory_used_absolute(), 2);
-        assert_eq!(buckets[1].1.get_distinct_blocks(), 2);
-        assert_eq!(buckets[1].1.get_largest_free_block(), (3, 6, 3));
-        assert_eq!(buckets[1].1.get_free_blocks(), 2);
-        assert_eq!(buckets[1].1.get_latest_operation(), 3);
-        assert_eq!(buckets[1].1.get_timestamp_microseconds(), 1);
-        assert_eq!(buckets[2].1.get_memory_used_absolute(), 4);
-        assert_eq!(buckets[2].1.get_distinct_blocks(), 4);
-        assert_eq!(buckets[2].1.get_largest_free_block(), (5, 10, 5));
-        assert_eq!(buckets[2].1.get_free_blocks(), 4);
-        assert_eq!(buckets[2].1.get_latest_operation(), 5);
-        assert_eq!(buckets[2].1.get_timestamp_microseconds(), 2);
-        assert_eq!(buckets[3].1.get_memory_used_absolute(), 6);
-        assert_eq!(buckets[3].1.get_distinct_blocks(), 6);
-        assert_eq!(buckets[3].1.get_largest_free_block(), (6, 12, 6));
-        assert_eq!(buckets[3].1.get_free_blocks(), 6);
-        assert_eq!(buckets[3].1.get_latest_operation(), 6);
-        assert_eq!(buckets[3].1.get_timestamp_microseconds(), 3);
+        assert_eq!(buckets[0].get_sampled_usage().get_memory_used_absolute(), 0);
+        assert_eq!(buckets[0].get_sampled_usage().get_distinct_blocks(), 0);
+        assert_eq!(buckets[0].get_sampled_usage().get_largest_free_block(), (0, 0, 0));
+        assert_eq!(buckets[0].get_sampled_usage().get_free_blocks(), 0);
+        assert_eq!(buckets[0].get_sampled_usage().get_latest_operation(), 0);
+        assert_eq!(buckets[0].get_sampled_usage().get_timestamp_microseconds(), 0);
+        assert_eq!(buckets[1].get_sampled_usage().get_memory_used_absolute(), 2);
+        assert_eq!(buckets[1].get_sampled_usage().get_distinct_blocks(), 2);
+        assert_eq!(buckets[1].get_sampled_usage().get_largest_free_block(), (3, 6, 3));
+        assert_eq!(buckets[1].get_sampled_usage().get_free_blocks(), 2);
+        assert_eq!(buckets[1].get_sampled_usage().get_latest_operation(), 3);
+        assert_eq!(buckets[1].get_sampled_usage().get_timestamp_microseconds(), 1);
+        assert_eq!(buckets[2].get_sampled_usage().get_memory_used_absolute(), 4);
+        assert_eq!(buckets[2].get_sampled_usage().get_distinct_blocks(), 4);
+        assert_eq!(buckets[2].get_sampled_usage().get_largest_free_block(), (5, 10, 5));
+        assert_eq!(buckets[2].get_sampled_usage().get_free_blocks(), 4);
+        assert_eq!(buckets[2].get_sampled_usage().get_latest_operation(), 5);
+        assert_eq!(buckets[2].get_sampled_usage().get_timestamp_microseconds(), 2);
+        assert_eq!(buckets[3].get_sampled_usage().get_memory_used_absolute(), 6);
+        assert_eq!(buckets[3].get_sampled_usage().get_distinct_blocks(), 6);
+        assert_eq!(buckets[3].get_sampled_usage().get_largest_free_block(), (6, 12, 6));
+        assert_eq!(buckets[3].get_sampled_usage().get_free_blocks(), 6);
+        assert_eq!(buckets[3].get_sampled_usage().get_latest_operation(), 6);
+        assert_eq!(buckets[3].get_sampled_usage().get_timestamp_microseconds(), 3);
     }
     
     #[test]
@@ -236,41 +238,52 @@ mod tests {
         let memory_usage_sampler = SampledMemoryUsagesFactory::new(2, memory_usages);
         let buckets = memory_usage_sampler.divide_usages_into_buckets();
 
-        assert_eq!(buckets[0].0.0, 1);
-        assert_eq!(buckets[0].0.1, 2);
-        assert_eq!(buckets[0].1.get_memory_used_absolute(), 0);
-        assert_eq!(buckets[0].1.get_distinct_blocks(), 0);
-        assert_eq!(buckets[0].1.get_largest_free_block(), (0, 0, 0));
-        assert_eq!(buckets[0].1.get_free_blocks(), 0);
-        assert_eq!(buckets[0].1.get_latest_operation(), 0);
-        assert_eq!(buckets[0].1.get_timestamp_microseconds(), 0);
+        assert_eq!(buckets[0].get_first(), 1);
+        assert_eq!(buckets[0].get_last(), 2);
+        assert_eq!(buckets[0].get_sampled_usage().get_memory_used_absolute(), 0);
+        assert_eq!(buckets[0].get_sampled_usage().get_distinct_blocks(), 0);
+        assert_eq!(buckets[0].get_sampled_usage().get_largest_free_block(), (0, 0, 0));
+        assert_eq!(buckets[0].get_sampled_usage().get_free_blocks(), 0);
+        assert_eq!(buckets[0].get_sampled_usage().get_latest_operation(), 0);
+        assert_eq!(buckets[0].get_sampled_usage().get_timestamp_microseconds(), 0);
+        assert_eq!(buckets[1].get_first(), 3);
+        assert_eq!(buckets[1].get_last(), 4);
+        assert_eq!(buckets[1].get_sampled_usage().get_memory_used_absolute(), 3);
+        assert_eq!(buckets[1].get_sampled_usage().get_distinct_blocks(), 3);
+        assert_eq!(buckets[1].get_sampled_usage().get_largest_free_block(), (6, 12, 6));
+        assert_eq!(buckets[1].get_sampled_usage().get_free_blocks(), 3);
+        assert_eq!(buckets[1].get_sampled_usage().get_latest_operation(), 6);
+        assert_eq!(buckets[1].get_sampled_usage().get_timestamp_microseconds(), 2);
+        assert_eq!(buckets[2].get_first(), 4);
+        assert_eq!(buckets[2].get_last(), 5);
+        assert_eq!(buckets[2].get_sampled_usage().get_memory_used_absolute(), 9);
+        assert_eq!(buckets[2].get_sampled_usage().get_distinct_blocks(), 9);
+        assert_eq!(buckets[2].get_sampled_usage().get_largest_free_block(), (12, 24, 12));
+        assert_eq!(buckets[2].get_sampled_usage().get_free_blocks(), 9);
+        assert_eq!(buckets[2].get_sampled_usage().get_latest_operation(), 12);
+        assert_eq!(buckets[2].get_sampled_usage().get_timestamp_microseconds(), 4);
+        assert_eq!(buckets[3].get_first(), 6);
+        assert_eq!(buckets[3].get_last(), 7);
+        assert_eq!(buckets[3].get_sampled_usage().get_memory_used_absolute(), 15);
+        assert_eq!(buckets[3].get_sampled_usage().get_distinct_blocks(), 15);
+        assert_eq!(buckets[3].get_sampled_usage().get_largest_free_block(), (18, 36, 18));
+        assert_eq!(buckets[3].get_sampled_usage().get_free_blocks(), 15);
+        assert_eq!(buckets[3].get_sampled_usage().get_latest_operation(), 18);
+        assert_eq!(buckets[3].get_sampled_usage().get_timestamp_microseconds(), 6);
+    }
 
-        assert_eq!(buckets[1].0.0, 3);
-        assert_eq!(buckets[1].0.1, 4);
-        assert_eq!(buckets[1].1.get_memory_used_absolute(), 3);
-        assert_eq!(buckets[1].1.get_distinct_blocks(), 3);
-        assert_eq!(buckets[1].1.get_largest_free_block(), (6, 12, 6));
-        assert_eq!(buckets[1].1.get_free_blocks(), 3);
-        assert_eq!(buckets[1].1.get_latest_operation(), 6);
-        assert_eq!(buckets[1].1.get_timestamp_microseconds(), 2);
-
-        assert_eq!(buckets[2].0.0, 4);
-        assert_eq!(buckets[2].0.1, 5);
-        assert_eq!(buckets[2].1.get_memory_used_absolute(), 9);
-        assert_eq!(buckets[2].1.get_distinct_blocks(), 9);
-        assert_eq!(buckets[2].1.get_largest_free_block(), (12, 24, 12));
-        assert_eq!(buckets[2].1.get_free_blocks(), 9);
-        assert_eq!(buckets[2].1.get_latest_operation(), 12);
-        assert_eq!(buckets[2].1.get_timestamp_microseconds(), 4);
-
-        assert_eq!(buckets[3].0.0, 6);
-        assert_eq!(buckets[3].0.1, 7);
-        assert_eq!(buckets[3].1.get_memory_used_absolute(), 15);
-        assert_eq!(buckets[3].1.get_distinct_blocks(), 15);
-        assert_eq!(buckets[3].1.get_largest_free_block(), (18, 36, 18));
-        assert_eq!(buckets[3].1.get_free_blocks(), 15);
-        assert_eq!(buckets[3].1.get_latest_operation(), 18);
-        assert_eq!(buckets[3].1.get_timestamp_microseconds(), 6);
+    #[test]
+    fn real_log_test() {
+        let memory_updates = MemorySysTraceParser::new().parse_log_directly(TEST_LOG, "./threadxApp");
+        let (memory_usages, max_usage, max_distinct_blocks) = MemoryUsageFactory::new(memory_updates).calculate_usage_stats();
+        let memory_usage_sampler = SampledMemoryUsagesFactory::new(1000000, memory_usages);
+        let buckets = memory_usage_sampler.divide_usages_into_buckets();
+        let buckets_filter: Vec<MemoryUsageSample> = buckets
+            .iter()
+            .filter(|&bucket| bucket.get_sampled_usage().get_memory_used_absolute() > 0)
+            .cloned()
+            .collect();
+        eprintln!("{}", buckets.len());
     }
 }
 
