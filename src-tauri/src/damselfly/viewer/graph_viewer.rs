@@ -7,6 +7,7 @@ enum GraphMode {
 
 pub struct GraphViewer {
     memory_usage_snapshots: Vec<MemoryUsage>,
+    sampled_memory_usage_snapshots: Vec<((u64, u64), MemoryUsage)>,
     current_highlight: Option<usize>,
     saved_highlight: usize,
     max_usage: i128,
@@ -17,9 +18,10 @@ pub struct GraphViewer {
 }
 
 impl GraphViewer {
-    pub fn new(memory_usage_snapshots: Vec<MemoryUsage>, max_usage: i128, max_distinct_blocks: usize) -> GraphViewer {
+    pub fn new(memory_usage_snapshots: Vec<MemoryUsage>, sampled_memory_usage_snapshots: Vec<((u64, u64), MemoryUsage)>, max_usage: i128, max_distinct_blocks: usize, ) -> GraphViewer {
         GraphViewer {
             memory_usage_snapshots,
+            sampled_memory_usage_snapshots,
             current_highlight: None,
             saved_highlight: 0,
             max_usage,
@@ -40,8 +42,8 @@ impl GraphViewer {
         vector
     }
     
-    pub fn get_usage_plot_points_realtime_sampled(&self, sample_interval: u64) -> Vec<[f64; 2]> {
-        Vec::new()
+    pub fn get_usage_plot_points_realtime_sampled(&self, sample_interval: u64) {
+
     }
 
     pub fn get_distinct_blocks_plot_points(&self) -> Vec<[f64; 2]> {

@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 pub struct MemoryUsage {
     memory_used_absolute: i128,
     distinct_blocks: usize,
+    // (start, end, size)
     largest_free_block: (usize, usize, usize),
     free_blocks: usize,
     latest_operation: usize,

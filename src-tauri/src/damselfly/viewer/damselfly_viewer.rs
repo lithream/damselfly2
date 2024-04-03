@@ -11,6 +11,7 @@ use crate::damselfly::update_interval::update_queue_compressor::UpdateQueueCompr
 use crate::damselfly::update_interval::UpdateInterval;
 use crate::damselfly::viewer::graph_viewer::GraphViewer;
 use crate::damselfly::viewer::map_viewer::MapViewer;
+use crate::damselfly::memory::sampled_memory_usages_factory::SampledMemoryUsagesFactory;
 
 pub struct DamselflyViewer {
     graph_viewer: GraphViewer,
@@ -23,7 +24,8 @@ impl DamselflyViewer {
         let memory_updates = mem_sys_trace_parser.parse_log(log_path, binary_path);
         let (memory_usages, max_usage, max_distinct_blocks) =
             MemoryUsageFactory::new(memory_updates.clone()).calculate_usage_stats();
-        let graph_viewer = GraphViewer::new(memory_usages, max_usage, max_distinct_blocks);
+        let sampled_memory_usages = SampledMemoryUsagesFactory::new(1, memory_usages.clone()).divide_usages_into_buckets();
+        let graph_viewer = GraphViewer::new(memory_usages, sampled_memory_usages, max_usage, max_distinct_blocks);
         let update_intervals = UpdateIntervalFactory::new(memory_updates).construct_enum_vector();
         let map_viewer = MapViewer::new(update_intervals);
         DamselflyViewer {

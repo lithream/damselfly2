@@ -4,4 +4,3 @@ pub mod damselfly_interface;
 pub mod damselfly_viewer;
 pub mod memory_canvas;
 mod memory_block;
-mod memory_usage_sampler;
