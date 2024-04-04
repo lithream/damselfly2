@@ -52,10 +52,6 @@ impl GraphViewer {
         }
         vector
     }
-    
-    pub fn set_sample_interval(&mut self, new_sample_interval: u64) {
-        self.sampled_memory_usage_snapshots.set_sample_interval(new_sample_interval);
-    }
 
     pub fn get_distinct_blocks_plot_points(&self) -> Vec<[f64; 2]> {
         let mut vector = Vec::new();
@@ -67,10 +63,28 @@ impl GraphViewer {
         vector
     }
     
+    pub fn get_distinct_blocks_plot_points_realtime_sampled(&self) -> Vec<[f64; 2]> {
+        let mut vector = Vec::new();
+        for (index, snapshot) in self.sampled_memory_usage_snapshots.get_samples().iter().enumerate() {
+            let distinct_blocks_percentage =
+                (snapshot.get_sampled_usage().get_distinct_blocks() as f64 * 100.0) / self.get_max_distinct_blocks() as f64;
+            vector.push([index as f64, distinct_blocks_percentage]);
+        }
+        vector
+    }   
+    
     pub fn get_largest_free_block_plot_points(&self) -> Vec<[f64; 2]> {
         let mut vector = Vec::new();
         for (index, usage) in self.memory_usage_snapshots.iter().enumerate() {
             vector.push([index as f64, usage.get_largest_free_block().2 as f64]);
+        }
+        vector
+    }
+
+    pub fn get_largest_free_block_plot_points_realtime_sampled(&self) -> Vec<[f64; 2]> {
+        let mut vector = Vec::new();
+        for (index, snapshot) in self.sampled_memory_usage_snapshots.get_samples().iter().enumerate() {
+            vector.push([index as f64, snapshot.get_sampled_usage().get_largest_free_block().2 as f64]);
         }
         vector
     }
@@ -81,6 +95,22 @@ impl GraphViewer {
             vector.push([index as f64, usage.get_free_blocks() as f64]);
         }
         vector
+    }
+    
+    pub fn get_free_blocks_plot_points_realtime_sampled(&self) -> Vec<[f64; 2]> {
+        let mut vector = Vec::new();
+        for (index, snapshot) in self.sampled_memory_usage_snapshots.get_samples().iter().enumerate() {
+            vector.push([index as f64, snapshot.get_sampled_usage().get_free_blocks() as f64]);
+        }
+        vector
+    }
+    
+    pub fn get_operation_timestamp_of_realtime_timestamp(&self, realtime_timestamp: u64) -> u64 {
+        self.sampled_memory_usage_snapshots.get_operation_timestamps_in_realtime_timestamp(realtime_timestamp).1
+    }
+
+    pub fn set_sample_interval(&mut self, new_sample_interval: u64) {
+        self.sampled_memory_usage_snapshots.set_sample_interval(new_sample_interval);
     }
 
     pub fn get_total_operations(&self) -> usize {
@@ -116,5 +146,15 @@ impl GraphViewer {
 
     fn get_max_distinct_blocks(&self) -> usize {
         self.max_distinct_blocks
+    }
+}
+
+mod tests {
+    use crate::damselfly::viewer::damselfly_viewer::DamselflyViewer;
+
+    #[test]
+    fn benchmark() {
+        let damselfly_viewer = DamselflyViewer::new("./testlog.log", "./threadxApp");
+        let graph = damselfly_viewer.get_usage_graph_realtime_sampled();
     }
 }

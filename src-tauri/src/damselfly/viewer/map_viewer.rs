@@ -66,6 +66,10 @@ impl MapViewer {
         self.highest_address
     }
 
+    pub fn set_timestamp_from_realtime(&mut self, new_timestamp: u64) {
+        
+    }
+    
     pub fn set_timestamp(&mut self, new_timestamp: usize) {
         self.current_timestamp = new_timestamp.clamp(usize::MIN, self.update_intervals.len() - 1);
     }

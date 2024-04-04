@@ -21,10 +21,14 @@ fn main() {
             initialise_viewer,
             get_viewer_usage_graph,
             get_viewer_usage_graph_sampled,
-            get_viewer_fragmentation_graph,
+            get_viewer_distinct_blocks_graph,
+            get_viewer_distinct_blocks_graph_sampled,
             get_viewer_largest_block_graph,
+            get_viewer_largest_block_graph_sampled,
             get_viewer_free_blocks_graph,
+            get_viewer_free_blocks_graph_sampled,
             get_viewer_map_full_at_colours,
+            get_viewer_map_full_at_colours_realtime_sampled,
             choose_files,
             set_block_size,
             get_operation_log,
@@ -68,13 +72,23 @@ fn get_viewer_usage_graph_sampled(state: tauri::State<AppState>) -> Result<Vec<[
 }
 
 #[tauri::command]
-fn get_viewer_fragmentation_graph(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>, String> {
+fn get_viewer_distinct_blocks_graph(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>, String> {
     let viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &*viewer_lock {
         Ok(viewer.get_distinct_blocks_graph())
     } else {
         Err("Viewer is not initialised".to_string())
     }
+}
+
+#[tauri::command]
+fn get_viewer_distinct_blocks_graph_sampled(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>, String> {
+    let viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = &*viewer_lock {
+        Ok(viewer.get_distinct_blocks_graph_realtime_sampled())
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }   
 }
 
 #[tauri::command]
@@ -88,10 +102,30 @@ fn get_viewer_largest_block_graph(state: tauri::State<AppState>) -> Result<Vec<[
 }
 
 #[tauri::command]
+fn get_viewer_largest_block_graph_sampled(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>, String> {
+    let viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = &*viewer_lock {
+        Ok(viewer.get_largest_block_graph_realtime_sampled())
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }
+}
+
+#[tauri::command]
 fn get_viewer_free_blocks_graph(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>, String> {
     let viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &*viewer_lock {
         Ok(viewer.get_free_blocks_graph())
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_viewer_free_blocks_graph_sampled(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>, String> {
+    let viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = &*viewer_lock {
+        Ok(viewer.get_free_blocks_graph_realtime_sampled())
     } else {
         Err("Viewer is not initialised".to_string())
     }
@@ -109,7 +143,6 @@ fn get_viewer_map(state: tauri::State<AppState>) -> Result<Vec<MemoryStatus>, St
 
 #[tauri::command]
 fn get_viewer_map_full_at(state: tauri::State<AppState>, timestamp: usize) -> Result<Vec<MemoryStatus>, String> {
-    eprintln!("timestamp: {timestamp}");
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = viewer_lock.deref_mut() {
         Ok(viewer.get_map_full_at_nosync(timestamp))
@@ -120,9 +153,22 @@ fn get_viewer_map_full_at(state: tauri::State<AppState>, timestamp: usize) -> Re
 
 #[tauri::command]
 fn get_viewer_map_full_at_colours(state: tauri::State<AppState>, timestamp: u64, truncate_after: u64) -> Result<(u64, Vec<(i64, u64)>), String> {
+    eprintln!("timestamp: {timestamp}");
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = viewer_lock.deref_mut() {
         let res = viewer.get_map_full_at_nosync_colours_truncate(timestamp, truncate_after);
+        Ok(res)
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_viewer_map_full_at_colours_realtime_sampled(state: tauri::State<AppState>, timestamp: u64, truncate_after: u64) -> Result<(u64, Vec<(i64, u64)>), String> {
+    eprintln!("realtime_timestamp: {timestamp}");
+    let mut viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = viewer_lock.deref_mut() {
+        let res = viewer.get_map_full_at_nosync_colours_truncate_realtime_sampled(timestamp, truncate_after);
         Ok(res)
     } else {
         Err("Viewer is not initialised".to_string())

@@ -16,6 +16,7 @@ function App() {
   const [dataLoaded, setDataLoaded] = useState<boolean>(false);
   const [xClick, setXClick] = useState<number>(0);
   const [xLimit, setXLimit] = useState<number>(0);
+  const [realtimeGraph, setRealtimeGraph] = useState<boolean>(true);
   const [memoryData, setMemoryData] = useState<Data>({ timestamp: 0, data: [] });
   const [blockSize, setBlockSize] = useState<number>(32);
   const [activeTab, setActiveTab] = useState('callstack');
@@ -24,7 +25,19 @@ function App() {
     const fetchData = async () => {
       if (dataLoaded) {
         try {
-          const data: [number, number[][]] = await invoke("get_viewer_map_full_at_colours", { timestamp: xClick, truncateAfter: 256 });
+          let data: [number, number[][]];
+          if (realtimeGraph) {
+            data = await invoke("get_viewer_map_full_at_colours_realtime_sampled", {
+              timestamp: xClick,
+              truncateAfter: 256
+            });
+          } else {
+            data = await invoke("get_viewer_map_full_at_colours", {
+              timestamp: xClick,
+              truncateAfter: 256
+            });
+          }
+
           const memoryData: Data = {
             timestamp: data[0],
             data: data[1],
@@ -68,12 +81,17 @@ function App() {
     await invoke("set_block_size", { newBlockSize: Math.ceil(blockSize) });
   }
 
+  const toggleRealtime = async () => {
+    setXClick(0);
+    setRealtimeGraph(!realtimeGraph);
+  }
+
   return (
     <div className="container">
       <div className="mainContent">
         <div className="left">
           <div className="top">
-            <Graph dataLoaded={dataLoaded} setXClick={setXClick} xClick={xClick} setXLimit={setXLimit} />
+            <Graph dataLoaded={dataLoaded} realtimeGraph={realtimeGraph} setXClick={setXClick} xClick={xClick} setXLimit={setXLimit} />
             <GraphSlider xClick={xClick} setXClick={setXClick} xLimit={xLimit}/>
           </div>
           <div className="tabs">
@@ -97,6 +115,7 @@ function App() {
           <button onClick={selectFilesAndInitialiseViewer}>Load</button>
           <button onClick={() => increaseBlockSize()}>+</button>
           <button onClick={() => decreaseBlockSize()}>-</button>
+          <button onClick={() => toggleRealtime()}>TIME</button>
         </div>
         <div className="memoryStateLegend">
             <div className="legend-item">

@@ -5,6 +5,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Referenc
 
 interface GraphProps {
     dataLoaded: boolean,
+    realtimeGraph: boolean,
     setXClick: (x: number) => void;
     xClick: number;
     setXLimit: (x: number) => void;
@@ -18,7 +19,7 @@ type GraphData = {
     free_blocks: number,
 }
 
-function Graph({ dataLoaded , setXClick , xClick, setXLimit }: GraphProps) {
+function Graph({ dataLoaded, realtimeGraph, setXClick , xClick, setXLimit }: GraphProps) {
     const [data, setData] = useState<GraphData[]>([]);
     const [chartWidth, setChartWidth] = useState(window.innerWidth / 2);
     const [chartHeight, _setChartHeight] = useState(300); // Maintain a fixed height or adjust as needed
@@ -28,12 +29,60 @@ function Graph({ dataLoaded , setXClick , xClick, setXLimit }: GraphProps) {
         // Optionally, adjust height here if needed
     }, []);
 
+    const trim_blank_start_from_graphs = (
+        usageData: Array<[number, number]>,
+        fragmentationData: Array<[number, number]>,
+        largestFreeBlockData: Array<[number, number]>,
+        freeBlocksData: Array<[number, number]>) => {
+
+        let trimmedUsageData: Array<[number, number]> = [];
+        let trimmedFragmentationData: Array<[number, number]> = [];
+        let trimmedLargestFreeBlockData: Array<[number, number]> = [];
+        let trimmedFreeBlocksData: Array<[number, number]> = [];
+
+        let in_blank_area = true;
+        for (let i = 0; i < usageData.length; i++) {
+            if (in_blank_area
+                && (usageData[i][1] == 1
+                    || fragmentationData[i][1] == 1
+                    || largestFreeBlockData[i][1] == 1
+                    || freeBlocksData[i][1] == 1)
+                ) {
+                in_blank_area = false;
+            }
+            if (!in_blank_area) {
+                trimmedUsageData.push(usageData[i]);
+                trimmedFragmentationData.push(fragmentationData[i]);
+                trimmedLargestFreeBlockData.push(largestFreeBlockData[i]);
+                trimmedFreeBlocksData.push(freeBlocksData[i]);
+            }
+        }
+
+        return [trimmedUsageData, trimmedFragmentationData, trimmedLargestFreeBlockData, trimmedFreeBlocksData];
+    }
     const fetchData = async () => {
         try {
-            const usageData: Array<[number, number]> = await invoke('get_viewer_usage_graph_sampled');
-            const fragmentationData: Array<[number, number]> = await invoke('get_viewer_usage_graph_sampled');
-            const largestFreeBlockData: Array<[number, number]> = await invoke('get_viewer_usage_graph_sampled');
-            const freeBlocksData: Array<[number, number]> = await invoke('get_viewer_usage_graph_sampled');
+            let usageData: Array<[number, number]>;
+            let fragmentationData: Array<[number, number]>;
+            let largestFreeBlockData: Array<[number, number]>;
+            let freeBlocksData: Array<[number, number]>;
+
+            if (realtimeGraph) {
+                usageData = await invoke('get_viewer_usage_graph_sampled');
+                fragmentationData = await invoke('get_viewer_distinct_blocks_graph_sampled');
+                largestFreeBlockData = await invoke('get_viewer_largest_block_graph_sampled');
+                freeBlocksData = await invoke('get_viewer_free_blocks_graph_sampled');
+                let trimmedData = trim_blank_start_from_graphs(usageData, fragmentationData, largestFreeBlockData, freeBlocksData);
+                usageData = trimmedData[0];
+                fragmentationData = trimmedData[1];
+                largestFreeBlockData = trimmedData[2];
+                freeBlocksData = trimmedData[3];
+            } else {
+                usageData = await invoke('get_viewer_usage_graph');
+                fragmentationData = await invoke('get_viewer_distinct_blocks_graph');
+                largestFreeBlockData = await invoke('get_viewer_largest_block_graph');
+                freeBlocksData = await invoke('get_viewer_free_blocks_graph');
+            }
 
             let formattedData = [];
             for (let i = 0; i < usageData.length; i++) {
@@ -60,7 +109,7 @@ function Graph({ dataLoaded , setXClick , xClick, setXLimit }: GraphProps) {
 
     useEffect(() => {
         fetchData().then();
-    }, [dataLoaded]);
+    }, [dataLoaded, realtimeGraph]);
 
     useEffect(() => {
         window.addEventListener('resize', updateDimensions);

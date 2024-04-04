@@ -1,7 +1,7 @@
 use std::cmp::max;
 use std::time::Instant;
 use rust_lapper::Lapper;
-use crate::damselfly::consts::{DEFAULT_BLOCKS_TO_TRUNCATE, DEFAULT_OPERATION_LOG_SIZE};
+use crate::damselfly::consts::{DEFAULT_BLOCKS_TO_TRUNCATE, DEFAULT_OPERATION_LOG_SIZE, DEFAULT_SAMPLE_INTERVAL};
 use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
 use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::MemoryUpdateType;
@@ -26,7 +26,7 @@ impl DamselflyViewer {
         let (memory_usages, max_usage, max_distinct_blocks) =
             MemoryUsageFactory::new(memory_updates.clone()).calculate_usage_stats();
         eprintln!("memory_usages len: {}", memory_usages.len());
-        let sampled_memory_usages = SampledMemoryUsages::new(10000, memory_usages.clone());
+        let sampled_memory_usages = SampledMemoryUsages::new(DEFAULT_SAMPLE_INTERVAL, memory_usages.clone());
         eprintln!("sampled len: {}", sampled_memory_usages.get_samples().len());
         let graph_viewer = GraphViewer::new(memory_usages, sampled_memory_usages, max_usage, max_distinct_blocks);
         let update_intervals = UpdateIntervalFactory::new(memory_updates).construct_enum_vector();
@@ -104,26 +104,41 @@ impl DamselflyViewer {
         (timestamp, result)
     }
 
+    pub fn get_map_full_at_nosync_colours_truncate_realtime_sampled(&mut self, timestamp: u64, truncate_after: u64) -> (u64, Vec<(i64, u64)>) {
+        let operation_timestamp = self.graph_viewer.get_operation_timestamp_of_realtime_timestamp(timestamp);
+        self.get_map_full_at_nosync_colours_truncate(operation_timestamp, truncate_after)
+    }
+    
     pub fn get_usage_graph(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_usage_plot_points()
     }
     
     pub fn get_usage_graph_realtime_sampled(&self) -> Vec<[f64; 2]> {
-        let points = self.graph_viewer.get_usage_plot_points_realtime_sampled();
-        dbg!(points[64]);
-        points
+        self.graph_viewer.get_usage_plot_points_realtime_sampled()
     }
 
     pub fn get_distinct_blocks_graph(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_distinct_blocks_plot_points()
     }
     
+    pub fn get_distinct_blocks_graph_realtime_sampled(&self) -> Vec<[f64; 2]> {
+        self.graph_viewer.get_distinct_blocks_plot_points_realtime_sampled()
+    }
+    
     pub fn get_largest_block_graph(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_largest_free_block_plot_points()
     }
     
+    pub fn get_largest_block_graph_realtime_sampled(&self) -> Vec<[f64; 2]> {
+        self.graph_viewer.get_largest_free_block_plot_points_realtime_sampled()
+    }
+    
     pub fn get_free_blocks_graph(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_free_blocks_plot_points()
+    }
+    
+    pub fn get_free_blocks_graph_realtime_sampled(&self) -> Vec<[f64; 2]> {
+        self.graph_viewer.get_free_blocks_plot_points_realtime_sampled()
     }
 
     pub fn get_free_blocks_stats(&self) -> (usize, usize) {
@@ -137,14 +152,12 @@ impl DamselflyViewer {
         lapper.merge_overlaps();
 
         let mut largest_free_block_size: usize = 0;
-        let mut free_blocks: usize = 0;
         let mut lapper_iter = lapper.iter().peekable();
 
         while let Some(current_block) = lapper_iter.next() {
             if let Some(next_block) = lapper_iter.peek() {
                 let current_free_block_size = next_block.val.get_start() - current_block.val.get_start();
                 largest_free_block_size = max(largest_free_block_size, current_free_block_size);
-                free_blocks += 1;
             }
         }
 
