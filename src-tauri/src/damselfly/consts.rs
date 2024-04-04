@@ -1,7 +1,7 @@
 pub const DEFAULT_TIMESPAN: usize = 100;
 pub const DEFAULT_MEMORYSPAN: usize = 2048;
 pub const DEFAULT_MEMORY_SIZE: usize = 4294967295;
-pub const DEFAULT_SAMPLE_INTERVAL: u64 = 1000000;
+pub const DEFAULT_SAMPLE_INTERVAL: u64 = 10000;
 pub const DEFAULT_ROW_LENGTH: usize = 64;
 pub const MIN_ROW_LENGTH: usize = 4;
 pub const DEFAULT_BLOCK_SIZE: usize = 32;

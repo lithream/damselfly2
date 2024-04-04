@@ -184,7 +184,6 @@ impl DamselflyViewer {
     }
 
     pub fn get_current_operation(&self) -> MemoryUpdateType {
-        dbg!(&self.map_viewer.get_current_operation());
         self.map_viewer.get_current_operation()
     }
 
