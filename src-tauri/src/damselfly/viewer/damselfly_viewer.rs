@@ -108,7 +108,7 @@ impl DamselflyViewer {
         let operation_timestamp = self.graph_viewer.get_operation_timestamp_of_realtime_timestamp(timestamp);
         self.get_map_full_at_nosync_colours_truncate(operation_timestamp, truncate_after)
     }
-    
+
     pub fn get_usage_graph(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_usage_plot_points()
     }
@@ -120,7 +120,7 @@ impl DamselflyViewer {
     pub fn get_distinct_blocks_graph(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_distinct_blocks_plot_points()
     }
-    
+
     pub fn get_distinct_blocks_graph_realtime_sampled(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_distinct_blocks_plot_points_realtime_sampled()
     }
@@ -128,15 +128,15 @@ impl DamselflyViewer {
     pub fn get_largest_block_graph(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_largest_free_block_plot_points()
     }
-    
+
     pub fn get_largest_block_graph_realtime_sampled(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_largest_free_block_plot_points_realtime_sampled()
     }
-    
+
     pub fn get_free_blocks_graph(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_free_blocks_plot_points()
     }
-    
+
     pub fn get_free_blocks_graph_realtime_sampled(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_free_blocks_plot_points_realtime_sampled()
     }
@@ -184,6 +184,7 @@ impl DamselflyViewer {
     }
 
     pub fn get_current_operation(&self) -> MemoryUpdateType {
+        dbg!(&self.map_viewer.get_current_operation());
         self.map_viewer.get_current_operation()
     }
 

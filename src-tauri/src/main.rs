@@ -88,7 +88,7 @@ fn get_viewer_distinct_blocks_graph_sampled(state: tauri::State<AppState>) -> Re
         Ok(viewer.get_distinct_blocks_graph_realtime_sampled())
     } else {
         Err("Viewer is not initialised".to_string())
-    }   
+    }
 }
 
 #[tauri::command]

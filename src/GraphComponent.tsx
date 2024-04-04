@@ -43,10 +43,10 @@ function Graph({ dataLoaded, realtimeGraph, setXClick , xClick, setXLimit }: Gra
         let in_blank_area = true;
         for (let i = 0; i < usageData.length; i++) {
             if (in_blank_area
-                && (usageData[i][1] == 1
-                    || fragmentationData[i][1] == 1
-                    || largestFreeBlockData[i][1] == 1
-                    || freeBlocksData[i][1] == 1)
+                && (usageData[i][1] != 0
+                    || fragmentationData[i][1] != 0
+                    || largestFreeBlockData[i][1] != 0
+                    || freeBlocksData[i][1] != 0)
                 ) {
                 in_blank_area = false;
             }

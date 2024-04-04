@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum MemoryUpdateType {
     Allocation(Allocation),
     Free(Free)
@@ -79,7 +79,7 @@ pub trait MemoryUpdate {
     fn wrap_in_enum(self) -> MemoryUpdateType;
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Allocation {
     address: usize,
     size: usize,
@@ -100,7 +100,7 @@ impl Allocation {
     }
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Free {
     address: usize,
     size: usize,
