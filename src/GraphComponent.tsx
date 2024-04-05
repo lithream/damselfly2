@@ -9,6 +9,7 @@ interface GraphProps {
     setXClick: (x: number) => void;
     xClick: number;
     setXLimit: (x: number) => void;
+    setRealtimeGraphOffset: (x: number) => void;
 }
 
 type GraphData = {
@@ -19,7 +20,7 @@ type GraphData = {
     free_blocks: number,
 }
 
-function Graph({ dataLoaded, realtimeGraph, setXClick , xClick, setXLimit }: GraphProps) {
+function Graph({ dataLoaded, realtimeGraph, setXClick , xClick, setXLimit, setRealtimeGraphOffset }: GraphProps) {
     const [data, setData] = useState<GraphData[]>([]);
     const [chartWidth, setChartWidth] = useState(window.innerWidth / 2);
     const [chartHeight, _setChartHeight] = useState(300); // Maintain a fixed height or adjust as needed
@@ -39,6 +40,7 @@ function Graph({ dataLoaded, realtimeGraph, setXClick , xClick, setXLimit }: Gra
         let trimmedFragmentationData: Array<[number, number]> = [];
         let trimmedLargestFreeBlockData: Array<[number, number]> = [];
         let trimmedFreeBlocksData: Array<[number, number]> = [];
+        let realtimeGraphOffset: number = 0;
 
         let in_blank_area = true;
         for (let i = 0; i < usageData.length; i++) {
@@ -55,11 +57,15 @@ function Graph({ dataLoaded, realtimeGraph, setXClick , xClick, setXLimit }: Gra
                 trimmedFragmentationData.push(fragmentationData[i]);
                 trimmedLargestFreeBlockData.push(largestFreeBlockData[i]);
                 trimmedFreeBlocksData.push(freeBlocksData[i]);
+            } else {
+                realtimeGraphOffset += 1;
             }
         }
 
+        setRealtimeGraphOffset(realtimeGraphOffset);
         return [trimmedUsageData, trimmedFragmentationData, trimmedLargestFreeBlockData, trimmedFreeBlocksData];
     }
+
     const fetchData = async () => {
         try {
             let usageData: Array<[number, number]>;

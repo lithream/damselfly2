@@ -106,6 +106,8 @@ impl DamselflyViewer {
 
     pub fn get_map_full_at_nosync_colours_truncate_realtime_sampled(&mut self, timestamp: u64, truncate_after: u64) -> (u64, Vec<(i64, u64)>) {
         let operation_timestamp = self.graph_viewer.get_operation_timestamp_of_realtime_timestamp(timestamp);
+        eprintln!("timestamp: {timestamp}");
+        eprintln!("operation timestamp: {operation_timestamp}");
         self.get_map_full_at_nosync_colours_truncate(operation_timestamp, truncate_after)
     }
 
@@ -252,8 +254,9 @@ mod tests {
     
     #[test]
     fn benchmark() {
-        let mut viewer = DamselflyViewer::new("/home/oracle/dev/damselfly2/src-tauri/trace3.log", "/home/oracle/dev/damselfly2/src-tauri/threadxApp");
+        let mut viewer = DamselflyViewer::new("/home/signal/dev/damselfly2/src-tauri/trace3.log", "/home/signal/dev/threadxApp");
 //        let mut viewer = initialise_log("./tracequarter.log");
+        let graph = viewer.get_usage_graph_realtime_sampled();
         viewer.get_map_full_at_nosync_colours_truncate(13000, 256);
     }
 }

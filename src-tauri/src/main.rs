@@ -169,6 +169,7 @@ fn get_viewer_map_full_at_colours_realtime_sampled(state: tauri::State<AppState>
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = viewer_lock.deref_mut() {
         let res = viewer.get_map_full_at_nosync_colours_truncate_realtime_sampled(timestamp, truncate_after);
+        eprintln!("realtime sampled size: {}", res.1.len());
         Ok(res)
     } else {
         Err("Viewer is not initialised".to_string())

@@ -17,6 +17,7 @@ function App() {
   const [xClick, setXClick] = useState<number>(0);
   const [xLimit, setXLimit] = useState<number>(0);
   const [realtimeGraph, setRealtimeGraph] = useState<boolean>(true);
+  const [realtimeGraphOffset, setRealtimeGraphOffset] = useState<number>(0);
   const [memoryData, setMemoryData] = useState<Data>({ timestamp: 0, data: [] });
   const [blockSize, setBlockSize] = useState<number>(32);
   const [activeTab, setActiveTab] = useState('callstack');
@@ -28,7 +29,7 @@ function App() {
           let data: [number, number[][]];
           if (realtimeGraph) {
             data = await invoke("get_viewer_map_full_at_colours_realtime_sampled", {
-              timestamp: xClick,
+              timestamp: xClick + realtimeGraphOffset,
               truncateAfter: 256
             });
           } else {
@@ -91,7 +92,7 @@ function App() {
       <div className="mainContent">
         <div className="left">
           <div className="top">
-            <Graph dataLoaded={dataLoaded} realtimeGraph={realtimeGraph} setXClick={setXClick} xClick={xClick} setXLimit={setXLimit} />
+            <Graph dataLoaded={dataLoaded} realtimeGraph={realtimeGraph} setXClick={setXClick} xClick={xClick} setXLimit={setXLimit} setRealtimeGraphOffset={setRealtimeGraphOffset} />
             <GraphSlider xClick={xClick} setXClick={setXClick} xLimit={xLimit}/>
           </div>
           <div className="tabs">
