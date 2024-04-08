@@ -11,7 +11,6 @@ pub struct DistinctBlockCounter {
     start: usize,
     stop: usize,
     memory_updates: NoHashMap<usize, MemoryUpdateType>,
-    lapper: Lapper<usize, MemoryUpdateType>,
     starts_set: HashSet<usize>,
     ends_set: HashSet<usize>,
     starts_tree: BTreeSet<usize>,
@@ -26,7 +25,6 @@ impl Default for DistinctBlockCounter {
             start: 0,
             stop: 0,
             memory_updates: NoHashMap::default(),
-            lapper: Lapper::new(vec![]),
             starts_set: HashSet::new(),
             ends_set: HashSet::new(),
             starts_tree: BTreeSet::new(),
@@ -46,7 +44,6 @@ impl DistinctBlockCounter {
             start: usize::MAX,
             stop: usize::MIN,
             memory_updates: memory_updates_map,
-            lapper: Lapper::new(vec![]),
             starts_set: HashSet::new(),
             ends_set: HashSet::new(),
             starts_tree: BTreeSet::new(),
@@ -174,11 +171,6 @@ impl DistinctBlockCounter {
         }
         self.start = min(self.start, new_start);
         self.stop = max(self.stop, new_stop);
-    }
-
-    fn initialise_lapper(&mut self) {
-        self.lapper = Lapper::new(UpdateIntervalFactory::new(
-            self.memory_updates.values().cloned().collect()).construct_enum_vector());
     }
     
     pub fn get_distinct_blocks(&mut self) -> i64 {

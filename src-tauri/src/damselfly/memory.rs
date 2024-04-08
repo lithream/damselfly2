@@ -14,4 +14,5 @@ pub mod utility;
 pub mod sampled_memory_usages_factory;
 pub mod sampled_memory_usages;
 pub mod memory_usage_sample;
+mod memory_usage_stats;
 

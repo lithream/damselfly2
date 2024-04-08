@@ -6,6 +6,7 @@ import MapGrid from "./MapGridComponent";
 import OperationLog from "./OperationLogComponent.tsx";
 import GraphSlider from "./GraphSliderComponent.tsx";
 import Callstack from "./CallstackComponent.tsx";
+import BlockStatus from "./BlockStatusComponent.tsx";
 import Data from "./Data.tsx";
 import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
@@ -15,6 +16,7 @@ import '@fontsource/roboto/700.css';
 function App() {
   const [dataLoaded, setDataLoaded] = useState<boolean>(false);
   const [xClick, setXClick] = useState<number>(0);
+  const [selectedBlock, setSelectedBlock] = useState<number>(0);
   const [xLimit, setXLimit] = useState<number>(0);
   const [realtimeGraph, setRealtimeGraph] = useState<boolean>(true);
   const [realtimeGraphOffset, setRealtimeGraphOffset] = useState<number>(0);
@@ -98,17 +100,19 @@ function App() {
           <div className="tabs">
             <button onClick={() => setActiveTab('operationLog')} className={activeTab === 'operationLog' ? 'active' : ''}>Operation Log</button>
             <button onClick={() => setActiveTab('callstack')} className={activeTab === 'callstack' ? 'active' : ''}>Callstack</button>
+            <button onClick={() => setActiveTab('block')} className={activeTab === 'block' ? 'active' : ''}>Block</button>
           </div>
           <div className="tabContent">
             {activeTab === 'operationLog' && <OperationLog memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} />}
             {activeTab === 'callstack' && <Callstack xClick={xClick} />}
+            {activeTab === 'block' && <BlockStatus selectedBlock={selectedBlock} timestamp={realtimeGraph ? xClick + realtimeGraphOffset : xClick}/>}
           </div>
           <div className="bottom">
             {/* GraphSlider or other components if needed */}
           </div>
         </div>
         <div className="right">
-          <MapGrid memoryData={memoryData} blockSize={4}></MapGrid>
+          <MapGrid memoryData={memoryData} blockSize={4} setSelectedBlock={setSelectedBlock}></MapGrid>
         </div>
       </div>
       <div className="controlPanel">

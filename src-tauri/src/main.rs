@@ -5,6 +5,7 @@ use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use damselfly3::damselfly::memory::memory_status::MemoryStatus;
+use damselfly3::damselfly::memory::memory_update::MemoryUpdateType;
 use damselfly3::damselfly::viewer::damselfly_viewer::DamselflyViewer;
 
 struct AppState {
@@ -33,6 +34,7 @@ fn main() {
             set_block_size,
             get_operation_log,
             get_callstack,
+            query_block,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -206,6 +208,16 @@ fn get_callstack(state: tauri::State<AppState>) -> Result<String, String> {
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = viewer_lock.deref_mut() {
         Ok(viewer.get_current_operation().get_callstack().to_string())
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }
+}
+
+#[tauri::command]
+fn query_block(state: tauri::State<AppState>, address: usize, timestamp: usize) -> Result<Vec<MemoryUpdateType>, String> {
+    let mut viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = viewer_lock.deref_mut() {
+        Ok(viewer.query_block(address, timestamp))
     } else {
         Err("Viewer is not initialised".to_string())
     }

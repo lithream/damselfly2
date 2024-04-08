@@ -12,28 +12,33 @@ use crate::damselfly::update_interval::update_queue_compressor::UpdateQueueCompr
 use crate::damselfly::update_interval::UpdateInterval;
 use crate::damselfly::viewer::graph_viewer::GraphViewer;
 use crate::damselfly::viewer::map_viewer::MapViewer;
-use crate::damselfly::memory::sampled_memory_usages_factory::SampledMemoryUsagesFactory;
 
 pub struct DamselflyViewer {
     graph_viewer: GraphViewer,
     map_viewer: MapViewer,
+    full_lapper: Lapper<usize, MemoryUpdateType>,
 }
 
 impl DamselflyViewer {
     pub fn new(log_path: &str, binary_path: &str) -> DamselflyViewer {
         let mem_sys_trace_parser = MemorySysTraceParser::new();
         let memory_updates = mem_sys_trace_parser.parse_log(log_path, binary_path);
-        let (memory_usages, max_usage, max_distinct_blocks) =
-            MemoryUsageFactory::new(memory_updates.clone()).calculate_usage_stats();
-        eprintln!("memory_usages len: {}", memory_usages.len());
+        let memory_usage_stats = MemoryUsageFactory::new(memory_updates.clone()).calculate_usage_stats();
+        let memory_usages = memory_usage_stats.get_memory_usages();
+        let max_usage = memory_usage_stats.get_max_usage();
+        let max_distinct_blocks = memory_usage_stats.get_max_distinct_blocks();
+        let max_free_blocks = memory_usage_stats.get_max_free_blocks();
+        
         let sampled_memory_usages = SampledMemoryUsages::new(DEFAULT_SAMPLE_INTERVAL, memory_usages.clone());
-        eprintln!("sampled len: {}", sampled_memory_usages.get_samples().len());
-        let graph_viewer = GraphViewer::new(memory_usages, sampled_memory_usages, max_usage, max_distinct_blocks);
+        
+        let graph_viewer = GraphViewer::new(memory_usages.clone(), sampled_memory_usages, max_usage, max_free_blocks, max_distinct_blocks as usize);
         let update_intervals = UpdateIntervalFactory::new(memory_updates).construct_enum_vector();
-        let map_viewer = MapViewer::new(update_intervals);
+        let map_viewer = MapViewer::new(update_intervals.clone());
+        let full_lapper = Lapper::new(update_intervals);
         DamselflyViewer {
             graph_viewer,
-            map_viewer
+            map_viewer,
+            full_lapper,
         }
     }
 
@@ -199,6 +204,13 @@ impl DamselflyViewer {
 
     pub fn get_all_intervals(&self) -> &Vec<UpdateInterval> {
         self.map_viewer.get_update_intervals()
+    }
+    
+    pub fn query_block(&self, address: usize, timestamp: usize) -> Vec<MemoryUpdateType> {
+        self.full_lapper.find(address, address + self.map_viewer.get_block_size())
+            .filter(|interval| interval.val.get_timestamp() <= timestamp)
+            .map(|interval| interval.val.clone())
+            .collect()
     }
 
     pub fn set_graph_current_highlight(&mut self, new_highlight: usize) {

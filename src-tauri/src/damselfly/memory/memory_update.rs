@@ -1,7 +1,10 @@
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
+use serde::ser::SerializeStruct;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::de::{MapAccess, SeqAccess};
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub enum MemoryUpdateType {
     Allocation(Allocation),
     Free(Free)
@@ -88,6 +91,8 @@ pub struct Allocation {
     real_timestamp: String,
 }
 
+
+
 impl Allocation {
     pub fn new(address: usize, size: usize, callstack: Arc<String>, timestamp: usize, real_timestamp: String) -> Allocation {
         Allocation {
@@ -120,6 +125,7 @@ impl Free {
         }
     }
 }
+
 impl MemoryUpdate for Allocation {
     fn get_absolute_address(&self) -> usize {
         self.address
@@ -189,5 +195,251 @@ impl Display for Free {
                           self.get_absolute_address(),
                           self.get_absolute_size());
         write!(f, "{}", str)
+    }
+}
+
+impl Serialize for Allocation {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        let mut state = serializer.serialize_struct("Allocation", 5)?;
+        state.serialize_field("address", &self.address)?;
+        state.serialize_field("size", &self.size)?;
+        state.serialize_field("callstack", &*self.callstack)?;
+        state.serialize_field("timestamp", &self.timestamp)?;
+        state.serialize_field("real_timestamp", &self.real_timestamp)?;
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Allocation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer<'de> {
+        enum Field { Address, Size, Callstack, Timestamp, RealTimestamp }
+
+        impl<'de> Deserialize<'de> for Field {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+                where D: Deserializer<'de> {
+                struct FieldVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for FieldVisitor {
+                    type Value = Field;
+
+                    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+                        formatter.write_str("Address, Size, Callstack, Timestamp, RealTimestamp")
+                    }
+
+                    fn visit_str<E>(self, value: &str) -> Result<Field, E>
+                        where E: serde::de::Error, {
+                        match value {
+                            "address" => Ok(Field::Address),
+                            "size" => Ok(Field::Size),
+                            "callstack" => Ok(Field::Callstack),
+                            "timestamp" => Ok(Field::Timestamp),
+                            "real_timestamp" => Ok(Field::RealTimestamp),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(FieldVisitor)
+            }
+        }
+
+        struct AllocationVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for AllocationVisitor {
+            type Value = Allocation;
+
+            fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+                formatter.write_str("struct Allocation")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error> where A: SeqAccess<'de> {
+                let address = seq.next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+                let size = seq.next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+                let callstack = seq.next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(2, &self))?;
+                let timestamp = seq.next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(3, &self))?;
+                let real_timestamp = seq.next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(4, &self))?;
+                Ok(Allocation::new(address, size, Arc::new(callstack), timestamp, real_timestamp))
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
+                let mut address = None;
+                let mut size = None;
+                let mut callstack = None;
+                let mut timestamp = None;
+                let mut real_timestamp = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::Address => {
+                            if address.is_some() {
+                                return Err(serde::de::Error::duplicate_field("address"));
+                            }
+                            address = Some(map.next_value()?);
+                        }
+                        Field::Size => {
+                            if size.is_some() {
+                                return Err(serde::de::Error::duplicate_field("size"));
+                            }
+                            size = Some(map.next_value()?);
+                        }
+                        Field::Callstack => {
+                            if callstack.is_some() {
+                                return Err(serde::de::Error::duplicate_field("callstack"));
+                            }
+                            callstack = Some(map.next_value()?);
+                        }
+                        Field::Timestamp => {
+                            if timestamp.is_some() {
+                                return Err(serde::de::Error::duplicate_field("timestamp"));
+                            }
+                            timestamp = Some(map.next_value()?);
+                        }
+                        Field::RealTimestamp => {
+                            if real_timestamp.is_some() {
+                                return Err(serde::de::Error::duplicate_field("real_timestamp"));
+                            }
+                            real_timestamp = Some(map.next_value()?);
+                        }
+                    }
+                }
+                let address = address.ok_or_else(|| serde::de::Error::missing_field("address"))?;
+                let size = size.ok_or_else(|| serde::de::Error::missing_field("size"))?;
+                let callstack = callstack.ok_or_else(|| serde::de::Error::missing_field("callstack"))?;
+                let timestamp = timestamp.ok_or_else(|| serde::de::Error::missing_field("timestamp"))?;
+                let real_timestamp = real_timestamp.ok_or_else(|| serde::de::Error::missing_field("real_timestamp"))?;
+                Ok(Allocation::new(address, size, Arc::new(callstack), timestamp, real_timestamp))
+            }
+        }
+
+        const FIELDS: &[&str] = &["address", "size", "callstack", "timestamp", "real_timestamp"];
+        deserializer.deserialize_struct("Allocation", FIELDS, AllocationVisitor)
+    }
+}
+
+impl Serialize for Free {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        let mut state = serializer.serialize_struct("Free", 5)?;
+        state.serialize_field("address", &self.address)?;
+        state.serialize_field("size", &self.size)?;
+        state.serialize_field("callstack", &*self.callstack)?;
+        state.serialize_field("timestamp", &self.timestamp)?;
+        state.serialize_field("real_timestamp", &self.real_timestamp)?;
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Free {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer<'de> {
+        enum Field { Address, Size, Callstack, Timestamp, RealTimestamp }
+
+        impl<'de> Deserialize<'de> for Field {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+                where D: Deserializer<'de> {
+                struct FieldVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for FieldVisitor {
+                    type Value = Field;
+
+                    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+                        formatter.write_str("Address, Size, Callstack, Timestamp, RealTimestamp")
+                    }
+
+                    fn visit_str<E>(self, value: &str) -> Result<Field, E>
+                        where E: serde::de::Error, {
+                        match value {
+                            "address" => Ok(Field::Address),
+                            "size" => Ok(Field::Size),
+                            "callstack" => Ok(Field::Callstack),
+                            "timestamp" => Ok(Field::Timestamp),
+                            "real_timestamp" => Ok(Field::RealTimestamp),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(FieldVisitor)
+            }
+        }
+
+        struct FreeVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for FreeVisitor {
+            type Value = Free;
+
+            fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+                formatter.write_str("struct Free")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error> where A: SeqAccess<'de> {
+                let address = seq.next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+                let size = seq.next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+                let callstack = seq.next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(2, &self))?;
+                let timestamp = seq.next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(3, &self))?;
+                let real_timestamp = seq.next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(4, &self))?;
+                Ok(Free::new(address, size, Arc::new(callstack), timestamp, real_timestamp))
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
+                let mut address = None;
+                let mut size = None;
+                let mut callstack = None;
+                let mut timestamp = None;
+                let mut real_timestamp = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::Address => {
+                            if address.is_some() {
+                                return Err(serde::de::Error::duplicate_field("address"));
+                            }
+                            address = Some(map.next_value()?);
+                        }
+                        Field::Size => {
+                            if size.is_some() {
+                                return Err(serde::de::Error::duplicate_field("size"));
+                            }
+                            size = Some(map.next_value()?);
+                        }
+                        Field::Callstack => {
+                            if callstack.is_some() {
+                                return Err(serde::de::Error::duplicate_field("callstack"));
+                            }
+                            callstack = Some(map.next_value()?);
+                        }
+                        Field::Timestamp => {
+                            if timestamp.is_some() {
+                                return Err(serde::de::Error::duplicate_field("timestamp"));
+                            }
+                            timestamp = Some(map.next_value()?);
+                        }
+                        Field::RealTimestamp => {
+                            if real_timestamp.is_some() {
+                                return Err(serde::de::Error::duplicate_field("real_timestamp"));
+                            }
+                            real_timestamp = Some(map.next_value()?);
+                        }
+                    }
+                }
+                let address = address.ok_or_else(|| serde::de::Error::missing_field("address"))?;
+                let size = size.ok_or_else(|| serde::de::Error::missing_field("size"))?;
+                let callstack = callstack.ok_or_else(|| serde::de::Error::missing_field("callstack"))?;
+                let timestamp = timestamp.ok_or_else(|| serde::de::Error::missing_field("timestamp"))?;
+                let real_timestamp = real_timestamp.ok_or_else(|| serde::de::Error::missing_field("real_timestamp"))?;
+                Ok(Free::new(address, size, Arc::new(callstack), timestamp, real_timestamp))
+            }
+        }
+
+        const FIELDS: &[&str] = &["address", "size", "callstack", "timestamp", "real_timestamp"];
+        deserializer.deserialize_struct("Free", FIELDS, FreeVisitor)
     }
 }

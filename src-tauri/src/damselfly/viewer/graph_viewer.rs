@@ -12,6 +12,7 @@ pub struct GraphViewer {
     current_highlight: Option<usize>,
     saved_highlight: usize,
     max_usage: i128,
+    max_free_blocks: u128,
     max_distinct_blocks: usize,
     left_mark: usize,
     right_mark: usize,
@@ -19,13 +20,14 @@ pub struct GraphViewer {
 }
 
 impl GraphViewer {
-    pub fn new(memory_usage_snapshots: Vec<MemoryUsage>, sampled_memory_usage_snapshots: SampledMemoryUsages, max_usage: i128, max_distinct_blocks: usize, ) -> GraphViewer {
+    pub fn new(memory_usage_snapshots: Vec<MemoryUsage>, sampled_memory_usage_snapshots: SampledMemoryUsages, max_usage: i128, max_free_blocks: u128, max_distinct_blocks: usize, ) -> GraphViewer {
         GraphViewer {
             memory_usage_snapshots,
             sampled_memory_usage_snapshots,
             current_highlight: None,
             saved_highlight: 0,
             max_usage,
+            max_free_blocks,
             max_distinct_blocks,
             left_mark: 0,
             right_mark: 0,
@@ -35,9 +37,10 @@ impl GraphViewer {
 
     pub fn get_usage_plot_points(&self) -> Vec<[f64; 2]> {
         let mut vector = Vec::new();
+        let max_usage = self.get_max_usage() as f64;
         for (index, snapshot) in self.memory_usage_snapshots.iter().enumerate() {
             let memory_used_percentage =
-                (snapshot.get_memory_used_absolute() as f64 * 100.0) / self.get_max_usage() as f64;
+                (snapshot.get_memory_used_absolute() as f64 * 100.0) / max_usage;
             vector.push([index as f64, memory_used_percentage]);
         }
         vector
@@ -92,7 +95,7 @@ impl GraphViewer {
     pub fn get_free_blocks_plot_points(&self) -> Vec<[f64; 2]> {
         let mut vector = Vec::new();
         for (index, usage) in self.memory_usage_snapshots.iter().enumerate() {
-            vector.push([index as f64, usage.get_free_blocks() as f64]);
+            vector.push([index as f64, usage.get_free_blocks() as f64 * 100.0 / self.get_max_free_blocks() as f64]);
         }
         vector
     }
@@ -100,7 +103,7 @@ impl GraphViewer {
     pub fn get_free_blocks_plot_points_realtime_sampled(&self) -> Vec<[f64; 2]> {
         let mut vector = Vec::new();
         for (index, snapshot) in self.sampled_memory_usage_snapshots.get_samples().iter().enumerate() {
-            vector.push([index as f64, snapshot.get_sampled_usage().get_free_blocks() as f64]);
+            vector.push([index as f64, snapshot.get_sampled_usage().get_free_blocks() as f64 * 100.0 / self.get_max_free_blocks() as f64]);
         }
         vector
     }
@@ -146,6 +149,10 @@ impl GraphViewer {
 
     fn get_max_distinct_blocks(&self) -> usize {
         self.max_distinct_blocks
+    }
+    
+    fn get_max_free_blocks(&self) -> u128 {
+        self.max_free_blocks
     }
 }
 
