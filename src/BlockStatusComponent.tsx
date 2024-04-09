@@ -35,13 +35,13 @@ function BlockStatus({ selectedBlock, timestamp }: BlockStatusProps) {
                     timestamp: timestamp
                 });
                 console.log(`updates length ${updates.length}`);
-                setMemoryUpdates(updates);
+                setMemoryUpdates(updates.reverse());
             } catch (error) {
                 console.error("Error fetching block updates:", error);
             }
         };
 
-        fetchBlockUpdates();
+        fetchBlockUpdates().then();
     }, [selectedBlock, timestamp]);
 
     const renderUpdate = (update: MemoryUpdateType) => {
@@ -52,8 +52,8 @@ function BlockStatus({ selectedBlock, timestamp }: BlockStatusProps) {
         return (
             <div style={{ padding: '10px', borderBottom: '1px solid #ccc' }}>
                 <div><strong>Type:</strong> {isAllocation ? "Allocation" : "Free"}</div>
-                <div><strong>Block Address:</strong> {selectedBlock}</div>
-                <div><strong>Operation Address:</strong> {updateData?.address}</div>
+                <div><strong>Block Address:</strong> 0x{selectedBlock.toString(16)}</div>
+                <div><strong>Operation Address:</strong> 0x{updateData?.address.toString(16)}</div>
                 <div><strong>Size:</strong> {updateData?.size}</div>
                 <div><strong>Timestamp:</strong> {updateData?.timestamp} ({updateData?.real_timestamp})</div>
                 <div><strong>Callstack:</strong> <pre>{updateData?.callstack}</pre></div>

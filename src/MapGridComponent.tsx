@@ -42,6 +42,7 @@ function MapGrid({ memoryData, blockSize, squareSize, setSelectedBlock }: MapGri
 
         const index = row * (Math.round(canvas.width / squareSize)) + col;
         console.log(`Block clicked at row: ${row}, col: ${col}, index: ${index}`);
+        console.log(`Setting selected block to: 0x${memoryData.data[index][0].toString(16)}`);
         setSelectedBlock(memoryData.data[index][0]);
     }
 

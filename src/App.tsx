@@ -86,13 +86,13 @@ function App() {
   }
 
   const increaseSquareSize = async () => {
-    setSquareSize(squareSize + 10);
+    setSquareSize(squareSize + 4);
   }
 
   const decreaseSquareSize = async () => {
-    let newSquareSize = squareSize - 10;
+    let newSquareSize = squareSize - 4;
     if (newSquareSize <= 0) {
-      newSquareSize = 1;
+      newSquareSize = 4;
     }
     setSquareSize(newSquareSize);
   }

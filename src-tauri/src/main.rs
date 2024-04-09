@@ -217,7 +217,13 @@ fn get_callstack(state: tauri::State<AppState>) -> Result<String, String> {
 fn query_block(state: tauri::State<AppState>, address: usize, timestamp: usize) -> Result<Vec<MemoryUpdateType>, String> {
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = viewer_lock.deref_mut() {
-        Ok(viewer.query_block(address, timestamp))
+        let mut updates = viewer.query_block(address, timestamp);
+        updates
+            .sort_by(|prev, next| {
+                next.get_timestamp().cmp(&prev.get_timestamp())
+            });
+        updates.reverse();
+        Ok(updates)
     } else {
         Err("Viewer is not initialised".to_string())
     }
