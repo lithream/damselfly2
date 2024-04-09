@@ -22,6 +22,7 @@ function App() {
   const [realtimeGraphOffset, setRealtimeGraphOffset] = useState<number>(0);
   const [memoryData, setMemoryData] = useState<Data>({ timestamp: 0, data: [] });
   const [blockSize, setBlockSize] = useState<number>(32);
+  const [squareSize, setSquareSize] = useState<number>(4);
   const [activeTab, setActiveTab] = useState('callstack');
 
   useEffect(() => {
@@ -84,6 +85,18 @@ function App() {
     await invoke("set_block_size", { newBlockSize: Math.ceil(blockSize) });
   }
 
+  const increaseSquareSize = async () => {
+    setSquareSize(squareSize + 10);
+  }
+
+  const decreaseSquareSize = async () => {
+    let newSquareSize = squareSize - 10;
+    if (newSquareSize <= 0) {
+      newSquareSize = 1;
+    }
+    setSquareSize(newSquareSize);
+  }
+
   const toggleRealtime = async () => {
     setXClick(0);
     setRealtimeGraph(!realtimeGraph);
@@ -112,7 +125,7 @@ function App() {
           </div>
         </div>
         <div className="right">
-          <MapGrid memoryData={memoryData} blockSize={4} setSelectedBlock={setSelectedBlock}></MapGrid>
+          <MapGrid memoryData={memoryData} blockSize={4} squareSize={squareSize} setSelectedBlock={setSelectedBlock}></MapGrid>
         </div>
       </div>
       <div className="controlPanel">
@@ -121,10 +134,12 @@ function App() {
           <button onClick={() => increaseBlockSize()}>+</button>
           <button onClick={() => decreaseBlockSize()}>-</button>
           <button onClick={() => toggleRealtime()}>TIME</button>
+          <button onClick={() => increaseSquareSize()}>+</button>
+          <button onClick={() => decreaseSquareSize()}>-</button>
         </div>
         <div className="memoryStateLegend">
-            <div className="legend-item">
-              <div className="legend-square" style={{ backgroundColor: 'red' }}></div>
+          <div className="legend-item">
+            <div className="legend-square" style={{ backgroundColor: 'red' }}></div>
               <span className="legend-text">ALLOCATED</span>
             </div>
             <div className="legend-item">

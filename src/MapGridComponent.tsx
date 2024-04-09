@@ -1,13 +1,14 @@
-import {useRef, useEffect} from "react";
+import { useRef, useEffect } from "react";
 import Data from "./Data.tsx";
 
 interface MapGridProps {
     memoryData: Data;
     blockSize: number;
+    squareSize: number;
     setSelectedBlock: (block: number) => void;
 }
 
-function MapGrid({ memoryData, blockSize, setSelectedBlock }: MapGridProps) {
+function MapGrid({ memoryData, blockSize, squareSize, setSelectedBlock }: MapGridProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
@@ -26,7 +27,7 @@ function MapGrid({ memoryData, blockSize, setSelectedBlock }: MapGridProps) {
                 canvas.removeEventListener('click', handleCanvasClick);
             }
         }
-    }, [memoryData, blockSize]);
+    }, [squareSize, memoryData, blockSize]);
 
     const handleCanvasClick = (event: MouseEvent) => {
         const canvas = canvasRef.current;
@@ -36,10 +37,10 @@ function MapGrid({ memoryData, blockSize, setSelectedBlock }: MapGridProps) {
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
 
-        const col = Math.floor(x / blockSize);
-        const row = Math.floor(y / blockSize);
+        const col = Math.floor(x / squareSize);
+        const row = Math.floor(y / squareSize);
 
-        const index = row * (canvas.width / blockSize) + col;
+        const index = row * (Math.round(canvas.width / squareSize)) + col;
         console.log(`Block clicked at row: ${row}, col: ${col}, index: ${index}`);
         setSelectedBlock(memoryData.data[index][0]);
     }
@@ -51,7 +52,7 @@ function MapGrid({ memoryData, blockSize, setSelectedBlock }: MapGridProps) {
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
-        const blockWidth = 5;
+        const blockWidth = squareSize;
         const gridWidth = width / 2;
         // Dynamically calculate the required height based on data length and gridWidth
         const rows = Math.ceil(data.length * blockWidth / gridWidth);
