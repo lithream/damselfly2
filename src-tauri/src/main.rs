@@ -1,12 +1,11 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::ops::DerefMut;
-use std::sync::{Arc, Mutex};
-use std::time::Instant;
 use damselfly3::damselfly::memory::memory_status::MemoryStatus;
 use damselfly3::damselfly::memory::memory_update::MemoryUpdateType;
 use damselfly3::damselfly::viewer::damselfly_viewer::DamselflyViewer;
+use std::ops::DerefMut;
+use std::sync::{Arc, Mutex};
 
 struct AppState {
     viewer: Arc<Mutex<Option<DamselflyViewer>>>,
@@ -49,7 +48,13 @@ fn initialise_viewer(state: tauri::State<AppState>, log_path: String, binary_pat
 #[tauri::command]
 async fn choose_files() -> Result<String, String> {
     use tauri::api::dialog::blocking::FileDialogBuilder;
-    let file = String::from(FileDialogBuilder::new().pick_file().unwrap().to_str().unwrap());
+    let file = String::from(
+        FileDialogBuilder::new()
+            .pick_file()
+            .unwrap()
+            .to_str()
+            .unwrap(),
+    );
     Ok(file)
 }
 
@@ -74,7 +79,9 @@ fn get_viewer_usage_graph_sampled(state: tauri::State<AppState>) -> Result<Vec<[
 }
 
 #[tauri::command]
-fn get_viewer_distinct_blocks_graph(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>, String> {
+fn get_viewer_distinct_blocks_graph(
+    state: tauri::State<AppState>,
+) -> Result<Vec<[f64; 2]>, String> {
     let viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &*viewer_lock {
         Ok(viewer.get_distinct_blocks_graph())
@@ -84,7 +91,9 @@ fn get_viewer_distinct_blocks_graph(state: tauri::State<AppState>) -> Result<Vec
 }
 
 #[tauri::command]
-fn get_viewer_distinct_blocks_graph_sampled(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>, String> {
+fn get_viewer_distinct_blocks_graph_sampled(
+    state: tauri::State<AppState>,
+) -> Result<Vec<[f64; 2]>, String> {
     let viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &*viewer_lock {
         Ok(viewer.get_distinct_blocks_graph_realtime_sampled())
@@ -104,7 +113,9 @@ fn get_viewer_largest_block_graph(state: tauri::State<AppState>) -> Result<Vec<[
 }
 
 #[tauri::command]
-fn get_viewer_largest_block_graph_sampled(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>, String> {
+fn get_viewer_largest_block_graph_sampled(
+    state: tauri::State<AppState>,
+) -> Result<Vec<[f64; 2]>, String> {
     let viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &*viewer_lock {
         Ok(viewer.get_largest_block_graph_realtime_sampled())
@@ -124,7 +135,9 @@ fn get_viewer_free_blocks_graph(state: tauri::State<AppState>) -> Result<Vec<[f6
 }
 
 #[tauri::command]
-fn get_viewer_free_blocks_graph_sampled(state: tauri::State<AppState>) -> Result<Vec<[f64; 2]>, String> {
+fn get_viewer_free_blocks_graph_sampled(
+    state: tauri::State<AppState>,
+) -> Result<Vec<[f64; 2]>, String> {
     let viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &*viewer_lock {
         Ok(viewer.get_free_blocks_graph_realtime_sampled())
@@ -144,7 +157,10 @@ fn get_viewer_map(state: tauri::State<AppState>) -> Result<Vec<MemoryStatus>, St
 }
 
 #[tauri::command]
-fn get_viewer_map_full_at(state: tauri::State<AppState>, timestamp: usize) -> Result<Vec<MemoryStatus>, String> {
+fn get_viewer_map_full_at(
+    state: tauri::State<AppState>,
+    timestamp: usize,
+) -> Result<Vec<MemoryStatus>, String> {
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = viewer_lock.deref_mut() {
         Ok(viewer.get_map_full_at_nosync(timestamp))
@@ -154,23 +170,31 @@ fn get_viewer_map_full_at(state: tauri::State<AppState>, timestamp: usize) -> Re
 }
 
 #[tauri::command]
-fn get_viewer_map_full_at_colours(state: tauri::State<AppState>, timestamp: u64, truncate_after: u64) -> Result<(u64, Vec<(i64, u64)>), String> {
+fn get_viewer_map_full_at_colours(
+    state: tauri::State<AppState>,
+    timestamp: u64,
+    truncate_after: u64,
+) -> Result<(u64, Vec<(i64, u64)>), String> {
     eprintln!("timestamp: {timestamp}");
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = viewer_lock.deref_mut() {
-        let res = viewer.get_map_full_at_nosync_colours_truncate(timestamp, truncate_after);
-        Ok(res)
+        Ok(viewer.get_map_full_at_nosync_colours_truncate(timestamp, truncate_after))
     } else {
         Err("Viewer is not initialised".to_string())
     }
 }
 
 #[tauri::command]
-fn get_viewer_map_full_at_colours_realtime_sampled(state: tauri::State<AppState>, timestamp: u64, truncate_after: u64) -> Result<(u64, Vec<(i64, u64)>), String> {
+fn get_viewer_map_full_at_colours_realtime_sampled(
+    state: tauri::State<AppState>,
+    timestamp: u64,
+    truncate_after: u64,
+) -> Result<(u64, Vec<(i64, u64)>), String> {
     eprintln!("realtime_timestamp: {timestamp}");
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = viewer_lock.deref_mut() {
-        let res = viewer.get_map_full_at_nosync_colours_truncate_realtime_sampled(timestamp, truncate_after);
+        let res = viewer
+            .get_map_full_at_nosync_colours_truncate_realtime_sampled(timestamp, truncate_after);
         eprintln!("realtime sampled size: {}", res.1.len());
         Ok(res)
     } else {
@@ -193,7 +217,8 @@ fn set_block_size(state: tauri::State<AppState>, new_block_size: u64) -> Result<
 fn get_operation_log(state: tauri::State<AppState>) -> Result<Vec<String>, String> {
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = viewer_lock.deref_mut() {
-        Ok(viewer.get_operation_history()
+        Ok(viewer
+            .get_operation_history()
             .iter()
             .take(7)
             .map(|update| update.to_string())
@@ -214,14 +239,15 @@ fn get_callstack(state: tauri::State<AppState>) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn query_block(state: tauri::State<AppState>, address: usize, timestamp: usize) -> Result<Vec<MemoryUpdateType>, String> {
+fn query_block(
+    state: tauri::State<AppState>,
+    address: usize,
+    timestamp: usize,
+) -> Result<Vec<MemoryUpdateType>, String> {
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = viewer_lock.deref_mut() {
         let mut updates = viewer.query_block(address, timestamp);
-        updates
-            .sort_by(|prev, next| {
-                next.get_timestamp().cmp(&prev.get_timestamp())
-            });
+        updates.sort_by(|prev, next| next.get_timestamp().cmp(&prev.get_timestamp()));
         updates.reverse();
         Ok(updates)
     } else {
