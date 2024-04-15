@@ -27,6 +27,7 @@ function BlockStatus({ selectedBlock, timestamp }: BlockStatusProps) {
   const [memoryUpdates, setMemoryUpdates] = useState<MemoryUpdateType[]>([]);
 
   useEffect(() => {
+    console.log(`fetching block status. selectedBlock = ${selectedBlock}`);
     const fetchBlockUpdates = async () => {
       try {
         const updates: MemoryUpdateType[] = await invoke("query_block", {

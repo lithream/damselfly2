@@ -84,12 +84,6 @@ impl DamselflyViewer {
     ) -> (u64, Vec<(i64, u64)>) {
         self.map_viewer.set_timestamp(timestamp as usize);
         let full_map = self.map_viewer.paint_map_full_from_cache();
-        eprintln!("full map size: {}", full_map.len());
-        let non_empty: Vec<MemoryStatus> = full_map
-            .iter()
-            .filter(|block| !matches!(block, MemoryStatus::Unused))
-            .cloned()
-            .collect();
 
         let mut result: Vec<(i64, u64)> = Vec::new();
         let mut consecutive_identical_blocks = 0;
