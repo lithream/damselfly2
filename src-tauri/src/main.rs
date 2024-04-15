@@ -244,13 +244,26 @@ fn query_block(
     address: usize,
     timestamp: usize,
 ) -> Result<Vec<MemoryUpdateType>, String> {
+    eprintln!("[Tauri::query_block]: address: {address}, timestamp: {timestamp}");
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = viewer_lock.deref_mut() {
         let mut updates = viewer.query_block(address, timestamp);
-        updates.sort_by(|prev, next| next.get_timestamp().cmp(&prev.get_timestamp()));
+        eprintln!("[Tauri::query_block]: updates.len: {}", updates.len());
+        updates.sort_by_key(|next| std::cmp::Reverse(next.get_timestamp()));
         updates.reverse();
         Ok(updates)
     } else {
         Err("Viewer is not initialised".to_string())
+    }
+}
+
+mod tests {
+    use damselfly3::damselfly::viewer::damselfly_viewer::DamselflyViewer;
+
+    #[test]
+    fn benchmark() {
+        let mut damselfly_viewer = DamselflyViewer::new("/home/oracle/dev/damselfly2/smalltest.log", "/home/oracle/dev/damselfly2/src-tauri/threadxApp");
+        let realtime_sampled_map = damselfly_viewer.get_map_full_at_nosync_colours_truncate(4, 256);
+        eprintln!("done");
     }
 }
