@@ -118,14 +118,14 @@ function App() {
           <div className="tabContent">
             {activeTab === 'operationLog' && <OperationLog memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} />}
             {activeTab === 'callstack' && <Callstack xClick={xClick} />}
-            {activeTab === 'block' && <BlockStatus selectedBlock={selectedBlock} timestamp={realtimeGraph ? xClick + realtimeGraphOffset : xClick}/>}
+            {activeTab === 'block' && <BlockStatus selectedBlock={selectedBlock} timestamp={realtimeGraph ? xClick + realtimeGraphOffset : xClick} realtimeGraph={realtimeGraph}/>}
           </div>
           <div className="bottom">
             {/* GraphSlider or other components if needed */}
           </div>
         </div>
         <div className="right">
-          <MapGrid memoryData={memoryData} blockSize={4} squareSize={squareSize} setSelectedBlock={setSelectedBlock}></MapGrid>
+          <MapGrid memoryData={memoryData} blockSize={4} squareSize={squareSize} selectedBlock={selectedBlock} setSelectedBlock={setSelectedBlock}></MapGrid>
         </div>
       </div>
       <div className="controlPanel">

@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/tauri";
 interface BlockStatusProps {
   selectedBlock: number;
   timestamp: number;
+  realtimeGraph: boolean;
 }
 
 interface MemoryUpdate {
@@ -23,26 +24,36 @@ type MemoryUpdateType = {
   Free?: Free;
 };
 
-function BlockStatus({ selectedBlock, timestamp }: BlockStatusProps) {
+function BlockStatus({ selectedBlock, timestamp, realtimeGraph }: BlockStatusProps) {
   const [memoryUpdates, setMemoryUpdates] = useState<MemoryUpdateType[]>([]);
 
   useEffect(() => {
     console.log(`fetching block status. selectedBlock = ${selectedBlock}`);
+    console.log(`timestamp: ${timestamp}`);
     const fetchBlockUpdates = async () => {
       try {
-        const updates: MemoryUpdateType[] = await invoke("query_block", {
-          address: selectedBlock,
-          timestamp: timestamp,
-        });
-        console.log(`updates length ${updates.length}`);
-        setMemoryUpdates(updates.reverse());
+        if (realtimeGraph) {
+          const updates: MemoryUpdateType[] = await invoke("query_block_realtime", {
+            address: selectedBlock,
+            timestamp: timestamp,
+          });
+          console.log(`(realtime) updates length ${updates.length}`);
+          setMemoryUpdates(updates.reverse());
+        } else {
+          const updates: MemoryUpdateType[] = await invoke("query_block", {
+            address: selectedBlock,
+            timestamp: timestamp,
+          });
+          console.log(`(optime) updates length ${updates.length}`);
+          setMemoryUpdates(updates.reverse());
+        }
       } catch (error) {
         console.error("Error fetching block updates:", error);
       }
     };
 
     fetchBlockUpdates().then();
-  }, [selectedBlock, timestamp]);
+  }, [realtimeGraph, selectedBlock, timestamp]);
 
   const renderUpdate = (update: MemoryUpdateType) => {
     // Determine if it's an Allocation or Free

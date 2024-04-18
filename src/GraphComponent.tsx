@@ -27,7 +27,6 @@ function Graph({ dataLoaded, realtimeGraph, setXClick , xClick, setXLimit, setRe
 
     const updateDimensions = useCallback(() => {
         setChartWidth(window.innerWidth / 2); // Set width to half of window width
-        // Optionally, adjust height here if needed
     }, []);
 
     const trim_blank_start_from_graphs = (
@@ -123,6 +122,7 @@ function Graph({ dataLoaded, realtimeGraph, setXClick , xClick, setXLimit, setRe
     }, [updateDimensions]);
 
     const handlePointClick = (e: any) => {
+        console.log("Graph clicked");
         console.log(e);
         if (e) {
             setXClick(Math.round(e.activeTooltipIndex));

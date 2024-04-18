@@ -5,10 +5,11 @@ interface MapGridProps {
     memoryData: Data;
     blockSize: number;
     squareSize: number;
+    selectedBlock: number;
     setSelectedBlock: (block: number) => void;
 }
 
-function MapGrid({ memoryData, blockSize, squareSize, setSelectedBlock }: MapGridProps) {
+function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelectedBlock }: MapGridProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
@@ -27,7 +28,7 @@ function MapGrid({ memoryData, blockSize, squareSize, setSelectedBlock }: MapGri
                 canvas.removeEventListener('click', handleCanvasClick);
             }
         }
-    }, [squareSize, memoryData, blockSize]);
+    }, [selectedBlock, squareSize, memoryData, blockSize]);
 
     const handleCanvasClick = (event: MouseEvent) => {
         const canvas = canvasRef.current;
@@ -48,6 +49,7 @@ function MapGrid({ memoryData, blockSize, squareSize, setSelectedBlock }: MapGri
 
 
     const drawGrid = (data: number[][], width: number) => {
+        console.log(selectedBlock);
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext("2d");
@@ -77,7 +79,11 @@ function MapGrid({ memoryData, blockSize, squareSize, setSelectedBlock }: MapGri
                 curY += blockWidth;
             }
 
-            ctx.fillStyle = getColorForBlock(curBlock[1]);
+            if (curBlock[0] == selectedBlock && curBlock[1] != -1) {
+                ctx.fillStyle = "green";
+            } else {
+                ctx.fillStyle = getColorForBlock(curBlock[1]);
+            }
             ctx.fillRect(curX, curY, blockWidth, blockWidth);
         }
     };

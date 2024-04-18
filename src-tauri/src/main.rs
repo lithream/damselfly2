@@ -34,6 +34,7 @@ fn main() {
             get_operation_log,
             get_callstack,
             query_block,
+            query_block_realtime,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -244,11 +245,28 @@ fn query_block(
     address: usize,
     timestamp: usize,
 ) -> Result<Vec<MemoryUpdateType>, String> {
-    eprintln!("[Tauri::query_block]: address: {address}, timestamp: {timestamp}");
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = viewer_lock.deref_mut() {
         let mut updates = viewer.query_block(address, timestamp);
         eprintln!("[Tauri::query_block]: updates.len: {}", updates.len());
+        updates.sort_by_key(|next| std::cmp::Reverse(next.get_timestamp()));
+        updates.reverse();
+        Ok(updates)
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }
+}
+
+#[tauri::command]
+fn query_block_realtime(
+    state: tauri::State<AppState>,
+    address: usize,
+    timestamp: usize,
+) -> Result<Vec<MemoryUpdateType>, String> {
+    let mut viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = viewer_lock.deref_mut() {
+        let mut updates = viewer.query_block_realtime(address, timestamp);
+        eprintln!("[Tauri::query_block_realtime]: updates.len: {}", updates.len());
         updates.sort_by_key(|next| std::cmp::Reverse(next.get_timestamp()));
         updates.reverse();
         Ok(updates)
