@@ -28,7 +28,7 @@ mod tests {
 
     fn initialise_test_log() -> OverlapFinder {
         let mst_parser = MemorySysTraceParser::new();
-        let updates = mst_parser.parse_log_directly(OVERLAP_FINDER_TEST_LOG, TEST_BINARY_PATH);
+        let updates = mst_parser.parse_log_directly(OVERLAP_FINDER_TEST_LOG, TEST_BINARY_PATH).memory_updates;
         let update_intervals = UpdateIntervalFactory::new(updates).construct_enum_vector();
         OverlapFinder::new(update_intervals)
     }

@@ -274,7 +274,7 @@ mod tests {
 
     #[test]
     fn real_log_test() {
-        let memory_updates = MemorySysTraceParser::new().parse_log_directly(TEST_LOG, "./threadxApp");
+        let memory_updates = MemorySysTraceParser::new().parse_log_directly(TEST_LOG, "./threadxApp").memory_updates;
         let memory_usage_stats = MemoryUsageFactory::new(memory_updates).calculate_usage_stats();
         let memory_usages = memory_usage_stats.get_memory_usages();
         let memory_usage_sampler = SampledMemoryUsagesFactory::new(1000000, memory_usages.clone());

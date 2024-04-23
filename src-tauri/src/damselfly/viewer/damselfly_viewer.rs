@@ -24,7 +24,8 @@ pub struct DamselflyViewer {
 impl DamselflyViewer {
     pub fn new(log_path: &str, binary_path: &str) -> DamselflyViewer {
         let mem_sys_trace_parser = MemorySysTraceParser::new();
-        let memory_updates = mem_sys_trace_parser.parse_log(log_path, binary_path);
+        let parse_results = mem_sys_trace_parser.parse_log(log_path, binary_path);
+        let (memory_updates, pool_bounds) = (parse_results.memory_updates, parse_results.pool_bounds);
         let memory_usage_stats =
             MemoryUsageFactory::new(memory_updates.clone()).calculate_usage_stats();
         let memory_usages = memory_usage_stats.get_memory_usages();
@@ -43,7 +44,7 @@ impl DamselflyViewer {
             max_distinct_blocks as usize,
         );
         let update_intervals = UpdateIntervalFactory::new(memory_updates).construct_enum_vector();
-        let map_viewer = MapViewer::new(update_intervals.clone());
+        let map_viewer = MapViewer::new(update_intervals.clone(), pool_bounds.0, pool_bounds.1);
         let full_lapper = Lapper::new(update_intervals);
         DamselflyViewer {
             graph_viewer,
@@ -304,10 +305,9 @@ mod tests {
     #[test]
     fn benchmark() {
         let mut viewer = DamselflyViewer::new(
-            "/home/signal/dev/damselfly2/src-tauri/trace3.log",
-            "/home/signal/dev/threadxApp",
+            "/work/dev/hp/dune/trace.log",
+            TEST_BINARY_PATH,
         );
-        //        let mut viewer = initialise_log("./tracequarter.log");
         let graph = viewer.get_usage_graph_realtime_sampled();
         viewer.get_map_full_at_nosync_colours_truncate(13000, 256);
     }

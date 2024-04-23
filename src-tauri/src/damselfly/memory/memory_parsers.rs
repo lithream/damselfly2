@@ -23,9 +23,25 @@ pub struct MemorySysTraceParser {
     time: usize,
     record_queue: Vec<RecordType>,
     memory_updates: Vec<MemoryUpdateType>,
+    pool_bounds: (usize, usize),
+    bounds_found: bool,
     symbols: HashMap<usize, String>,
     prefix: String,
     counter: u64,
+}
+
+pub struct ParseResults {
+    pub memory_updates: Vec<MemoryUpdateType>,
+    pub pool_bounds: (usize, usize),
+}
+
+impl ParseResults {
+    pub fn new(memory_updates: Vec<MemoryUpdateType>, pool_bounds: (usize, usize)) -> Self {
+        Self {
+            memory_updates,
+            pool_bounds
+        }
+    }
 }
 
 impl MemorySysTraceParser {
@@ -34,6 +50,8 @@ impl MemorySysTraceParser {
             time: 0,
             record_queue: Vec::new(),
             memory_updates: Vec::new(),
+            pool_bounds: (0, 0),
+            bounds_found: false,
             symbols: HashMap::new(),
             prefix: String::new(),
             counter: 0,
@@ -50,20 +68,21 @@ impl MemorySysTraceParser {
     /// returns: a Vec of MemoryUpdateType (MemoryUpdate wrapped in an enum, ready for
     ///          interval overlap processing
     ///
-    pub fn parse_log_directly(self, log: &str, binary_path: &str) -> Vec<MemoryUpdateType> {
+    pub fn parse_log_directly(self, log: &str, binary_path: &str) -> ParseResults {
         self.parse_log_contents(log, binary_path)
     }
     
-    pub fn parse_log(self, log_path: &str, binary_path: &str) -> Vec<MemoryUpdateType> {
+    pub fn parse_log(self, log_path: &str, binary_path: &str) -> ParseResults {
         let log = std::fs::read_to_string(log_path).unwrap();
         self.parse_log_contents(log.as_str(), binary_path)
     }
 
-    fn parse_log_contents(mut self, log: &str, binary_path: &str) -> Vec<MemoryUpdateType> {
+    fn parse_log_contents(mut self, log: &str, binary_path: &str) -> ParseResults {
         self.parse_symbols(log, binary_path);
         let mut log_iter = log.split('\n').peekable();
         while let Some(line) = log_iter.peek() {
-            if Self::is_line_useless(line) {
+
+            if self.is_line_useless(line) {
                 log_iter.next();
                 continue;
             }
@@ -75,7 +94,15 @@ impl MemorySysTraceParser {
             self.counter += 1;
         }
         println!("Processing complete.");
-        self.memory_updates
+        ParseResults::new(self.memory_updates, self.pool_bounds)
+    }
+
+    fn compute_pool_bounds(&mut self, line: &str) -> (usize, usize) {
+        let line_parts: Vec<&str> = line.split(' ').collect();
+        if line_parts.len() < 3 {
+            panic!("[MemorySysTraceParser::get_pool_bounds]: Pool bounds line has fewer than 3 parts");
+        }
+        (usize::from_str_radix(line_parts[line_parts.len() - 2], 16).unwrap(), usize::from_str_radix(line_parts[line_parts.len() - 1], 16).unwrap())
     }
 
     /// Checks if a line in the log contains none of the following:
@@ -89,7 +116,11 @@ impl MemorySysTraceParser {
     ///
     /// returns: true if useless, false if useful
     ///
-    pub fn is_line_useless(line: &str) -> bool {
+    pub fn is_line_useless(&mut self, line: &str) -> bool {
+        if !self.bounds_found && (*line).contains("POOLBOUNDS") {
+            self.pool_bounds = self.compute_pool_bounds(line);
+            self.bounds_found = true;
+        }
         let split_line = line.split('>').collect::<Vec<_>>();
         if let Some(latter_half) = split_line.get(1) {
             let trimmed_string = latter_half.trim();
@@ -109,11 +140,11 @@ impl MemorySysTraceParser {
     ///
     /// returns: a Vec of every address in the log relevant to memory tracing
 
-    fn extract_addresses_from_log(log: &str) -> Vec<usize> {
+    fn extract_addresses_from_log(&mut self, log: &str) -> Vec<usize> {
         let mut set = HashSet::new();
         let log_iter = log.split('\n');
         for line in log_iter {
-            if Self::is_line_useless(line) {
+            if self.is_line_useless(line) {
                 continue;
             }
             if line.contains('^') {
@@ -161,7 +192,7 @@ impl MemorySysTraceParser {
     /// returns: nothing, as the longest prefix and symbols are stored as struct fields.
 
     fn parse_symbols(&mut self, log: &str, binary_path: &str) {
-        let addresses = Self::extract_addresses_from_log(log);
+        let addresses = self.extract_addresses_from_log(log);
         let mut file = File::open(binary_path).unwrap();
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer).unwrap();
@@ -228,7 +259,7 @@ impl MemorySysTraceParser {
     pub fn process_instruction(&mut self, log_iter: &mut Peekable<Split<char>>) -> MemoryUpdateType {
         let mut baked_instruction = None;
         for line in &mut *log_iter {
-            if Self::is_line_useless(line) {
+            if self.is_line_useless(line) {
                 continue;
             }
             let record = self.line_to_record(line)
@@ -393,6 +424,10 @@ impl MemorySysTraceParser {
 
         Ok(record)
     }
+
+    pub fn get_pool_bounds(&self) -> (usize, usize) {
+        self.pool_bounds
+    }
 }
 
 #[cfg(test)]
@@ -410,13 +445,14 @@ mod tests {
 
         let log = [allocation_record, free_record, stacktrace_record, useless_record];
         let mut iter = log.iter().peekable();
-        assert!(!MemorySysTraceParser::is_line_useless(iter.peek().unwrap()));
+        let mut mst_parser = MemorySysTraceParser::new();
+        assert!(!mst_parser.is_line_useless(iter.peek().unwrap()));
         iter.next();
-        assert!(!MemorySysTraceParser::is_line_useless(iter.peek().unwrap()));
+        assert!(!mst_parser.is_line_useless(iter.peek().unwrap()));
         iter.next();
-        assert!(!MemorySysTraceParser::is_line_useless(iter.peek().unwrap()));
+        assert!(!mst_parser.is_line_useless(iter.peek().unwrap()));
         iter.next();
-        assert!(MemorySysTraceParser::is_line_useless(iter.peek().unwrap()));
+        assert!(mst_parser.is_line_useless(iter.peek().unwrap()));
     }
 
     #[test]
@@ -685,7 +721,7 @@ mod tests {
 00001100: 039dce14 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> ^ e15020a4 [e04865ef]
  ";
 
-        let memory_updates = mst_parser.parse_log_directly(log, TEST_BINARY_PATH);
+        let memory_updates = mst_parser.parse_log_directly(log, TEST_BINARY_PATH).memory_updates;
         let alloc = memory_updates.first().unwrap();
         if let MemoryUpdateType::Allocation(allocation) = alloc {
             assert_eq!(allocation.get_absolute_address(), 3780124716);
@@ -717,7 +753,7 @@ mod tests {
 00057608: 0b197a34 |V|B|002|        0 us   0011.712 s    < DT:0xE14DEEBC> sched_switch from pid <0xe14e6d94> (priority 235) to pid <0xe14deebc> (priority 235)
 00057609: 0b197a70 |V|B|002|        3 us   0011.712 s    < DT:0xE14E6D94> sched_switch from pid <0xe14deebc> (priority 255) to pid <0xe14e6d94> (priority 235)
  ";
-        let instructions = mst_parser.parse_log_directly(log, TEST_BINARY_PATH);
+        let instructions = mst_parser.parse_log_directly(log, TEST_BINARY_PATH).memory_updates;
         assert!(matches!(instructions.first().unwrap(), MemoryUpdateType::Free(..)));
     }
 
@@ -730,7 +766,8 @@ mod tests {
 00000828: 039da2f5 |V|A|002|        0 us   0003.677 s    < DT:0xE14DEEBC> SSC::Received Activity Monitor State 2 Change Event
 00000830: 039da3f2 |V|A|005|        0 us   0003.677 s    < DT:0xE14DEEBC> - e150204c 14
 0 ";
-        let addresses = MemorySysTraceParser::extract_addresses_from_log(log);
+        let mut mst_parser = MemorySysTraceParser::new();
+        let addresses = mst_parser.extract_addresses_from_log(log);
         assert_eq!(addresses, vec![0xe045d83b, 0xe04865ef]);
     }
 
@@ -755,5 +792,78 @@ mod tests {
         let strings = vec![String::from("/work/hpdev/dune/src/fw/sox_adapters/framework/mem/src/mem_mgr.cpp:1056"),
                            String::from("/work/hpdev/dune/src/fw/framework/threadx/5.8.1/src/tx_thread_shell_entry.c:171")];
         assert_eq!(MemorySysTraceParser::longest_common_prefix(&strings), String::from("/work/hpdev/dune/src/fw/"));
+    }
+
+    #[test]
+    fn get_pool_bounds_test() {
+        let mut mst_parser = MemorySysTraceParser::new();
+        let log = "\
+00000751: 01016e5c |V|A|005|      100 us   0878.047 ms   < DT:0xE17CF338> POOLBOUNDS e18e0380 e7c00000
+00000752: 01016e5c |V|A|005|        0 us   0878.047 ms   < DT:0xE17CF338> + e27e52ac 38
+00000753: 01016e72 |V|A|005|        1 us   0878.048 ms   < DT:0xE17CF338> ^ e27e52ac [e0013cd5]
+00000754: 01016e72 |V|A|005|        0 us   0878.048 ms   < DT:0xE17CF338> ^ e27e52ac [e053d00b]
+00000755: 01016e72 |V|A|005|        0 us   0878.048 ms   < DT:0xE17CF338> ^ e27e52ac [e006f98d]
+00000756: 01016e81 |V|A|005|        0 us   0878.049 ms   < DT:0xE17CF338> ^ e27e52ac [e0072547]
+00000757: 01016e81 |V|A|005|        0 us   0878.049 ms   < DT:0xE17CF338> ^ e27e52ac [e007122b]
+00000758: 01016e81 |V|A|005|        0 us   0878.049 ms   < DT:0xE17CF338> ^ e27e52ac [e06785e1]
+00000759: 01016e97 |V|A|005|        1 us   0878.051 ms   < DT:0xE17CF338> ^ e27e52ac [e0678e2f]
+00000760: 01016e97 |V|A|005|        0 us   0878.051 ms   < DT:0xE17CF338> ^ e27e52ac [e063c889]
+00000761: 01016e97 |V|A|005|        0 us   0878.051 ms   < DT:0xE17CF338> ^ e27e52ac [e063c6b9]
+00000762: 01016ea5 |V|A|005|        0 us   0878.052 ms   < DT:0xE17CF338> ^ e27e52ac [e063c5ad]
+00000763: 01016ea5 |V|A|005|        0 us   0878.052 ms   < DT:0xE17CF338> ^ e27e52ac [e063dbed]
+00000764: 01016ea5 |V|A|005|        0 us   0878.052 ms   < DT:0xE17CF338> ^ e27e52ac [e0666325]
+00000765: 01016eb0 |V|A|005|        0 us   0878.052 ms   < DT:0xE17CF338> ^ e27e52ac [e053d149]
+00000766: 01016eb0 |V|A|005|        0 us   0878.052 ms   < DT:0xE17CF338> ^ e27e52ac [e008d331]
+00000767: 01016f00 |V|A|005|        5 us   0878.057 ms   < DT:0xE17CF338> ^ e27e52ac [e0093d93]
+00000768: 01016f00 |V|A|005|        0 us   0878.057 ms   < DT:0xE17CF338> ^ e27e52ac [e008a103]
+00000769: 01016f00 |V|A|005|        0 us   0878.057 ms   < DT:0xE17CF338> ^ e27e52ac [e0097ead]
+00000770: 01016f0e |V|A|005|        0 us   0878.058 ms   < DT:0xE17CF338> ^ e27e52ac [e04434e7]
+00000771: 01016f0e |V|A|005|        0 us   0878.058 ms   < DT:0xE17CF338> ^ e27e52ac [e055c1c7]
+00000772: 01016f0e |V|A|005|        0 us   0878.058 ms   < DT:0xE17CF338> ^ e27e52ac [e052e939]
+00000773: 01016f19 |V|A|005|        0 us   0878.059 ms   < DT:0xE17CF338> ^ e27e52ac [e003d0ef]
+00000774: 01016f19 |V|A|005|        0 us   0878.059 ms   < DT:0xE17CF338> ^ e27e52ac [e03ce26b]
+00000775: 01016f19 |V|A|005|        0 us   0878.059 ms   < DT:0xE17CF338> ^ e27e52ac [e055c1c7]
+00000776: 01016f1d |V|A|005|        0 us   0878.059 ms   < DT:0xE17CF338> ^ e27e52ac [e052e939]
+00000777: 01016f1d |V|A|005|        0 us   0878.059 ms   < DT:0xE17CF338> ^ e27e52ac [e003d0ef]
+00000778: 01016f1d |V|A|005|        0 us   0878.059 ms   < DT:0xE17CF338> ^ e27e52ac [e03cd4e7]
+00000779: 01016f32 |V|A|005|        1 us   0878.061 ms   < DT:0xE17CF338> ^ e27e52ac [e053eee9]
+00000780: 01016f32 |V|A|005|        0 us   0878.061 ms   < DT:0xE17CF338> ^ e27e52ac [e0097d79]
+00000781: 01017037 |V|A|005|       16 us   0878.077 ms   < DT:0xE17CF338> ^ e27e52ac [e0563977]
+00000782: 01017037 |V|A|005|        0 us   0878.077 ms   < DT:0xE17CF338> ^ e27e52ac [e055d5cf]
+00000783: 01017aeb |V|A|005|      175 us   0878.253 ms   < DT:0xE17CF338> POOLBOUNDS e18e0380 e7c00000
+00000784: 01017aeb |V|A|005|        0 us   0878.253 ms   < DT:0xE17CF338> + e28065a4 38
+00000785: 01017aff |V|A|005|        1 us   0878.254 ms   < DT:0xE17CF338> ^ e28065a4 [e0013cd5]
+00000786: 01017aff |V|A|005|        0 us   0878.254 ms   < DT:0xE17CF338> ^ e28065a4 [e053d00b]
+00000787: 01017aff |V|A|005|        0 us   0878.254 ms   < DT:0xE17CF338> ^ e28065a4 [e006f9a5]
+00000788: 01017b0e |V|A|005|        0 us   0878.255 ms   < DT:0xE17CF338> ^ e28065a4 [e0072547]
+00000789: 01017b0e |V|A|005|        0 us   0878.255 ms   < DT:0xE17CF338> ^ e28065a4 [e007122b]
+00000790: 01017b0e |V|A|005|        0 us   0878.255 ms   < DT:0xE17CF338> ^ e28065a4 [e06785e1]
+00000791: 01017b24 |V|A|005|        1 us   0878.256 ms   < DT:0xE17CF338> ^ e28065a4 [e0678e2f]
+00000792: 01017b24 |V|A|005|        0 us   0878.256 ms   < DT:0xE17CF338> ^ e28065a4 [e063c889]
+00000793: 01017b24 |V|A|005|        0 us   0878.256 ms   < DT:0xE17CF338> ^ e28065a4 [e063c6b9]
+00000794: 01017b32 |V|A|005|        0 us   0878.257 ms   < DT:0xE17CF338> ^ e28065a4 [e063c5ad]
+00000795: 01017b32 |V|A|005|        0 us   0878.257 ms   < DT:0xE17CF338> ^ e28065a4 [e063dbed]
+00000796: 01017b32 |V|A|005|        0 us   0878.257 ms   < DT:0xE17CF338> ^ e28065a4 [e0666325]
+00000797: 01017b43 |V|A|005|        1 us   0878.258 ms   < DT:0xE17CF338> ^ e28065a4 [e053d149]
+00000798: 01017b43 |V|A|005|        0 us   0878.258 ms   < DT:0xE17CF338> ^ e28065a4 [e008d331]
+00000799: 01017b8f |V|A|005|        4 us   0878.263 ms   < DT:0xE17CF338> ^ e28065a4 [e0093d93]
+00000800: 01017b8f |V|A|005|        0 us   0878.263 ms   < DT:0xE17CF338> ^ e28065a4 [e008a103]
+00000801: 01017b8f |V|A|005|        0 us   0878.263 ms   < DT:0xE17CF338> ^ e28065a4 [e0097ead]
+00000802: 01017b9f |V|A|005|        1 us   0878.264 ms   < DT:0xE17CF338> ^ e28065a4 [e04434e7]
+00000803: 01017b9f |V|A|005|        0 us   0878.264 ms   < DT:0xE17CF338> ^ e28065a4 [e055c1c7]
+00000804: 01017b9f |V|A|005|        0 us   0878.264 ms   < DT:0xE17CF338> ^ e28065a4 [e052e939]
+00000805: 01017baa |V|A|005|        0 us   0878.265 ms   < DT:0xE17CF338> ^ e28065a4 [e003d0ef]
+00000806: 01017baa |V|A|005|        0 us   0878.265 ms   < DT:0xE17CF338> ^ e28065a4 [e03ce26b]
+00000807: 01017baa |V|A|005|        0 us   0878.265 ms   < DT:0xE17CF338> ^ e28065a4 [e055c1c7]
+00000808: 01017bb1 |V|A|005|        0 us   0878.265 ms   < DT:0xE17CF338> ^ e28065a4 [e052e939]
+00000809: 01017bb1 |V|A|005|        0 us   0878.265 ms   < DT:0xE17CF338> ^ e28065a4 [e003d0ef]
+00000810: 01017bb1 |V|A|005|        0 us   0878.265 ms   < DT:0xE17CF338> ^ e28065a4 [e03cd4e7]
+00000811: 01017bc9 |V|A|005|        1 us   0878.267 ms   < DT:0xE17CF338> ^ e28065a4 [e053eee9]
+00000812: 01017bc9 |V|A|005|        0 us   0878.267 ms   < DT:0xE17CF338> ^ e28065a4 [e0097d79]
+00000813: 01017cce |V|A|005|       16 us   0878.284 ms   < DT:0xE17CF338> ^ e28065a4 [e0563977]
+00000814: 01017cce |V|A|005|        0 us   0878.284 ms   < DT:0xE17CF338> ^ e28065a4 [e055d5cf]";
+
+        let pool_bounds = mst_parser.parse_log_directly(log, TEST_BINARY_PATH).pool_bounds;
+        assert_eq!(pool_bounds, (3784180608, 3888119808));
     }
 }

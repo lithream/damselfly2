@@ -17,16 +17,20 @@ pub struct MapViewer {
 }
 
 impl MapViewer {
-    pub fn new(update_intervals: Vec<UpdateInterval>) -> MapViewer {
+    pub fn new(update_intervals: Vec<UpdateInterval>, lowest_address: usize, highest_address: usize) -> MapViewer {
         let current_timestamp = update_intervals.len().saturating_sub(1);
 
-        let lowest_address = update_intervals.iter().min_by(|prev, next| {
+        let analysed_lowest_address = update_intervals.iter().min_by(|prev, next| {
             prev.val.get_absolute_address().cmp(&next.val.get_absolute_address())
         }).expect("[MapViewer::new]: Cannot find lowest address").val.get_absolute_address();
 
-        let highest_address = update_intervals.iter().max_by(|prev, next| {
+        let analysed_highest_address = update_intervals.iter().max_by(|prev, next| {
             prev.val.get_absolute_address().cmp(&next.val.get_absolute_address())
         }).expect("[MapViewer::new]: Cannot find highest address").val.get_absolute_address();
+
+        println!("Reported pool bounds from log: {lowest_address} -> {highest_address}");
+        println!("Analysed pool bounds from instructions: {analysed_lowest_address} -> {analysed_highest_address}");
+        println!("The reported pool bounds should be larger than or equal to the analysed bounds.");
 
         MapViewer {
             cache: MemoryCache::new(DEFAULT_BLOCK_SIZE, update_intervals.clone(), DEFAULT_CACHE_INTERVAL),
@@ -35,8 +39,9 @@ impl MapViewer {
             canvas_start: 0,
             canvas_span: DEFAULT_MEMORYSPAN,
             block_size: DEFAULT_BLOCK_SIZE,
-            lowest_address,
-            highest_address,
+            lowest_address: min(lowest_address, analysed_lowest_address),
+            highest_address: max(highest_address, analysed_highest_addres
+                                 s),
         }
     }
 

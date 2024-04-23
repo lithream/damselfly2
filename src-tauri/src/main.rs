@@ -221,7 +221,7 @@ fn get_operation_log(state: tauri::State<AppState>) -> Result<Vec<String>, Strin
         Ok(viewer
             .get_operation_history()
             .iter()
-            .take(7)
+            .take(128)
             .map(|update| update.to_string())
             .collect())
     } else {

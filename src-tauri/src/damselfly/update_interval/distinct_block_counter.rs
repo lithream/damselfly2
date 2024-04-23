@@ -194,7 +194,7 @@ mod tests {
 
     fn initialise_test_log() -> (Vec<MemoryUpdateType>, DistinctBlockCounter) {
         let mst_parser = MemorySysTraceParser::new();
-        let updates = mst_parser.parse_log_directly(TEST_LOG, TEST_BINARY_PATH);
+        let updates = mst_parser.parse_log_directly(TEST_LOG, TEST_BINARY_PATH).memory_updates;
         (updates, DistinctBlockCounter::default())
     }
 
