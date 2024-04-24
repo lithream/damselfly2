@@ -72,6 +72,7 @@ impl MemoryCache {
 }
 
 mod tests {
+    use crate::damselfly::consts::DEFAULT_CACHE_INTERVAL;
     use crate::damselfly::memory::memory_cache::MemoryCache;
     use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
     use crate::damselfly::update_interval::update_interval_factory::UpdateIntervalFactory;
@@ -82,6 +83,6 @@ mod tests {
         let memory_updates = mst_parser.parse_log("./trace4.log", "./threadxApp").memory_updates;
         let update_interval_factory = UpdateIntervalFactory::new(memory_updates);
         let update_intervals = update_interval_factory.construct_enum_vector();
-        let memory_cache = MemoryCache::new(4, update_intervals, 100);
+        let memory_cache = MemoryCache::new(4, update_intervals, DEFAULT_CACHE_INTERVAL);
     }
 }

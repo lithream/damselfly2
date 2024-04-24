@@ -1,3 +1,4 @@
+use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::Read;
@@ -24,7 +25,6 @@ pub struct MemorySysTraceParser {
     record_queue: Vec<RecordType>,
     memory_updates: Vec<MemoryUpdateType>,
     pool_bounds: (usize, usize),
-    bounds_found: bool,
     symbols: HashMap<usize, String>,
     prefix: String,
     counter: u64,
@@ -50,8 +50,7 @@ impl MemorySysTraceParser {
             time: 0,
             record_queue: Vec::new(),
             memory_updates: Vec::new(),
-            pool_bounds: (0, 0),
-            bounds_found: false,
+            pool_bounds: (usize::MAX, 0),
             symbols: HashMap::new(),
             prefix: String::new(),
             counter: 0,
@@ -117,9 +116,10 @@ impl MemorySysTraceParser {
     /// returns: true if useless, false if useful
     ///
     pub fn is_line_useless(&mut self, line: &str) -> bool {
-        if !self.bounds_found && (*line).contains("POOLBOUNDS") {
-            self.pool_bounds = self.compute_pool_bounds(line);
-            self.bounds_found = true;
+        if (*line).contains("POOLBOUNDS") {
+            let computed_bounds = self.compute_pool_bounds(line);
+            self.pool_bounds.0 = min(self.pool_bounds.0, computed_bounds.0);
+            self.pool_bounds.1 = max(self.pool_bounds.1, computed_bounds.1);
         }
         let split_line = line.split('>').collect::<Vec<_>>();
         if let Some(latter_half) = split_line.get(1) {

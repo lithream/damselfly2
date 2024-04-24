@@ -1,3 +1,4 @@
+use std::cmp::{max, min};
 use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_CACHE_INTERVAL, DEFAULT_MEMORYSPAN};
 use crate::damselfly::memory::memory_cache::MemoryCache;
 use crate::damselfly::memory::memory_status::MemoryStatus;
@@ -17,7 +18,7 @@ pub struct MapViewer {
 }
 
 impl MapViewer {
-    pub fn new(update_intervals: Vec<UpdateInterval>, lowest_address: usize, highest_address: usize) -> MapViewer {
+    pub fn new(update_intervals: Vec<UpdateInterval>, lowest_address: usize, highest_address: usize, cache_size: u64) -> MapViewer {
         let current_timestamp = update_intervals.len().saturating_sub(1);
 
         let analysed_lowest_address = update_intervals.iter().min_by(|prev, next| {
@@ -33,15 +34,14 @@ impl MapViewer {
         println!("The reported pool bounds should be larger than or equal to the analysed bounds.");
 
         MapViewer {
-            cache: MemoryCache::new(DEFAULT_BLOCK_SIZE, update_intervals.clone(), DEFAULT_CACHE_INTERVAL),
+            cache: MemoryCache::new(DEFAULT_BLOCK_SIZE, update_intervals.clone(), cache_size as usize),
             update_intervals,
             current_timestamp,
             canvas_start: 0,
             canvas_span: DEFAULT_MEMORYSPAN,
             block_size: DEFAULT_BLOCK_SIZE,
             lowest_address: min(lowest_address, analysed_lowest_address),
-            highest_address: max(highest_address, analysed_highest_addres
-                                 s),
+            highest_address: max(highest_address, analysed_highest_address),
         }
     }
 

@@ -41,8 +41,8 @@ fn main() {
 }
 
 #[tauri::command(rename_all = "snake_case")]
-fn initialise_viewer(state: tauri::State<AppState>, log_path: String, binary_path: String) {
-    let viewer = DamselflyViewer::new(&log_path, &binary_path);
+fn initialise_viewer(state: tauri::State<AppState>, log_path: String, binary_path: String, cache_size: u64) {
+    let viewer = DamselflyViewer::new(&log_path, &binary_path, cache_size);
     state.viewer.lock().unwrap().replace(viewer);
 }
 
@@ -280,7 +280,7 @@ mod tests {
 
     #[test]
     fn benchmark() {
-        let mut damselfly_viewer = DamselflyViewer::new("/home/oracle/dev/damselfly2/smalltest.log", "/home/oracle/dev/damselfly2/src-tauri/threadxApp");
+        let mut damselfly_viewer = DamselflyViewer::new("/home/oracle/dev/damselfly2/smalltest.log", "/home/oracle/dev/damselfly2/src-tauri/threadxApp", );
         let realtime_sampled_map = damselfly_viewer.get_map_full_at_nosync_colours_truncate(4, 256);
         eprintln!("done");
     }

@@ -22,7 +22,7 @@ pub struct DamselflyViewer {
 }
 
 impl DamselflyViewer {
-    pub fn new(log_path: &str, binary_path: &str) -> DamselflyViewer {
+    pub fn new(log_path: &str, binary_path: &str, cache_size: u64) -> DamselflyViewer {
         let mem_sys_trace_parser = MemorySysTraceParser::new();
         let parse_results = mem_sys_trace_parser.parse_log(log_path, binary_path);
         let (memory_updates, pool_bounds) = (parse_results.memory_updates, parse_results.pool_bounds);
@@ -44,7 +44,7 @@ impl DamselflyViewer {
             max_distinct_blocks as usize,
         );
         let update_intervals = UpdateIntervalFactory::new(memory_updates).construct_enum_vector();
-        let map_viewer = MapViewer::new(update_intervals.clone(), pool_bounds.0, pool_bounds.1);
+        let map_viewer = MapViewer::new(update_intervals.clone(), pool_bounds.0, pool_bounds.1, cache_size);
         let full_lapper = Lapper::new(update_intervals);
         DamselflyViewer {
             graph_viewer,
@@ -282,7 +282,7 @@ impl DamselflyViewer {
 }
 
 mod tests {
-    use crate::damselfly::consts::{TEST_BINARY_PATH, TEST_LOG, TEST_LOG_PATH};
+    use crate::damselfly::consts::{DEFAULT_CACHE_INTERVAL, TEST_BINARY_PATH, TEST_LOG, TEST_LOG_PATH};
     use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
     use crate::damselfly::memory::memory_usage::MemoryUsage;
     use crate::damselfly::memory::memory_usage_factory::MemoryUsageFactory;
@@ -291,23 +291,20 @@ mod tests {
     fn initialise_test_log() -> DamselflyViewer {
         let mst_parser = MemorySysTraceParser::new();
         let updates = mst_parser.parse_log_directly(TEST_LOG, TEST_BINARY_PATH);
-        let viewer = DamselflyViewer::new(TEST_LOG_PATH, TEST_BINARY_PATH);
+        let viewer = DamselflyViewer::new(TEST_LOG_PATH, TEST_BINARY_PATH, DEFAULT_CACHE_INTERVAL);
         viewer
     }
 
     fn initialise_log(log_path: &str) -> DamselflyViewer {
         let mst_parser = MemorySysTraceParser::new();
         let updates = mst_parser.parse_log_directly(TEST_LOG, TEST_BINARY_PATH);
-        let viewer = DamselflyViewer::new(log_path, TEST_BINARY_PATH);
+        let viewer = DamselflyViewer::new(log_path, TEST_BINARY_PATH, DEFAULT_CACHE_INTERVAL);
         viewer
     }
 
     #[test]
     fn benchmark() {
-        let mut viewer = DamselflyViewer::new(
-            "/work/dev/hp/dune/trace.log",
-            TEST_BINARY_PATH,
-        );
+        let mut viewer = DamselflyViewer::new("/work/dev/hp/dune/trace.log", TEST_BINARY_PATH, DEFAULT_CACHE_INTERVAL);
         let graph = viewer.get_usage_graph_realtime_sampled();
         viewer.get_map_full_at_nosync_colours_truncate(13000, 256);
     }

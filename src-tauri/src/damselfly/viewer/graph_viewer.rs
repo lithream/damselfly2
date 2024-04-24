@@ -161,7 +161,7 @@ mod tests {
 
     #[test]
     fn benchmark() {
-        let damselfly_viewer = DamselflyViewer::new("./testlog.log", "./threadxApp");
+        let damselfly_viewer = DamselflyViewer::new("./testlog.log", "./threadxApp", );
         let graph = damselfly_viewer.get_usage_graph_realtime_sampled();
     }
 }

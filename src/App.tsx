@@ -59,11 +59,22 @@ function App() {
 
   const selectFilesAndInitialiseViewer = async () => {
     try {
+      let cacheSize = prompt("Enter cache size. Smaller caches run faster but use more memory.\n" +
+          "Defaults to 1000 if blank, which is suitable for logs up to 50MB.");
+      if (cacheSize == null) {
+        cacheSize = "1000";
+      }
+      console.log(`cacheSize = ${cacheSize}`);
+      let cacheSizeInt = parseInt(cacheSize);
+      if (isNaN(cacheSizeInt)) {
+        cacheSizeInt = 1000;
+      }
+      console.log(`cacheSizeInt = ${cacheSizeInt}`);
       const logFilePath = await invoke("choose_files");
       const binaryFilePath = await invoke("choose_files");
 
       if (logFilePath && binaryFilePath) {
-        await invoke("initialise_viewer", { log_path: logFilePath, binary_path: binaryFilePath });
+        await invoke("initialise_viewer", { log_path: logFilePath, binary_path: binaryFilePath, cache_size: cacheSizeInt });
         setDataLoaded(true);
       }
     } catch (error) {
