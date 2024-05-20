@@ -7,6 +7,8 @@ use std::str::Split;
 use std::sync::Arc;
 use addr2line::Context;
 use owo_colors::OwoColorize;
+use crate::damselfly::memory::memory_pool::MemoryPool;
+use crate::damselfly::memory::memory_pool_list::MemoryPoolList;
 use crate::damselfly::memory::memory_update::{Allocation, Free, MemoryUpdate, MemoryUpdateType};
 
 #[derive(Clone)]
@@ -17,6 +19,10 @@ pub enum RecordType {
     Free(usize, String, String),
     // (address, callstack)
     StackTrace(usize, String),
+    // (address, size)
+    PoolBounds(usize, usize),
+    // (name)
+    PoolName(String),
 }
 
 #[derive(Default)]
@@ -24,6 +30,7 @@ pub struct MemorySysTraceParser {
     time: usize,
     record_queue: Vec<RecordType>,
     memory_updates: Vec<MemoryUpdateType>,
+    pool_list: MemoryPoolList,
     pool_bounds: (usize, usize),
     symbols: HashMap<usize, String>,
     prefix: String,
@@ -50,6 +57,7 @@ impl MemorySysTraceParser {
             time: 0,
             record_queue: Vec::new(),
             memory_updates: Vec::new(),
+            pool_list: MemoryPoolList::default(),
             pool_bounds: (usize::MAX, 0),
             symbols: HashMap::new(),
             prefix: String::new(),
@@ -298,6 +306,8 @@ impl MemorySysTraceParser {
     fn bake_memory_update(&mut self) -> MemoryUpdateType {
         let mut iter = self.record_queue.iter();
         let mut first_rec: RecordType = iter.next().expect("[MemorySysTraceParser::bake_memory_update]: Record queue empty").clone();
+        let mut potential_memory_pool = MemoryPool::default();
+        let mut memory_pools = HashSet::new();
         for rec in iter {
             if let RecordType::StackTrace(trace_address, trace_callstack) = rec {
                 match first_rec {
@@ -311,13 +321,25 @@ impl MemorySysTraceParser {
                     RecordType::Free(free_address, ref mut free_callstack, _) => {
                         // Check if we are tracing the correct address
                         if *trace_address == free_address {
-                            //if !free_callstack.is_empty() { free_callstack.push('\n'); }
                             free_callstack.push_str(trace_callstack);
                             free_callstack.push('\n');
                         }
                     }
-                    RecordType::StackTrace(_, _) => panic!("[MemorySysTraceParser::bake_memory_update]: First instruction in instruction queue is a stacktrace, but it should be an alloc/free"),
+                    RecordType::StackTrace(_, _) => 
+                        panic!("[MemorySysTraceParser::bake_memory_update]: First instruction in instruction queue is a stacktrace, but it should be an alloc/free"),
+                    RecordType::PoolBounds(_, _) => 
+                        panic!("[MemorySysTraceParser::bake_memory_update]: First instruction in instruction queue is a poolbounds, but it should be an alloc/free"),
+                    RecordType::PoolName(_) => 
+                        panic!("[MemorySysTraceParser::bake_memory_update]: First instruction in instruction queue is a poolname, but it should be an alloc/free"),
                 }
+            } else if let RecordType::PoolBounds(start, size) = rec {
+                // Assume poolbounds is always printed first, followed by poolname
+                potential_memory_pool.set_start(*start);
+                potential_memory_pool.set_size(*size);
+            } else if let RecordType::PoolName(name) = rec {
+                potential_memory_pool.set_name(name.clone());
+                memory_pools.insert(potential_memory_pool.clone());
+                potential_memory_pool = MemoryPool::default();
             }
         }
 
@@ -394,15 +416,27 @@ impl MemorySysTraceParser {
             return Err ("[MemorySysTraceParser::parse_line]: Line length mismatch");
         }
 
+        let mut address_needed = false;
         let mut record;
         match split_dataline[0] {
-            "+" => record = RecordType::Allocation(0, 0, String::new(), String::new()),
-            "-" => record = RecordType::Free(0, String::new(), String::new()),
-            "^" => record = {
-                let symbol = self.lookup_symbol(Self::extract_trace_address(split_dataline[2]))
-                    .or(Some("[INVALID_SYMBOL]".to_string()));
-                RecordType::StackTrace(0, symbol.unwrap())
+            "+" => {
+                record = RecordType::Allocation(0, 0, String::new(), String::new());
+                address_needed = true;
             },
+            "-" => {
+                record = RecordType::Free(0, String::new(), String::new());
+                address_needed = true;
+            },
+            "^" => {
+                record = {
+                    let symbol = self.lookup_symbol(Self::extract_trace_address(split_dataline[2]))
+                        .or(Some("[INVALID_SYMBOL]".to_string()));
+                    RecordType::StackTrace(0, symbol.unwrap())
+                };
+                address_needed = true;
+            },
+            "POOLBOUNDS" => record = RecordType::PoolBounds(0, 0),
+            "POOLNAME" => record = RecordType::PoolName(String::new()),
             _  => return Err("[MemorySysTraceParser::parse_line]: Invalid operation type"),
         }
 

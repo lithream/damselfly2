@@ -157,11 +157,12 @@ impl GraphViewer {
 }
 
 mod tests {
+    use crate::damselfly::consts::DEFAULT_CACHE_INTERVAL;
     use crate::damselfly::viewer::damselfly_viewer::DamselflyViewer;
 
     #[test]
     fn benchmark() {
-        let damselfly_viewer = DamselflyViewer::new("./testlog.log", "./threadxApp", );
+        let damselfly_viewer = DamselflyViewer::new("./testlog.log", "./threadxApp", DEFAULT_CACHE_INTERVAL);
         let graph = damselfly_viewer.get_usage_graph_realtime_sampled();
     }
 }
