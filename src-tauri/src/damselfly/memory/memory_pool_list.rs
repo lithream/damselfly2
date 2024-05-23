@@ -16,4 +16,8 @@ impl MemoryPoolList {
     pub fn add_pool(&mut self, pool: MemoryPool) {
         self.pools.insert(pool);
     }
+
+    pub fn get_pools(&self) -> &HashSet<MemoryPool> {
+        &self.pools
+    }
 }

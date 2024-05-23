@@ -7,6 +7,7 @@ use crate::damselfly::update_interval::UpdateInterval;
 use crate::damselfly::viewer::memory_canvas::MemoryCanvas;
 
 pub struct MapViewer {
+    map_name: String,
     cache: MemoryCache,
     update_intervals: Vec<UpdateInterval>,
     current_timestamp: usize,
@@ -18,7 +19,7 @@ pub struct MapViewer {
 }
 
 impl MapViewer {
-    pub fn new(update_intervals: Vec<UpdateInterval>, lowest_address: usize, highest_address: usize, cache_size: u64) -> MapViewer {
+    pub fn new(map_name: String, update_intervals: Vec<UpdateInterval>, lowest_address: usize, highest_address: usize, cache_size: u64) -> MapViewer {
         let current_timestamp = update_intervals.len().saturating_sub(1);
 
         let analysed_lowest_address = update_intervals.iter().min_by(|prev, next| {
@@ -34,6 +35,7 @@ impl MapViewer {
         println!("The reported pool bounds should be larger than or equal to the analysed bounds.");
 
         MapViewer {
+            map_name,
             cache: MemoryCache::new(DEFAULT_BLOCK_SIZE, update_intervals.clone(), cache_size as usize),
             update_intervals,
             current_timestamp,

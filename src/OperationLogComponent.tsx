@@ -3,17 +3,18 @@ import {useEffect, useState} from "react";
 import Data from "./Data.tsx";
 
 interface OperationLogProps {
+    activeInstance: number;
     memoryData: Data;
     dataLoaded: boolean;
     xClick: number;
 }
 
-function OperationLog({ memoryData }: OperationLogProps) {
+function OperationLog({ activeInstance, memoryData }: OperationLogProps) {
     const [log, setLog] = useState<string[]>([]);
     useEffect(() => {
         const fetchLog = async () => {
             try {
-                const fetchedLog = await invoke<string[]>("get_operation_log");
+                const fetchedLog = await invoke<string[]>("get_operation_log", { activeInstance: activeInstance });
                 setLog(fetchedLog);
             } catch (error) {
                 console.error("Failed to fetch operation log", error);

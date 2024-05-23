@@ -12,6 +12,11 @@ import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
+import Box from '@mui/material/Box';
+import InputLabel from '@mui/material/InputLabel';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import Select, { SelectChangeEvent } from '@mui/material/Select';
 
 function App() {
   const [dataLoaded, setDataLoaded] = useState<boolean>(false);
@@ -24,6 +29,8 @@ function App() {
   const [blockSize, setBlockSize] = useState<number>(32);
   const [squareSize, setSquareSize] = useState<number>(4);
   const [activeTab, setActiveTab] = useState('callstack');
+  const [activeInstance, setActiveInstance] = useState<number>(0);
+  const [poolList, setPoolList] = useState<number[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -32,11 +39,13 @@ function App() {
           let data: [number, number[][]];
           if (realtimeGraph) {
             data = await invoke("get_viewer_map_full_at_colours_realtime_sampled", {
+              damselflyInstance: activeInstance,
               timestamp: xClick + realtimeGraphOffset,
               truncateAfter: 256
             });
           } else {
             data = await invoke("get_viewer_map_full_at_colours", {
+              damselflyInstance: activeInstance,
               timestamp: xClick,
               truncateAfter: 256
             });
@@ -48,6 +57,8 @@ function App() {
           };
           console.log("memory data set");
           setMemoryData(memoryData);
+          const pools = await invoke("get_pool_list");
+          setPoolList(pools);
         } catch (error) {
           console.log("error");
           console.error("Error fetching memory data: ", error);
@@ -118,7 +129,7 @@ function App() {
       <div className="mainContent">
         <div className="left">
           <div className="top">
-            <Graph dataLoaded={dataLoaded} realtimeGraph={realtimeGraph} setXClick={setXClick} xClick={xClick} setXLimit={setXLimit} setRealtimeGraphOffset={setRealtimeGraphOffset} />
+            <Graph activeInstance={activeInstance} dataLoaded={dataLoaded} realtimeGraph={realtimeGraph} setXClick={setXClick} xClick={xClick} setXLimit={setXLimit} setRealtimeGraphOffset={setRealtimeGraphOffset} />
             <GraphSlider xClick={xClick} setXClick={setXClick} xLimit={xLimit}/>
           </div>
           <div className="tabs">
@@ -127,9 +138,9 @@ function App() {
             <button onClick={() => setActiveTab('block')} className={activeTab === 'block' ? 'active' : ''}>Block</button>
           </div>
           <div className="tabContent">
-            {activeTab === 'operationLog' && <OperationLog memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} />}
-            {activeTab === 'callstack' && <Callstack xClick={xClick} />}
-            {activeTab === 'block' && <BlockStatus selectedBlock={selectedBlock} timestamp={realtimeGraph ? xClick + realtimeGraphOffset : xClick} realtimeGraph={realtimeGraph}/>}
+            {activeTab === 'operationLog' && <OperationLog activeInstance={activeInstance} memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} />}
+            {activeTab === 'callstack' && <Callstack activeInstance={activeInstance} xClick={xClick} />}
+            {activeTab === 'block' && <BlockStatus activeInstance={activeInstance} selectedBlock={selectedBlock} timestamp={realtimeGraph ? xClick + realtimeGraphOffset : xClick} realtimeGraph={realtimeGraph}/>}
           </div>
           <div className="bottom">
             {/* GraphSlider or other components if needed */}

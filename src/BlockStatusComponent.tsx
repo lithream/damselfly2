@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
 
 interface BlockStatusProps {
+  activeInstance: number;
   selectedBlock: number;
   timestamp: number;
   realtimeGraph: boolean;
@@ -24,7 +25,7 @@ type MemoryUpdateType = {
   Free?: Free;
 };
 
-function BlockStatus({ selectedBlock, timestamp, realtimeGraph }: BlockStatusProps) {
+function BlockStatus({ activeInstance, selectedBlock, timestamp, realtimeGraph }: BlockStatusProps) {
   const [memoryUpdates, setMemoryUpdates] = useState<MemoryUpdateType[]>([]);
 
   useEffect(() => {
@@ -34,6 +35,7 @@ function BlockStatus({ selectedBlock, timestamp, realtimeGraph }: BlockStatusPro
       try {
         if (realtimeGraph) {
           const updates: MemoryUpdateType[] = await invoke("query_block_realtime", {
+            activeInstance: activeInstance,
             address: selectedBlock,
             timestamp: timestamp,
           });
@@ -41,6 +43,7 @@ function BlockStatus({ selectedBlock, timestamp, realtimeGraph }: BlockStatusPro
           setMemoryUpdates(updates.reverse());
         } else {
           const updates: MemoryUpdateType[] = await invoke("query_block", {
+            activeInstance: activeInstance,
             address: selectedBlock,
             timestamp: timestamp,
           });

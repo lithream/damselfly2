@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine } from 'recharts';
 
 interface GraphProps {
+    activeInstance: number,
     dataLoaded: boolean,
     realtimeGraph: boolean,
     setXClick: (x: number) => void;
@@ -20,7 +21,7 @@ type GraphData = {
     free_blocks: number,
 }
 
-function Graph({ dataLoaded, realtimeGraph, setXClick , xClick, setXLimit, setRealtimeGraphOffset }: GraphProps) {
+function Graph({ activeInstance, dataLoaded, realtimeGraph, setXClick , xClick, setXLimit, setRealtimeGraphOffset }: GraphProps) {
     const [data, setData] = useState<GraphData[]>([]);
     const [chartWidth, setChartWidth] = useState(window.innerWidth / 2);
     const [chartHeight, _setChartHeight] = useState(300); // Maintain a fixed height or adjust as needed
@@ -73,20 +74,20 @@ function Graph({ dataLoaded, realtimeGraph, setXClick , xClick, setXLimit, setRe
             let freeBlocksData: Array<[number, number]>;
 
             if (realtimeGraph) {
-                usageData = await invoke('get_viewer_usage_graph_sampled');
-                fragmentationData = await invoke('get_viewer_distinct_blocks_graph_sampled');
-                largestFreeBlockData = await invoke('get_viewer_largest_block_graph_sampled');
-                freeBlocksData = await invoke('get_viewer_free_blocks_graph_sampled');
+                usageData = await invoke('get_viewer_usage_graph_sampled', { damselflyInstance: activeInstance });
+                fragmentationData = await invoke('get_viewer_distinct_blocks_graph_sampled', { damselflyInstance: activeInstance });
+                largestFreeBlockData = await invoke('get_viewer_largest_block_graph_sampled', { damselflyInstance: activeInstance });
+                freeBlocksData = await invoke('get_viewer_free_blocks_graph_sampled', { damselflyInstance: activeInstance });
                 let trimmedData = trim_blank_start_from_graphs(usageData, fragmentationData, largestFreeBlockData, freeBlocksData);
                 usageData = trimmedData[0];
                 fragmentationData = trimmedData[1];
                 largestFreeBlockData = trimmedData[2];
                 freeBlocksData = trimmedData[3];
             } else {
-                usageData = await invoke('get_viewer_usage_graph');
-                fragmentationData = await invoke('get_viewer_distinct_blocks_graph');
-                largestFreeBlockData = await invoke('get_viewer_largest_block_graph');
-                freeBlocksData = await invoke('get_viewer_free_blocks_graph');
+                usageData = await invoke('get_viewer_usage_graph', { damselflyInstance: activeInstance  });
+                fragmentationData = await invoke('get_viewer_distinct_blocks_graph', { damselflyInstance: activeInstance });
+                largestFreeBlockData = await invoke('get_viewer_largest_block_graph', { damselflyInstance: activeInstance });
+                freeBlocksData = await invoke('get_viewer_free_blocks_graph', { damselflyInstance: activeInstance });
             }
 
             let formattedData = [];
