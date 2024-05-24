@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
 import "./App.css";
@@ -12,11 +13,7 @@ import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
-import Box from '@mui/material/Box';
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import FormControl from '@mui/material/FormControl';
-import Select, { SelectChangeEvent } from '@mui/material/Select';
+import PoolSelector from "./PoolSelector.tsx";
 
 function App() {
   const [dataLoaded, setDataLoaded] = useState<boolean>(false);
@@ -29,8 +26,8 @@ function App() {
   const [blockSize, setBlockSize] = useState<number>(32);
   const [squareSize, setSquareSize] = useState<number>(4);
   const [activeTab, setActiveTab] = useState('callstack');
-  const [activeInstance, setActiveInstance] = useState<number>(0);
-  const [poolList, setPoolList] = useState<number[]>([]);
+  const [poolList, setPoolList] = useState<{name: string, index: number}[]>([]);
+  const [selectedPool, setSelectedPool] = useState<number>(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -39,13 +36,13 @@ function App() {
           let data: [number, number[][]];
           if (realtimeGraph) {
             data = await invoke("get_viewer_map_full_at_colours_realtime_sampled", {
-              damselflyInstance: activeInstance,
+              damselflyInstance: selectedPool,
               timestamp: xClick + realtimeGraphOffset,
               truncateAfter: 256
             });
           } else {
             data = await invoke("get_viewer_map_full_at_colours", {
-              damselflyInstance: activeInstance,
+              damselflyInstance: selectedPool,
               timestamp: xClick,
               truncateAfter: 256
             });
@@ -57,22 +54,22 @@ function App() {
           };
           console.log("memory data set");
           setMemoryData(memoryData);
-          const pools = await invoke("get_pool_list");
-          setPoolList(pools);
+          const poolNames: string[] = await invoke("get_pool_list");
+          setPoolList(poolNames.map((name, index) => ({ name, index })));
         } catch (error) {
           console.log("error");
           console.error("Error fetching memory data: ", error);
         }
       }
     };
-    fetchData().then();
-  }, [xClick, dataLoaded, blockSize]);
+    fetchData();
+  }, [xClick, dataLoaded, blockSize, selectedPool, realtimeGraph]);
 
   const selectFilesAndInitialiseViewer = async () => {
     try {
       let cacheSize = prompt("Enter cache size. Smaller caches run faster but use more memory.\n" +
           "Defaults to 1000 if blank, which is suitable for logs up to 50MB.");
-      if (cacheSize == null) {
+      if (cacheSize === null) {
         cacheSize = "1000";
       }
       console.log(`cacheSize = ${cacheSize}`);
@@ -124,44 +121,51 @@ function App() {
     setRealtimeGraph(!realtimeGraph);
   }
 
+  const handleSelectPool = (index: number) => {
+    setSelectedPool(index);
+  };
+
   return (
-    <div className="container">
-      <div className="mainContent">
-        <div className="left">
-          <div className="top">
-            <Graph activeInstance={activeInstance} dataLoaded={dataLoaded} realtimeGraph={realtimeGraph} setXClick={setXClick} xClick={xClick} setXLimit={setXLimit} setRealtimeGraphOffset={setRealtimeGraphOffset} />
-            <GraphSlider xClick={xClick} setXClick={setXClick} xLimit={xLimit}/>
+      <div className="container">
+        <div className="mainContent">
+          <div className="left">
+            <div className="top">
+              <Graph activeInstance={selectedPool} dataLoaded={dataLoaded} realtimeGraph={realtimeGraph} setXClick={setXClick} xClick={xClick} setXLimit={setXLimit} setRealtimeGraphOffset={setRealtimeGraphOffset} />
+              <GraphSlider xClick={xClick} setXClick={setXClick} xLimit={xLimit}/>
+            </div>
+            <div className="tabs">
+              <button onClick={() => setActiveTab('operationLog')} className={activeTab === 'operationLog' ? 'active' : ''}>Operation Log</button>
+              <button onClick={() => setActiveTab('callstack')} className={activeTab === 'callstack' ? 'active' : ''}>Callstack</button>
+              <button onClick={() => setActiveTab('block')} className={activeTab === 'block' ? 'active' : ''}>Block</button>
+            </div>
+            <div className="tabContent">
+              {activeTab === 'operationLog' && <OperationLog activeInstance={selectedPool} memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} />}
+              {activeTab === 'callstack' && <Callstack activeInstance={selectedPool} xClick={xClick} />}
+              {activeTab === 'block' && <BlockStatus activeInstance={selectedPool} selectedBlock={selectedBlock} timestamp={realtimeGraph ? xClick + realtimeGraphOffset : xClick} realtimeGraph={realtimeGraph}/>}
+            </div>
+            <div className="bottom">
+              {/* GraphSlider or other components if needed */}
+            </div>
           </div>
-          <div className="tabs">
-            <button onClick={() => setActiveTab('operationLog')} className={activeTab === 'operationLog' ? 'active' : ''}>Operation Log</button>
-            <button onClick={() => setActiveTab('callstack')} className={activeTab === 'callstack' ? 'active' : ''}>Callstack</button>
-            <button onClick={() => setActiveTab('block')} className={activeTab === 'block' ? 'active' : ''}>Block</button>
-          </div>
-          <div className="tabContent">
-            {activeTab === 'operationLog' && <OperationLog activeInstance={activeInstance} memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} />}
-            {activeTab === 'callstack' && <Callstack activeInstance={activeInstance} xClick={xClick} />}
-            {activeTab === 'block' && <BlockStatus activeInstance={activeInstance} selectedBlock={selectedBlock} timestamp={realtimeGraph ? xClick + realtimeGraphOffset : xClick} realtimeGraph={realtimeGraph}/>}
-          </div>
-          <div className="bottom">
-            {/* GraphSlider or other components if needed */}
+          <div className="right">
+            <MapGrid memoryData={memoryData} blockSize={4} squareSize={squareSize} selectedBlock={selectedBlock} setSelectedBlock={setSelectedBlock}></MapGrid>
           </div>
         </div>
-        <div className="right">
-          <MapGrid memoryData={memoryData} blockSize={4} squareSize={squareSize} selectedBlock={selectedBlock} setSelectedBlock={setSelectedBlock}></MapGrid>
-        </div>
-      </div>
-      <div className="controlPanel">
-        <div className="buttonGroup">
-          <button onClick={selectFilesAndInitialiseViewer}>Load</button>
-          <button onClick={() => increaseBlockSize()}>+</button>
-          <button onClick={() => decreaseBlockSize()}>-</button>
-          <button onClick={() => toggleRealtime()}>TIME</button>
-          <button onClick={() => increaseSquareSize()}>+</button>
-          <button onClick={() => decreaseSquareSize()}>-</button>
-        </div>
-        <div className="memoryStateLegend">
-          <div className="legend-item">
-            <div className="legend-square" style={{ backgroundColor: 'red' }}></div>
+        <div className="controlPanel">
+          <div className="buttonGroup">
+            <button onClick={selectFilesAndInitialiseViewer}>Load</button>
+            <button onClick={() => increaseBlockSize()}>+</button>
+            <button onClick={() => decreaseBlockSize()}>-</button>
+            <button onClick={() => toggleRealtime()}>TIME</button>
+            <button onClick={() => increaseSquareSize()}>+</button>
+            <button onClick={() => decreaseSquareSize()}>-</button>
+          </div>
+          <div className="PoolSelector">
+            <PoolSelector poolList={poolList} selectedPool={selectedPool} onSelectPool={handleSelectPool} />
+          </div>
+          <div className="memoryStateLegend">
+            <div className="legend-item">
+              <div className="legend-square" style={{ backgroundColor: 'red' }}></div>
               <span className="legend-text">ALLOCATED</span>
             </div>
             <div className="legend-item">
@@ -179,4 +183,3 @@ function App() {
 }
 
 export default App;
-

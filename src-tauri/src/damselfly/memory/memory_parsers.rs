@@ -30,6 +30,7 @@ pub struct MemorySysTraceParser {
     time: usize,
     record_queue: Vec<RecordType>,
     memory_updates: Vec<MemoryUpdateType>,
+    potential_pool: MemoryPool,
     pool_list: MemoryPoolList,
     symbols: HashMap<usize, String>,
     prefix: String,
@@ -56,6 +57,7 @@ impl MemorySysTraceParser {
             time: 0,
             record_queue: Vec::new(),
             memory_updates: Vec::new(),
+            potential_pool: MemoryPool::default(),
             pool_list: MemoryPoolList::default(),
             symbols: HashMap::new(),
             prefix: String::new(),
@@ -78,6 +80,7 @@ impl MemorySysTraceParser {
     }
     
     pub fn parse_log(self, log_path: &str, binary_path: &str) -> ParseResults {
+        eprintln!("log: {log_path} binary: {binary_path}");
         let log = std::fs::read_to_string(log_path).unwrap();
         self.parse_log_contents(log.as_str(), binary_path)
     }
@@ -124,15 +127,53 @@ impl MemorySysTraceParser {
         let split_line = line.split('>').collect::<Vec<_>>();
         if let Some(latter_half) = split_line.get(1) {
             let trimmed_string = latter_half.trim();
-            if trimmed_string.starts_with('+')
-            || trimmed_string.starts_with('-')
-            || trimmed_string.starts_with('^')
-            || trimmed_string.starts_with("POOLBOUNDS")
-            || trimmed_string.starts_with("POOLNAME") {
+            if trimmed_string.starts_with("POOLBOUNDS") {
+                self.load_poolbounds(trimmed_string);
+                // mark pool lines as useless to avoid interfering with alloc/free parsing
+                return true;
+            }
+            if trimmed_string.starts_with("POOLNAME") {
+                // mark pool lines as useless to avoid interfering with alloc/free parsing
+                self.load_poolname(trimmed_string);
+                return true;
+            }
+            if trimmed_string.starts_with('+') || trimmed_string.starts_with('-') || trimmed_string.starts_with('^') {
                 return false;
             }
         }
         true
+    }
+
+    fn load_poolbounds(&mut self, line: &str) {
+        let split_line = line.split(' ').collect::<Vec<_>>();
+        if split_line.first().expect("[MemorySysTraceParser::load_poolbounds]: Line has length 0")
+            != &"POOLBOUNDS" {
+            panic!("[MemorySysTraceParser::load_poolbounds]: Attempting to load poolbounds from invalid line");
+        }
+        let start = usize::from_str_radix(
+            split_line
+            .get(1)
+            .expect("[MemorySysTraceParser::load_poolbounds]: Failed to split line to get start address"), 16)
+            .expect("[MemorySysTraceParser::load_poolbounds]: Failed to parse string to usize");
+        let size = usize::from_str(
+            split_line
+                .get(2)
+                .expect("[MemorySysTraceParser::load_poolbounds]: Failed to split line to get size"))
+            .expect("[MemorySysTraceParser::load_poolbounds]: Failed to parse string to usize");
+        self.potential_pool.set_start(start);
+        self.potential_pool.set_size(size);
+    }
+
+    fn load_poolname(&mut self, line: &str) {
+        let split_line = line.split(' ').collect::<Vec<_>>();
+        if split_line.first().expect("[MemorySysTraceParser::load_poolname]: Line has length 0")
+            != &"POOLNAME" {
+            panic!("[MemorySysTraceParser::load_poolname]: Attempting to load poolname from invalid line");
+        }
+        self.potential_pool.set_name(split_line.get(1)
+            .expect("[MemorySysTraceParser::load_poolname]: Failed to split line").to_string());
+        self.pool_list.add_pool(self.potential_pool.clone());
+        self.potential_pool = MemoryPool::default();
     }
 
     /// Extracts all memory addresses from the log, ignoring lines that are deemed useless by
@@ -305,7 +346,6 @@ impl MemorySysTraceParser {
     fn bake_memory_update(&mut self) -> MemoryUpdateType {
         let mut iter = self.record_queue.iter();
         let mut first_rec: RecordType = iter.next().expect("[MemorySysTraceParser::bake_memory_update]: Record queue empty").clone();
-        let mut potential_memory_pool = MemoryPool::default();
         for rec in iter {
             if let RecordType::StackTrace(trace_address, trace_callstack) = rec {
                 match first_rec {
@@ -323,21 +363,13 @@ impl MemorySysTraceParser {
                             free_callstack.push('\n');
                         }
                     }
-                    RecordType::StackTrace(_, _) => 
+                    RecordType::StackTrace(_, _) =>
                         panic!("[MemorySysTraceParser::bake_memory_update]: First instruction in instruction queue is a stacktrace, but it should be an alloc/free"),
-                    RecordType::PoolBounds(_, _) => 
+                    RecordType::PoolBounds(_, _) =>
                         panic!("[MemorySysTraceParser::bake_memory_update]: First instruction in instruction queue is a poolbounds, but it should be an alloc/free"),
-                    RecordType::PoolName(_) => 
+                    RecordType::PoolName(_) =>
                         panic!("[MemorySysTraceParser::bake_memory_update]: First instruction in instruction queue is a poolname, but it should be an alloc/free"),
                 }
-            } else if let RecordType::PoolBounds(start, size) = rec {
-                // Assume poolbounds is always printed first, followed by poolname
-                potential_memory_pool.set_start(*start);
-                potential_memory_pool.set_size(*size);
-            } else if let RecordType::PoolName(name) = rec {
-                potential_memory_pool.set_name(name.clone());
-                self.pool_list.add_pool(potential_memory_pool.clone());
-                potential_memory_pool = MemoryPool::default();
             }
         }
 
@@ -353,8 +385,10 @@ impl MemorySysTraceParser {
                 let free_size = self.find_latest_allocation_size(address);
                 memory_update = Free::new(address, free_size, Arc::new(callstack), self.time, real_timestamp).wrap_in_enum();
                 self.time += 1;
-            }
-            _ => { panic!("[MemorySysTraceParser::bake_memory_update]: First instruction in instruction queue is a stacktrace, but it should be an alloc/free"); }
+            },
+            RecordType::StackTrace(..) => panic!("[MemorySysTraceParser::bake_memory_update]: First instruction in instruction queue is a stacktrace, but it should be an alloc/free"),
+            RecordType::PoolBounds(..) => panic!("[MemorySysTraceParser::bake_memory_update]: First instruction in instruction queue is a poolbounds, but it should be an alloc/free"),
+            RecordType::PoolName(..) => panic!("[MemorySysTraceParser::bake_memory_update]: First instruction in instruction queue is a poolname, but it should be an alloc/free"),
         }
         memory_update
     }

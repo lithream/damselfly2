@@ -53,7 +53,7 @@ impl SampledMemoryUsagesFactory {
                             key
                         );
                     let mut bucket_memory_used = 0;
-                    let mut bucket_distinct_blocks = 0;
+                    let mut bucket_distinct_blocks: u128 = 0;
                     let mut bucket_largest_free_block = (0, 0, 0);
                     let mut bucket_free_blocks = 0;
                     let mut bucket_latest_operation = 0;
@@ -73,7 +73,7 @@ impl SampledMemoryUsagesFactory {
                     }
                     
                     bucket_usage.set_memory_used_absolute(bucket_memory_used / usages.len() as i128);
-                    bucket_usage.set_distinct_blocks(bucket_distinct_blocks / usages.len());
+                    bucket_usage.set_distinct_blocks(bucket_distinct_blocks / usages.len() as u128);
                     bucket_usage.set_largest_free_block(bucket_largest_free_block);
                     bucket_usage.set_free_blocks(bucket_free_blocks / usages.len());
                     bucket_usage.set_latest_operation(bucket_latest_operation);

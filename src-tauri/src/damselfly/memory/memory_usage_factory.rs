@@ -40,7 +40,7 @@ impl MemoryUsageFactory {
         let mut max_distinct_blocks: u128 = 0;
 
         for (index, update) in self.memory_updates.iter().enumerate() {
-            if self.counter % 1000 == 0 {
+            if self.counter % 1 == 0 {
                 println!("Processing usage stats: {}", update.cyan());
             }
             current_usage += Self::get_total_usage_delta(update);
@@ -49,11 +49,11 @@ impl MemoryUsageFactory {
             let distinct_blocks = distinct_block_counter.get_distinct_blocks();
             let free_blocks = distinct_block_counter.get_free_blocks();
             let largest_free_block = distinct_block_counter.get_largest_free_block();
-            let real_timestamp_microseconds = Utility::convert_to_microseconds(&update.get_real_timestamp());
+            let real_timestamp_microseconds = Utility::convert_to_microseconds(update.get_real_timestamp());
             max_distinct_blocks = max(max_distinct_blocks, distinct_blocks as u128);
             max_free_blocks = max(max_free_blocks, free_blocks.len() as u128);
 
-            memory_usages.push(MemoryUsage::new(current_usage, distinct_blocks as usize, largest_free_block, free_blocks.len(), index, real_timestamp_microseconds));
+            memory_usages.push(MemoryUsage::new(current_usage, distinct_blocks as u128, largest_free_block, free_blocks.len(), index, real_timestamp_microseconds));
             self.counter += 1;
         }
         MemoryUsageStats::new(memory_usages, max_usage, max_free_blocks, max_distinct_blocks)

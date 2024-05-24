@@ -15,7 +15,7 @@ pub struct DistinctBlockCounter {
     ends_set: HashSet<usize>,
     starts_tree: BTreeSet<usize>,
     ends_tree: BTreeSet<usize>,
-    distinct_blocks: i64,
+    distinct_blocks: u128,
     free_blocks: Vec<(usize, usize)>,
 }
 
@@ -107,7 +107,7 @@ impl DistinctBlockCounter {
         
         self.calculate_new_memory_bounds(update);
         self.calculate_free_blocks();
-        self.distinct_blocks = self.distinct_blocks.saturating_add(block_delta);
+        self.distinct_blocks = self.distinct_blocks.saturating_add_signed(block_delta as i128);
     }
 
     pub fn calculate_free_blocks(&mut self) {
@@ -173,7 +173,7 @@ impl DistinctBlockCounter {
         self.stop = max(self.stop, new_stop);
     }
     
-    pub fn get_distinct_blocks(&mut self) -> i64 {
+    pub fn get_distinct_blocks(&mut self) -> u128 {
         self.distinct_blocks
     }
 

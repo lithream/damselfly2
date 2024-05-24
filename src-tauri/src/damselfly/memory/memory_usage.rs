@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 #[derive(Debug, Default, Clone)]
 pub struct MemoryUsage {
     memory_used_absolute: i128,
-    distinct_blocks: usize,
+    distinct_blocks: u128,
     // (start, end, size)
     largest_free_block: (usize, usize, usize),
     free_blocks: usize,
@@ -12,7 +12,7 @@ pub struct MemoryUsage {
 }
 
 impl MemoryUsage {
-    pub fn new(memory_used_absolute: i128, distinct_blocks: usize, largest_free_block: (usize, usize, usize), free_blocks: usize, latest_operation: usize, timestamp_microseconds: u64) -> MemoryUsage {
+    pub fn new(memory_used_absolute: i128, distinct_blocks: u128, largest_free_block: (usize, usize, usize), free_blocks: usize, latest_operation: usize, timestamp_microseconds: u64) -> MemoryUsage {
         MemoryUsage {
             memory_used_absolute,
             distinct_blocks,
@@ -32,11 +32,11 @@ impl MemoryUsage {
         self.memory_used_absolute = memory_used_absolute;
     }
     
-    pub fn get_distinct_blocks(&self) -> usize {
+    pub fn get_distinct_blocks(&self) -> u128 {
         self.distinct_blocks
     }
     
-    pub fn set_distinct_blocks(&mut self, distinct_blocks: usize) {
+    pub fn set_distinct_blocks(&mut self, distinct_blocks: u128) {
         self.distinct_blocks = distinct_blocks;
     }
     

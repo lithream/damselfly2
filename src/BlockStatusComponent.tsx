@@ -35,7 +35,7 @@ function BlockStatus({ activeInstance, selectedBlock, timestamp, realtimeGraph }
       try {
         if (realtimeGraph) {
           const updates: MemoryUpdateType[] = await invoke("query_block_realtime", {
-            activeInstance: activeInstance,
+            damselflyInstance: activeInstance,
             address: selectedBlock,
             timestamp: timestamp,
           });
@@ -43,7 +43,7 @@ function BlockStatus({ activeInstance, selectedBlock, timestamp, realtimeGraph }
           setMemoryUpdates(updates.reverse());
         } else {
           const updates: MemoryUpdateType[] = await invoke("query_block", {
-            activeInstance: activeInstance,
+            damselflyInstance: activeInstance,
             address: selectedBlock,
             timestamp: timestamp,
           });

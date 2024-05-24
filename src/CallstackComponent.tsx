@@ -11,7 +11,7 @@ function Callstack({ activeInstance, xClick }: CallstackProps) {
     const fetchCallstack = async () => {
         try {
             const callstack = await invoke<string>("get_callstack", {
-                activeInstance: activeInstance
+                damselflyInstance: activeInstance
             });
             setCallstack(callstack);
         } catch (error) {

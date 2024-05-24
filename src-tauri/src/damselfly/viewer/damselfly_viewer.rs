@@ -58,4 +58,11 @@ mod tests {
         let viewer = DamselflyViewer::new(log_path, TEST_BINARY_PATH, DEFAULT_CACHE_INTERVAL);
         viewer
     }
+
+    #[test]
+    fn test_bug() {
+        let mst_parser = MemorySysTraceParser::new();
+        let updates = mst_parser.parse_log("/home/signal/dev/trace.log", "/home/signal/dev/threadxApp");
+        let viewer = DamselflyViewer::new("/home/signal/dev/trace.log", "/home/signal/dev/threadxApp", 1000);
+    }
 }

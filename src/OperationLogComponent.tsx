@@ -14,7 +14,9 @@ function OperationLog({ activeInstance, memoryData }: OperationLogProps) {
     useEffect(() => {
         const fetchLog = async () => {
             try {
-                const fetchedLog = await invoke<string[]>("get_operation_log", { activeInstance: activeInstance });
+                const fetchedLog = await invoke<string[]>("get_operation_log", {
+                    damselflyInstance: activeInstance
+                });
                 setLog(fetchedLog);
             } catch (error) {
                 console.error("Failed to fetch operation log", error);
