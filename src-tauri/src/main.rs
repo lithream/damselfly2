@@ -235,6 +235,7 @@ fn get_viewer_map_full_at_colours_realtime_sampled(
             .get_mut(damselfly_instance as usize)
             .expect("[tauri::command::get_viewer_map_full_at_colours]: damselfly_instance not found: {damselfly_instance}")
             .get_map_full_at_nosync_colours_truncate_realtime_sampled(timestamp, truncate_after);
+        dbg!(&res.1);
         eprintln!("realtime sampled size: {}", res.1.len());
         Ok(res)
     } else {
@@ -326,7 +327,7 @@ fn query_block_realtime(
         .get_mut(damselfly_instance as usize)
         .expect("[tauri::command::query_block_realtime]: damselfly_instance not found: {damselfly_instance}")
         .query_block_realtime(address, timestamp);
-        eprintln!("[Tauri::query_block_realtime]: updates.len: {}", updates.len());
+        eprintln!("[Tauri::query_block_realtime]: damselfly_instance: {} address: {} timestamp: {} updates.len: {}", damselfly_instance, address, timestamp, updates.len());
         updates.sort_by_key(|next| std::cmp::Reverse(next.get_timestamp()));
         updates.reverse();
         Ok(updates)
@@ -351,11 +352,17 @@ fn get_pool_list(state: tauri::State<AppState>) -> Result<Vec<String>, String> {
 
 mod tests {
     use damselfly3::damselfly::viewer::damselfly_viewer::DamselflyViewer;
+    use crate::get_viewer_map_full_at_colours;
 
     #[test]
     fn benchmark() {
-        let mut damselfly_viewer = DamselflyViewer::new("/home/oracle/dev/damselfly2/smalltest.log", "/home/oracle/dev/damselfly2/src-tauri/threadxApp", );
-        let realtime_sampled_map = damselfly_viewer.get_map_full_at_nosync_colours_truncate(4, 256);
+        let mut damselfly_viewer = DamselflyViewer::new("/work/dev/hp/dune/test.log", "/work/dev/hp/dune/build/output/threadx-cortexa7-debug/ares/dragonfly-lp1/debug/defaultProductGroup/threadxApp", 1000);
+        let malloc_query = damselfly_viewer.damselflies[1].query_block(3783483024, 0);
+        let cpp_query = damselfly_viewer.damselflies[0].query_block(3784244816, 0);
+        let query = damselfly_viewer.damselflies.get(1).unwrap().query_block_realtime(3783483024, 792);
+        let query = damselfly_viewer.damselflies.get(0).unwrap().query_block_realtime(3784244816, 792);
+//        get_map_full_at_nosync_colours_truncate(timestamp, truncate_after))
+        let realtime_sampled_map = damselfly_viewer.damselflies[0].get_map_full_at_nosync_colours_truncate(0, 256);
         eprintln!("done");
     }
 }

@@ -234,6 +234,7 @@ impl DamselflyInstance {
 
     pub fn query_block(&self, address: usize, timestamp: usize) -> Vec<MemoryUpdateType> {
         eprintln!("optimestamp: {timestamp}");
+        eprintln!("address: {address}");
         self.full_lapper
             .find(address, address + self.map_viewer.get_block_size())
             .filter(|interval| interval.val.get_timestamp() <= timestamp)
@@ -244,6 +245,7 @@ impl DamselflyInstance {
     pub fn query_block_realtime(&self, address: usize, timestamp: usize) -> Vec<MemoryUpdateType> {
         let timestamp = self.graph_viewer.get_operation_timestamp_of_realtime_timestamp(timestamp as u64) as usize;
         eprintln!("relatime converted to optimestamp: {timestamp}");
+        let findings = self.full_lapper.find(address, address + self.map_viewer.get_block_size());
         self.full_lapper
             .find(address, address + self.map_viewer.get_block_size())
             .filter(|interval| interval.val.get_timestamp() <= timestamp)

@@ -18,6 +18,11 @@ impl DamselflyViewer {
         let parse_results = mem_sys_trace_parser.parse_log(log_path, binary_path);
         let (memory_updates, pool_list) = (parse_results.memory_updates, parse_results.pool_list);
         let updates_sorted_into_pools = UpdatePoolFactory::sort_updates_into_pools(pool_list, memory_updates);
+        for update in &updates_sorted_into_pools[1].1 {
+            if update.get_start() == 3783483024 {
+                dbg!(&update);
+            }
+        }
         for (pool, updates) in updates_sorted_into_pools {
             damselfly_viewer.spawn_damselfly(updates, pool);
         }

@@ -92,7 +92,7 @@ function App() {
 
   const increaseBlockSize = async () => {
     setBlockSize(blockSize * 2);
-    await invoke("set_block_size", { newBlockSize: Math.ceil(blockSize) });
+    await invoke("set_block_size", { damselflyInstance: selectedPool, newBlockSize: Math.ceil(blockSize) });
   };
 
   const decreaseBlockSize = async () => {
@@ -101,7 +101,7 @@ function App() {
       return;
     }
     setBlockSize(blockSize / 2);
-    await invoke("set_block_size", { newBlockSize: Math.ceil(blockSize) });
+    await invoke("set_block_size", { damselflyInstance: selectedPool, newBlockSize: Math.ceil(blockSize) });
   }
 
   const increaseSquareSize = async () => {

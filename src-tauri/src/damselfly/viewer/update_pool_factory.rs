@@ -14,6 +14,9 @@ impl UpdatePoolFactory {
         }
         
         for update in update_intervals {
+            if update.get_start() == 3783483024 {
+                dbg!(&update);
+            }
             // Find the matching pool and its corresponding list of updates
             if let Some((_matching_pool, updates_in_pool)) = pools_with_updates.iter_mut().find(
                 |(pool, _updates)| {
