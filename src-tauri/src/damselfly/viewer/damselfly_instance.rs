@@ -68,7 +68,7 @@ impl DamselflyInstance {
     }
 
     pub fn get_map_full_at(&mut self, timestamp: usize) -> Vec<MemoryStatus> {
-        eprintln!("get map full at {timestamp}");
+        eprintln!("[DamselflyInstance::get_map_full_at]: get map full at {timestamp}");
         self.set_graph_saved_highlight(timestamp);
         self.map_viewer.paint_map_full()
     }
@@ -128,8 +128,8 @@ impl DamselflyInstance {
         let operation_timestamp = self
             .graph_viewer
             .get_operation_timestamp_of_realtime_timestamp(timestamp);
-        eprintln!("timestamp: {timestamp}");
-        eprintln!("operation timestamp: {operation_timestamp}");
+        eprintln!("[DamselflyInstance::get_map_full_at_nosync_colours_truncate_realtime_sampled]: timestamp: {timestamp}");
+        eprintln!("[DamselflyInstance::get_map_full_at_nosync_colours_truncate_realtime_sampled]: operation timestamp: {operation_timestamp}");
         self.get_map_full_at_nosync_colours_truncate(operation_timestamp, truncate_after)
     }
 
@@ -233,8 +233,8 @@ impl DamselflyInstance {
     }
 
     pub fn query_block(&self, address: usize, timestamp: usize) -> Vec<MemoryUpdateType> {
-        eprintln!("optimestamp: {timestamp}");
-        eprintln!("address: {address}");
+        eprintln!("[DamselflyInstance::query_block]: optimestamp: {timestamp}");
+        eprintln!("[DamselflyInstance::query_block]: address: {address}");
         self.full_lapper
             .find(address, address + self.map_viewer.get_block_size())
             .filter(|interval| interval.val.get_timestamp() <= timestamp)
@@ -244,8 +244,7 @@ impl DamselflyInstance {
 
     pub fn query_block_realtime(&self, address: usize, timestamp: usize) -> Vec<MemoryUpdateType> {
         let timestamp = self.graph_viewer.get_operation_timestamp_of_realtime_timestamp(timestamp as u64) as usize;
-        eprintln!("relatime converted to optimestamp: {timestamp}");
-        let findings = self.full_lapper.find(address, address + self.map_viewer.get_block_size());
+        eprintln!("[DamselflyInstance::query_block_realtime]: realtime converted to optimestamp: {timestamp}");
         self.full_lapper
             .find(address, address + self.map_viewer.get_block_size())
             .filter(|interval| interval.val.get_timestamp() <= timestamp)

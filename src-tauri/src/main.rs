@@ -207,7 +207,7 @@ fn get_viewer_map_full_at_colours(
     timestamp: u64,
     truncate_after: u64,
 ) -> Result<(u64, Vec<(i64, u64)>), String> {
-    eprintln!("timestamp: {timestamp}");
+    eprintln!("[tauri::get_viewer_map_full_at_colours]: timestamp: {timestamp}");
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &mut *viewer_lock {
         Ok(viewer
@@ -227,7 +227,7 @@ fn get_viewer_map_full_at_colours_realtime_sampled(
     timestamp: u64,
     truncate_after: u64,
 ) -> Result<(u64, Vec<(i64, u64)>), String> {
-    eprintln!("realtime_timestamp: {timestamp}");
+    eprintln!("[tauri::get_viewer_map_full_at_colours_realtime_sampled]: realtime_timestamp: {timestamp}");
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &mut *viewer_lock {
         let res = viewer
@@ -235,8 +235,7 @@ fn get_viewer_map_full_at_colours_realtime_sampled(
             .get_mut(damselfly_instance as usize)
             .expect("[tauri::command::get_viewer_map_full_at_colours]: damselfly_instance not found: {damselfly_instance}")
             .get_map_full_at_nosync_colours_truncate_realtime_sampled(timestamp, truncate_after);
-        dbg!(&res.1);
-        eprintln!("realtime sampled size: {}", res.1.len());
+        eprintln!("[tauri::get_viewer_map_full_at_colours_realtime_sampled]: realtime sampled size: {}", res.1.len());
         Ok(res)
     } else {
         Err("Viewer is not initialised".to_string())
@@ -356,12 +355,11 @@ mod tests {
 
     #[test]
     fn benchmark() {
-        let mut damselfly_viewer = DamselflyViewer::new("/work/dev/hp/dune/test.log", "/work/dev/hp/dune/build/output/threadx-cortexa7-debug/ares/dragonfly-lp1/debug/defaultProductGroup/threadxApp", 1000);
-        let malloc_query = damselfly_viewer.damselflies[1].query_block(3783483024, 0);
-        let cpp_query = damselfly_viewer.damselflies[0].query_block(3784244816, 0);
-        let query = damselfly_viewer.damselflies.get(1).unwrap().query_block_realtime(3783483024, 792);
-        let query = damselfly_viewer.damselflies.get(0).unwrap().query_block_realtime(3784244816, 792);
-//        get_map_full_at_nosync_colours_truncate(timestamp, truncate_after))
+        let mut damselfly_viewer = DamselflyViewer::new("/home/signal/dev/trace.log", "/home/signal/dev/threadxApp", 1000);
+        let malloc_query = damselfly_viewer.damselflies[1].query_block(3782706500, 12345);
+        let cpp_query = damselfly_viewer.damselflies[0].query_block(3782706500, 12345);
+        let map = damselfly_viewer.damselflies[1].get_map_full_at_nosync_colours_truncate(12345, 256);
+
         let realtime_sampled_map = damselfly_viewer.damselflies[0].get_map_full_at_nosync_colours_truncate(0, 256);
         eprintln!("done");
     }

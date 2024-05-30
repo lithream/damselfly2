@@ -27,9 +27,10 @@ impl SampledMemoryUsages {
         &self,
         realtime_timestamp: u64,
     ) -> (u64, u64) {
-        let bucket = self.samples.get(realtime_timestamp as usize)
+        let clamped_timestamp = realtime_timestamp.clamp(0, self.samples.len() as u64 - 1);
+        let bucket = self.samples.get(clamped_timestamp as usize)
             .expect("[SampledMemoryUsages::get_operation_timestamp_of_realtime_timestamp]: Realtime timestamp out of bounds");
-        eprintln!("bucket count: {}", self.samples.len());
+        eprintln!("[SampledMemoryUsages::get_operation_timestamps_in_realtime_timestamp]: bucket count: {}", self.samples.len());
         (bucket.get_first(), bucket.get_last())
     }
 

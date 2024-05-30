@@ -15,12 +15,17 @@ impl MemoryCacheSnapshot {
         }
     }
     pub fn render_at(&self, time: usize) -> Vec<MemoryStatus> {
-        let updates_to_append = self.temporary_updates
-            .iter()
-            .filter(|update| update.val.get_timestamp() <= time)
-            .cloned()
-            .collect();
-//        let updates_to_append = Vec::from(&self.temporary_updates[..=time]);
+        let mut updates_to_append = Vec::new();
+        for update in &self.temporary_updates {
+            if update.val.get_timestamp() > time {
+                break;
+            }
+            updates_to_append.push(update.clone());
+        }
         self.base.render_temporary(updates_to_append)
+    }
+    
+    pub fn get_base(&self) -> &MemoryCanvas {
+        &self.base
     }
 }

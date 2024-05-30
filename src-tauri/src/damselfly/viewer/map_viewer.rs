@@ -78,7 +78,7 @@ impl MapViewer {
     }
     
     pub fn set_timestamp(&mut self, new_timestamp: usize) {
-        self.current_timestamp = new_timestamp.clamp(usize::MIN, self.update_intervals.len() - 1);
+        self.current_timestamp = new_timestamp.clamp(usize::MIN, self.update_intervals.last().unwrap().val.get_timestamp());
     }
 
     pub fn pan_forward(&mut self, units: usize) {

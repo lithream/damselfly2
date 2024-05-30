@@ -80,7 +80,7 @@ impl MemorySysTraceParser {
     }
     
     pub fn parse_log(self, log_path: &str, binary_path: &str) -> ParseResults {
-        eprintln!("log: {log_path} binary: {binary_path}");
+        eprintln!("[MemorySysTraceParser::parse_log]: log: {log_path} binary: {binary_path}");
         let log = std::fs::read_to_string(log_path).unwrap();
         self.parse_log_contents(log.as_str(), binary_path)
     }
