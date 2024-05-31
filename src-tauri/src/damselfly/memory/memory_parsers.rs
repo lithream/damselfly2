@@ -39,6 +39,7 @@ pub struct MemorySysTraceParser {
 
 pub struct ParseResults {
     pub memory_updates: Vec<MemoryUpdateType>,
+    pub max_timestamp: u64,
     pub pool_list: MemoryPoolList,
 }
 

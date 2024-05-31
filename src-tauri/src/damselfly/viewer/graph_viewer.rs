@@ -16,11 +16,12 @@ pub struct GraphViewer {
     max_distinct_blocks: usize,
     left_mark: usize,
     right_mark: usize,
-    graph_mode: GraphMode
+    graph_mode: GraphMode,
+    max_timestamp: u64
 }
 
 impl GraphViewer {
-    pub fn new(memory_usage_snapshots: Vec<MemoryUsage>, sampled_memory_usage_snapshots: SampledMemoryUsages, max_usage: i128, max_free_blocks: u128, max_distinct_blocks: usize, ) -> GraphViewer {
+    pub fn new(memory_usage_snapshots: Vec<MemoryUsage>, sampled_memory_usage_snapshots: SampledMemoryUsages, max_usage: i128, max_free_blocks: u128, max_distinct_blocks: usize, max_timestamp: u64) -> GraphViewer {
         GraphViewer {
             memory_usage_snapshots,
             sampled_memory_usage_snapshots,

@@ -156,7 +156,9 @@ function App() {
             <button onClick={selectFilesAndInitialiseViewer}>Load</button>
             <button onClick={() => increaseBlockSize()}>+</button>
             <button onClick={() => decreaseBlockSize()}>-</button>
-            <button onClick={() => toggleRealtime()}>TIME</button>
+            <button onClick={() => toggleRealtime()}>
+              {realtimeGraph ? "REALTIME" : "OPTIME"}
+            </button>
             <button onClick={() => increaseSquareSize()}>+</button>
             <button onClick={() => decreaseSquareSize()}>-</button>
           </div>

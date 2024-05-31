@@ -115,7 +115,7 @@ function Graph({ activeInstance, dataLoaded, realtimeGraph, setXClick , xClick, 
 
     useEffect(() => {
         fetchData().then();
-    }, [dataLoaded, realtimeGraph]);
+    }, [dataLoaded, realtimeGraph, activeInstance]);
 
     useEffect(() => {
         window.addEventListener('resize', updateDimensions);

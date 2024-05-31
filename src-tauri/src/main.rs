@@ -355,7 +355,7 @@ mod tests {
 
     #[test]
     fn benchmark() {
-        let mut damselfly_viewer = DamselflyViewer::new("/home/signal/dev/trace.log", "/home/signal/dev/threadxApp", 1000);
+        let mut damselfly_viewer = DamselflyViewer::new("/home/signal/dev/test.log", "/home/signal/dev/threadxApp", 1000);
         let malloc_query = damselfly_viewer.damselflies[1].query_block(3782706500, 12345);
         let cpp_query = damselfly_viewer.damselflies[0].query_block(3782706500, 12345);
         let map = damselfly_viewer.damselflies[1].get_map_full_at_nosync_colours_truncate(12345, 256);
