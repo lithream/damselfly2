@@ -89,8 +89,7 @@ impl MemoryCache {
     }
     
     pub fn query_cache(&self, timestamp: usize) -> Result<Vec<MemoryStatus>, String> {
-        let cache_index = timestamp / self.interval;
-        let cache_offset = timestamp - (cache_index * self.interval);
+        let cache_index = (timestamp / self.interval).clamp(0, self.memory_cache_snapshots.len() - 1);
         if let Some(memory_cache_snapshot) = self.memory_cache_snapshots.get(cache_index) {
             Ok(memory_cache_snapshot.render_at(timestamp))
         } else {

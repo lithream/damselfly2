@@ -126,10 +126,18 @@ impl MapViewer {
     }
 
     pub fn get_current_operation(&self) -> MemoryUpdateType {
-        self.update_intervals.get(self.current_timestamp)
-            .expect("[MapViewer::get_current_operation]: Current timestamp not found in update intervals Vec")
-            .val
-            .clone()
+        match self.update_intervals.get(self.current_timestamp) {
+            None => {
+                for timestamp in (0..self.current_timestamp).rev() {
+                    match self.update_intervals.get(timestamp) {
+                        None => continue,
+                        Some(update) => return update.val.clone()
+                    }
+                }
+                panic!("[MapViewer::get_current_operation]: No operation found at timestamp: {}", self.current_timestamp);
+            }
+            Some(update) => return update.val.clone()
+        }
     }
 
     fn snap_map_to_current_update(&mut self) {

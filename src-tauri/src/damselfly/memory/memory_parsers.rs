@@ -44,10 +44,11 @@ pub struct ParseResults {
 }
 
 impl ParseResults {
-    pub fn new(memory_updates: Vec<MemoryUpdateType>, pool_list: MemoryPoolList) -> Self {
+    pub fn new(memory_updates: Vec<MemoryUpdateType>, pool_list: MemoryPoolList, max_timestamp: u64) -> Self {
         Self {
             memory_updates,
             pool_list,
+            max_timestamp,
         }
     }
 }
@@ -102,7 +103,7 @@ impl MemorySysTraceParser {
             self.counter += 1;
         }
         println!("Processing complete.");
-        ParseResults::new(self.memory_updates, self.pool_list)
+        ParseResults::new(self.memory_updates, self.pool_list, self.counter)
     }
 
     fn compute_pool_bounds(&mut self, line: &str) -> (usize, usize) {

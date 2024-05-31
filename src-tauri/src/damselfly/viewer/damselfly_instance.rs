@@ -20,7 +20,7 @@ pub struct DamselflyInstance {
 }
 
 impl DamselflyInstance {
-    pub fn new(name: String, memory_updates: Vec<MemoryUpdateType>, lowest_address: usize, highest_address: usize, cache_size: usize) -> Self {
+    pub fn new(name: String, memory_updates: Vec<MemoryUpdateType>, lowest_address: usize, highest_address: usize, cache_size: usize, max_timestamp: u64) -> Self {
         let memory_usage_stats =
             MemoryUsageFactory::new(memory_updates.clone()).calculate_usage_stats();
         let memory_usages = memory_usage_stats.get_memory_usages();
@@ -37,6 +37,7 @@ impl DamselflyInstance {
             max_usage,
             max_free_blocks,
             max_distinct_blocks as usize,
+            max_timestamp,
         );
         let update_intervals = UpdateIntervalFactory::new(memory_updates).construct_enum_vector();
         let map_viewer = MapViewer::new(name.clone(), update_intervals.clone(), lowest_address, highest_address, cache_size as u64);

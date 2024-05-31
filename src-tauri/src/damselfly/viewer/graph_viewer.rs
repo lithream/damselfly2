@@ -33,17 +33,33 @@ impl GraphViewer {
             left_mark: 0,
             right_mark: 0,
             graph_mode: GraphMode::NORMAL,
+            max_timestamp,
         }
     }
 
     pub fn get_usage_plot_points(&self) -> Vec<[f64; 2]> {
         let mut vector = Vec::new();
         let max_usage = self.get_max_usage() as f64;
+        let mut fallback_value = 0.0;
+
+        for timestamp in 0..=self.max_timestamp {
+            match self.memory_usage_snapshots.get(timestamp as usize) {
+                None => vector.push([timestamp as f64, fallback_value]),
+                Some(snapshot) => {
+                    let fallback_value = snapshot.get_memory_used_absolute() as f64 * 100.0 / max_usage;
+                    vector.push([timestamp as f64, fallback_value]);
+                }
+            }
+        }
+
+        /*
         for (index, snapshot) in self.memory_usage_snapshots.iter().enumerate() {
             let memory_used_percentage =
                 (snapshot.get_memory_used_absolute() as f64 * 100.0) / max_usage;
             vector.push([index as f64, memory_used_percentage]);
         }
+
+         */
         vector
     }
     
@@ -59,11 +75,26 @@ impl GraphViewer {
 
     pub fn get_distinct_blocks_plot_points(&self) -> Vec<[f64; 2]> {
         let mut vector = Vec::new();
+        let mut fallback_value = 0.0;
+        for timestamp in 0..=self.max_timestamp {
+            match self.memory_usage_snapshots.get(timestamp as usize) {
+                None => vector.push([timestamp as f64, fallback_value]),
+                Some(snapshot) => {
+                    let fallback_value =
+                        (snapshot.get_distinct_blocks() as f64 * 100.0) / self.get_max_distinct_blocks() as f64;
+                    vector.push([timestamp as f64, fallback_value]);
+                }
+            }
+        }
+        
+        /*
         for (index, snapshot) in self.memory_usage_snapshots.iter().enumerate() {
             let distinct_blocks_percentage =
                 (snapshot.get_distinct_blocks() as f64 * 100.0) / self.get_max_distinct_blocks() as f64;
             vector.push([index as f64, distinct_blocks_percentage]);
         }
+        
+         */
         vector
     }
     
@@ -79,9 +110,24 @@ impl GraphViewer {
     
     pub fn get_largest_free_block_plot_points(&self) -> Vec<[f64; 2]> {
         let mut vector = Vec::new();
+        let mut fallback_value = 0.0;
+        
+        for timestamp in 0..=self.max_timestamp {
+            match self.memory_usage_snapshots.get(timestamp as usize) {
+                None => vector.push([timestamp as f64, fallback_value]),
+                Some(snapshot) => {
+                    let fallback_value = snapshot.get_largest_free_block().2 as f64;
+                    vector.push([timestamp as f64, fallback_value]);
+                }
+            }
+        }
+        
+        /*
         for (index, usage) in self.memory_usage_snapshots.iter().enumerate() {
             vector.push([index as f64, usage.get_largest_free_block().2 as f64]);
         }
+        
+         */
         vector
     }
 
@@ -95,9 +141,24 @@ impl GraphViewer {
     
     pub fn get_free_blocks_plot_points(&self) -> Vec<[f64; 2]> {
         let mut vector = Vec::new();
+        let mut fallback_value = 0.0;
+        
+        for timestamp in 0..=self.max_timestamp {
+            match self.memory_usage_snapshots.get(timestamp as usize) {
+                None => vector.push([timestamp as f64, fallback_value]),
+                Some(snapshot) => {
+                    fallback_value = snapshot.get_free_blocks() as f64 * 100.0 / self.get_max_free_blocks() as f64;
+                    vector.push([timestamp as f64, fallback_value]);
+                }
+            }
+        }
+        
+        /*
         for (index, usage) in self.memory_usage_snapshots.iter().enumerate() {
             vector.push([index as f64, usage.get_free_blocks() as f64 * 100.0 / self.get_max_free_blocks() as f64]);
         }
+        
+         */
         vector
     }
     

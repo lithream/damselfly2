@@ -64,11 +64,12 @@ async fn choose_files() -> Result<String, String> {
 fn get_viewer_usage_graph(state: tauri::State<AppState>, damselfly_instance: u64) -> Result<Vec<[f64; 2]>, String> {
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &mut *viewer_lock {
-        Ok(viewer
+        let res = Ok(viewer
             .damselflies
             .get_mut(damselfly_instance as usize)
             .expect("[tauri::command::get_viewer_usage_graph]: damselfly_instance not found: {damselfly_instance}")
-            .get_usage_graph())
+            .get_usage_graph());
+        res
     } else {
         Err("Viewer is not initialised".to_string())
     }
@@ -355,7 +356,7 @@ mod tests {
 
     #[test]
     fn benchmark() {
-        let mut damselfly_viewer = DamselflyViewer::new("/home/signal/dev/test.log", "/home/signal/dev/threadxApp", 1000);
+        let mut damselfly_viewer = DamselflyViewer::new("/home/signal/dev/trace.log", "/home/signal/dev/threadxApp", 1000);
         let malloc_query = damselfly_viewer.damselflies[1].query_block(3782706500, 12345);
         let cpp_query = damselfly_viewer.damselflies[0].query_block(3782706500, 12345);
         let map = damselfly_viewer.damselflies[1].get_map_full_at_nosync_colours_truncate(12345, 256);

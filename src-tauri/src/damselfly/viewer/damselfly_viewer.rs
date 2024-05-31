@@ -16,7 +16,7 @@ impl DamselflyViewer {
         };
         let mem_sys_trace_parser = MemorySysTraceParser::new();
         let parse_results = mem_sys_trace_parser.parse_log(log_path, binary_path);
-        let (memory_updates, pool_list) = (parse_results.memory_updates, parse_results.pool_list);
+        let (memory_updates, pool_list, max_timestamp) = (parse_results.memory_updates, parse_results.pool_list, parse_results.max_timestamp);
         let updates_sorted_into_pools = UpdatePoolFactory::sort_updates_into_pools(pool_list, memory_updates);
         for update in &updates_sorted_into_pools[1].1 {
             if update.get_start() == 3783483024 {
@@ -24,20 +24,21 @@ impl DamselflyViewer {
             }
         }
         for (pool, updates) in updates_sorted_into_pools {
-            damselfly_viewer.spawn_damselfly(updates, pool);
+            damselfly_viewer.spawn_damselfly(updates, pool, max_timestamp);
         }
 
         damselfly_viewer
     }
 
-    fn spawn_damselfly(&mut self, memory_updates: Vec<MemoryUpdateType>, pool: MemoryPool) {
+    fn spawn_damselfly(&mut self, memory_updates: Vec<MemoryUpdateType>, pool: MemoryPool, max_timestamp: u64) {
         self.damselflies.push(
             DamselflyInstance::new(
                 pool.get_name().to_string(),
                 memory_updates,
                 pool.get_start(),
                 pool.get_start() + pool.get_size(),
-                DEFAULT_CACHE_INTERVAL as usize
+                DEFAULT_CACHE_INTERVAL as usize,
+                max_timestamp,
             )
         );
     }
