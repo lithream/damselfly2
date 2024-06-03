@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import Data from "./Data.tsx";
 
 interface MapGridProps {
@@ -10,6 +10,7 @@ interface MapGridProps {
 }
 
 function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelectedBlock }: MapGridProps) {
+    const [selectedIndexDebug, setSelectedIndexDebug] = useState<number>(0);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
@@ -45,6 +46,7 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
         console.log(`Block clicked at row: ${row}, col: ${col}, index: ${index}`);
         console.log(`Setting selected block to: 0x${memoryData.data[index][0].toString(16)}`);
         setSelectedBlock(memoryData.data[index][0]);
+        setSelectedIndexDebug(index);
     }
 
 
@@ -101,6 +103,7 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
     return (
         <div>
             <canvas ref={canvasRef} />
+            <div>Selected Block Index: {selectedBlock}, {selectedIndexDebug}</div>  {/* Debug Window to show the selected block index */}
         </div>
     );
 }

@@ -43,10 +43,13 @@ impl GraphViewer {
         let mut fallback_value = 0.0;
 
         for timestamp in 0..=self.max_timestamp {
-            match self.memory_usage_snapshots.get(timestamp as usize) {
+            match self.memory_usage_snapshots.iter().find(|memory_usage| {
+                memory_usage.get_timestamp() == timestamp 
+            }) {
+//            match self.memory_usage_snapshots.get(timestamp as usize) {
                 None => vector.push([timestamp as f64, fallback_value]),
                 Some(snapshot) => {
-                    let fallback_value = snapshot.get_memory_used_absolute() as f64 * 100.0 / max_usage;
+                    fallback_value = snapshot.get_memory_used_absolute() as f64 * 100.0 / max_usage;
                     vector.push([timestamp as f64, fallback_value]);
                 }
             }

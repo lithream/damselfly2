@@ -61,4 +61,8 @@ impl MemoryPool {
     pub fn get_name(&self) -> &str {
         &self.name
     }
+    
+    pub fn contains(&self, start: usize, end: usize) -> bool {
+        start >= self.start && end < (self.start + self.size)
+    }
 }

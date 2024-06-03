@@ -50,10 +50,10 @@ impl MemoryUsageFactory {
             let free_blocks = distinct_block_counter.get_free_blocks();
             let largest_free_block = distinct_block_counter.get_largest_free_block();
             let real_timestamp_microseconds = Utility::convert_to_microseconds(update.get_real_timestamp());
-            max_distinct_blocks = max(max_distinct_blocks, distinct_blocks as u128);
+            max_distinct_blocks = max(max_distinct_blocks, distinct_blocks);
             max_free_blocks = max(max_free_blocks, free_blocks.len() as u128);
 
-            memory_usages.push(MemoryUsage::new(current_usage, distinct_blocks as u128, largest_free_block, free_blocks.len(), index, real_timestamp_microseconds));
+            memory_usages.push(MemoryUsage::new(current_usage, distinct_blocks, largest_free_block, free_blocks.len(), index, real_timestamp_microseconds, self.counter));
             self.counter += 1;
         }
         MemoryUsageStats::new(memory_usages, max_usage, max_free_blocks, max_distinct_blocks)
