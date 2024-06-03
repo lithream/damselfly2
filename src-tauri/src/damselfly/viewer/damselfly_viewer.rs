@@ -1,3 +1,4 @@
+use std::cmp::min;
 use crate::damselfly::consts::DEFAULT_CACHE_INTERVAL;
 use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
 use crate::damselfly::memory::memory_pool::MemoryPool;
@@ -19,6 +20,8 @@ impl DamselflyViewer {
         let mem_sys_trace_parser = MemorySysTraceParser::new();
         let parse_results = mem_sys_trace_parser.parse_log(log_path, binary_path);
         let (memory_updates, pool_list, max_timestamp) = (parse_results.memory_updates, parse_results.pool_list, parse_results.max_timestamp);
+        // cache size can't be larger than the list of updates
+        let cache_size = min(cache_size, memory_updates.len() as u64);
         let memory_usage_stats = MemoryUsageFactory::new(memory_updates.clone()).calculate_usage_stats();
 
         let updates_sorted_into_pools = UpdatePoolFactory::sort_updates_into_pools(pool_list, memory_updates);

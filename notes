@@ -4,3 +4,11 @@ add total free space / largest block (1 is ideal), subtract 1 from metric
 press reset -> flush quickly to get full trace
 add udw command to find full memory pool bounds
 
+at t=1373 malloc pool, address 3789752640, tile 2449
+red
+but first op happens at 5307
+why?
+
+op at 3583 in malloc pool can be queried at t=3583. however the block appears before that at t=3000
+
+that means it got baked into the cache base at t=3000 when it should be part of the temporary updates

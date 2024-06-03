@@ -2,4 +2,5 @@
 /input
 /src-tauri/target
 .idea/
+.vscode/
 threadxApp
