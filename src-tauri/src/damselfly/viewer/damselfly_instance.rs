@@ -1,3 +1,4 @@
+use crate::damselfly::memory::memory_usage_stats::MemoryUsageStats;
 use std::cmp::max;
 use rust_lapper::Lapper;
 use crate::damselfly::consts::{DEFAULT_OPERATION_LOG_SIZE, DEFAULT_SAMPLE_INTERVAL};
@@ -20,9 +21,7 @@ pub struct DamselflyInstance {
 }
 
 impl DamselflyInstance {
-    pub fn new(name: String, memory_updates: Vec<MemoryUpdateType>, lowest_address: usize, highest_address: usize, cache_size: usize, max_timestamp: u64) -> Self {
-        let memory_usage_stats =
-            MemoryUsageFactory::new(memory_updates.clone()).calculate_usage_stats();
+    pub fn new(name: String, memory_updates: Vec<MemoryUpdateType>, memory_usage_stats: MemoryUsageStats, lowest_address: usize, highest_address: usize, cache_size: usize, max_timestamp: u64) -> Self {
         let memory_usages = memory_usage_stats.get_memory_usages();
         let max_usage = memory_usage_stats.get_max_usage();
         let max_distinct_blocks = memory_usage_stats.get_max_distinct_blocks();

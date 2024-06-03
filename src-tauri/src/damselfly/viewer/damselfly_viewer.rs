@@ -3,6 +3,7 @@ use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
 use crate::damselfly::memory::memory_pool::MemoryPool;
 use crate::damselfly::memory::memory_update::MemoryUpdateType;
 use crate::damselfly::memory::memory_usage_factory::MemoryUsageFactory;
+use crate::damselfly::memory::memory_usage_stats::MemoryUsageStats;
 use crate::damselfly::viewer::damselfly_instance::DamselflyInstance;
 use crate::damselfly::viewer::update_pool_factory::UpdatePoolFactory;
 
@@ -18,22 +19,22 @@ impl DamselflyViewer {
         let mem_sys_trace_parser = MemorySysTraceParser::new();
         let parse_results = mem_sys_trace_parser.parse_log(log_path, binary_path);
         let (memory_updates, pool_list, max_timestamp) = (parse_results.memory_updates, parse_results.pool_list, parse_results.max_timestamp);
-        let memory_usage_stats =
-            MemoryUsageFactory::new(memory_updates.clone()).calculate_usage_stats();
+        let memory_usage_stats = MemoryUsageFactory::new(memory_updates.clone()).calculate_usage_stats();
 
         let updates_sorted_into_pools = UpdatePoolFactory::sort_updates_into_pools(pool_list, memory_updates);
         for (pool, updates) in updates_sorted_into_pools {
-            damselfly_viewer.spawn_damselfly(updates, pool, max_timestamp, cache_size);
+            damselfly_viewer.spawn_damselfly(updates, memory_usage_stats.clone(), pool, max_timestamp, cache_size);
         }
 
         damselfly_viewer
     }
 
-    fn spawn_damselfly(&mut self, memory_updates: Vec<MemoryUpdateType>, pool: MemoryPool, max_timestamp: u64, cache_size: u64) {
+    fn spawn_damselfly(&mut self, memory_updates: Vec<MemoryUpdateType>, memory_usage_stats: MemoryUsageStats, pool: MemoryPool, max_timestamp: u64, cache_size: u64) {
         self.damselflies.push(
             DamselflyInstance::new(
                 pool.get_name().to_string(),
                 memory_updates,
+                memory_usage_stats,
                 pool.get_start(),
                 pool.get_start() + pool.get_size(),
                 cache_size as usize,
