@@ -36,11 +36,10 @@ impl MemoryCache {
     fn generate_cache(update_intervals: &Vec<UpdateInterval>, interval: usize, block_size: usize) -> (Vec<MemoryCacheSnapshot>, Vec<UpdateInterval>) {
         let (start, stop) = Utility::get_canvas_span(update_intervals);
         let final_timestamp = update_intervals.last().unwrap().val.get_timestamp();
-        
+
         let mut buckets: HashMap<usize, Vec<UpdateInterval>> = HashMap::new();
         
         // Categories update into buckets in the hashmap
-        
         for update in update_intervals {
             let cache_index = update.val.get_timestamp() / interval;
             buckets
@@ -50,7 +49,6 @@ impl MemoryCache {
         }
         
         // Iterate through every possible cache index from [0..=final_timestamp / interval]
-        
         let mut memory_cache_snapshots = Vec::new();
         let mut current_canvas = MemoryCanvas::new(start, stop, block_size, vec![]);
         current_canvas.insert_blocks();
@@ -62,65 +60,6 @@ impl MemoryCache {
         }
 
         (memory_cache_snapshots, update_intervals.clone())
-            /* *
-        let mut update_iter = update_intervals.iter().peekable();
-
-        
-        let chunks = (interval..=final_timestamp).step_by(interval);
-        let mut updates_till_now = Vec::new();
-        let mut memory_cache_snapshots = Vec::new();
-        let mut new_snapshot = MemoryCanvas::new(start, stop, block_size, vec![]);
-        new_snapshot.insert_blocks();
-
-        // a few logging variables
-        println!("Caching operations for performance.");
-        let mut chunk_no = 1;
-        let chunks_len = final_timestamp / interval + 1;
-
-
-        for chunk in chunks {
-            // logging
-            println!("Caching chunk {chunk_no} of {chunks_len}");
-            chunk_no += 1;
-
-            let mut temporary_updates = Vec::new();
-            while let Some(update) = update_iter.next() {
-                temporary_updates.push(update.clone());
-                updates_till_now.push(update.clone());
-                // break if next update should be in the next snapshot or if there are no more updates
-                if let Some(next_update) = update_iter.peek() {
-                    if next_update.val.get_timestamp() >= chunk {
-                        break;
-                    }
-                } else {
-                    break;
-                }
-            }
-
-            memory_cache_snapshots.push(MemoryCacheSnapshot::new(new_snapshot.clone(), temporary_updates.clone()));
-            new_snapshot.paint_temporary_updates(temporary_updates);
-        }
-    let chunks = update_intervals.chunks(interval);
-    let mut updates_till_now = Vec::new();
-    let mut memory_cache_snapshots = Vec::new();
-    let mut new_snapshot = MemoryCanvas::new(start, stop, block_size, vec![]);
-    new_snapshot.insert_blocks();
-    println!("Caching operations for performance.");
-    let mut chunk_no = 1;
-    let chunks_len = (update_intervals.len() / interval) + 1;
-    for chunk in chunks {
-        println!("Caching chunk {chunk_no} of {chunks_len}");
-        chunk_no += 1;
-        let mut temporary_updates = Vec::new();
-        for update in chunk {
-            temporary_updates.push(update.clone());
-            updates_till_now.push(update.clone());
-        }
-        memory_cache_snapshots.push(MemoryCacheSnapshot::new(new_snapshot.clone(), temporary_updates.clone()));
-        new_snapshot.paint_temporary_updates(temporary_updates);
-    }
-        (memory_cache_snapshots, updates_till_now)
-     */
     }
 
     pub fn change_block_size(&mut self, new_block_size: usize) {
