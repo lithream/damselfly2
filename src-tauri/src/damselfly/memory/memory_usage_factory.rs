@@ -40,9 +40,7 @@ impl MemoryUsageFactory {
         let mut max_distinct_blocks: u128 = 0;
 
         for (index, update) in self.memory_updates.iter().enumerate() {
-            if self.counter % 1 == 0 {
-                println!("Processing usage stats: {}", update.cyan());
-            }
+            println!("Processing usage stats: {}", update.cyan());
             current_usage += Self::get_total_usage_delta(update);
             max_usage = max(max_usage, current_usage);
             distinct_block_counter.push_update(update);
