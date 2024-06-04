@@ -34,19 +34,8 @@ impl MemoryCache {
     }
 
     fn generate_cache(update_intervals: &Vec<UpdateInterval>, interval: usize, block_size: usize) -> (Vec<MemoryCacheSnapshot>, Vec<UpdateInterval>) {
-        /*
-each cache snapshot may hold a varying number of updates
-for example, operation in pool 1 at t=0, operation in pool 2 at t=1, operation in pool 1 at t=2, operation in pool 2 at t=3
-when caching pool 1 with an interval of 2, our chunks are [2] and the snapshot contains operations with timestamps <= 2
-when caching pool 2, our chunks are [2, 3]. snapshot 1 contains operations with timestamps <= 2, so just one operation
-snapshot 2 contains operations with timestamps <= 3, so the remaining operation
-this is because when querying the cache, the snapshot number to use as a base is computed from the timestamp, so each snapshot
-must only contain operations within [snapshot base -> snapshot base + interval]
-naively splitting update_intervals into chunks of interval operations each will not achieve this
-*/
         let (start, stop) = Utility::get_canvas_span(update_intervals);
         let final_timestamp = update_intervals.last().unwrap().val.get_timestamp();
-        let first_timestamp = update_intervals.first().unwrap().val.get_timestamp();
         
         let mut buckets: HashMap<usize, Vec<UpdateInterval>> = HashMap::new();
         
@@ -57,7 +46,7 @@ naively splitting update_intervals into chunks of interval operations each will 
             buckets
                 .entry(cache_index)
                 .and_modify(|bucket| bucket.push(update.clone()))
-                .or_insert(Vec::new());
+                .or_default();
         }
         
         // Iterate through every possible cache index from [0..=final_timestamp / interval]
@@ -67,7 +56,7 @@ naively splitting update_intervals into chunks of interval operations each will 
         current_canvas.insert_blocks();
         
         for cache_index in 0..=final_timestamp / interval {
-            let updates_in_bucket = buckets.get(&cache_index).
+            let updates_in_bucket = buckets.get(&cache_index).cloned().unwrap_or(Vec::new());
             memory_cache_snapshots.push(MemoryCacheSnapshot::new(current_canvas.clone(), updates_in_bucket.clone()));
             current_canvas.paint_temporary_updates(updates_in_bucket.clone());
         }
@@ -96,15 +85,11 @@ naively splitting update_intervals into chunks of interval operations each will 
 
             let mut temporary_updates = Vec::new();
             while let Some(update) = update_iter.next() {
-                if update.val.get_timestamp() == 3583 {
-                    dbg!(&update);
-                }
                 temporary_updates.push(update.clone());
                 updates_till_now.push(update.clone());
                 // break if next update should be in the next snapshot or if there are no more updates
                 if let Some(next_update) = update_iter.peek() {
                     if next_update.val.get_timestamp() >= chunk {
-                        dbg!(&update);
                         break;
                     }
                 } else {
