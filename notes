@@ -10,5 +10,6 @@ but first op happens at 5307
 why?
 
 op at 3583 in malloc pool can be queried at t=3583. however the block appears before that at t=3000
+address = 3789735104, tile 256
 
 that means it got baked into the cache base at t=3000 when it should be part of the temporary updates

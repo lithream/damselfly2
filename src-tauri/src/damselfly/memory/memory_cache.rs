@@ -13,7 +13,8 @@ pub struct MemoryCache {
 
 impl MemoryCache {
     pub fn new(block_size: usize, update_intervals: Vec<UpdateInterval>, interval: usize) -> Self {
-        let (memory_cache_snapshots, updates_till_now) = MemoryCache::generate_cache(&update_intervals, interval, block_size);
+        let (memory_cache_snapshots, updates_till_now) =
+            MemoryCache::generate_cache(&update_intervals, interval, block_size);
 
         Self {
             memory_cache_snapshots,
@@ -57,6 +58,7 @@ naively splitting update_intervals into chunks of interval operations each will 
         let mut chunk_no = 1;
         let chunks_len = final_timestamp / interval + 1;
 
+        
         for chunk in chunks {
             // logging
             println!("Caching chunk {chunk_no} of {chunks_len}");
@@ -64,11 +66,15 @@ naively splitting update_intervals into chunks of interval operations each will 
 
             let mut temporary_updates = Vec::new();
             while let Some(update) = update_iter.next() {
+                if update.val.get_timestamp() == 3583 {
+                    dbg!(&update);
+                }
                 temporary_updates.push(update.clone());
                 updates_till_now.push(update.clone());
                 // break if next update should be in the next snapshot or if there are no more updates
                 if let Some(next_update) = update_iter.peek() {
-                    if next_update.val.get_timestamp() > chunk {
+                    if next_update.val.get_timestamp() >= chunk {
+                        dbg!(&update);
                         break;
                     }
                 } else {

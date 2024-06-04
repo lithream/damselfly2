@@ -359,9 +359,8 @@ mod tests {
     #[test]
     fn benchmark() {
         let mut damselfly_viewer = DamselflyViewer::new("/work/dev/hp/dune/trace.log", "/work/dev/hp/dune/build/output/threadx-cortexa7-debug/ares/dragonfly-lp1/debug/defaultProductGroup/threadxApp", 1000);
-        damselfly_viewer.damselflies[1].set_map_block_size(8);
         let malloc_query = damselfly_viewer.damselflies[0].query_block(0, 3);
-        let map = damselfly_viewer.damselflies[1].get_map_full_at_nosync_colours_truncate(8, 256);
+        let map = damselfly_viewer.damselflies[0].get_map_full_at_nosync_colours_truncate(3583, 256);
         let graph = damselfly_viewer.damselflies[0].get_usage_graph();
         eprintln!("done");
     }
