@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::damselfly::memory::memory_cache_snapshot::MemoryCacheSnapshot;
 use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::update_interval::UpdateInterval;
@@ -45,7 +46,36 @@ naively splitting update_intervals into chunks of interval operations each will 
 */
         let (start, stop) = Utility::get_canvas_span(update_intervals);
         let final_timestamp = update_intervals.last().unwrap().val.get_timestamp();
+        let first_timestamp = update_intervals.first().unwrap().val.get_timestamp();
+        
+        let mut buckets: HashMap<usize, Vec<UpdateInterval>> = HashMap::new();
+        
+        // Categories update into buckets in the hashmap
+        
+        for update in update_intervals {
+            let cache_index = update.val.get_timestamp() / interval;
+            buckets
+                .entry(cache_index)
+                .and_modify(|bucket| bucket.push(update.clone()))
+                .or_insert(Vec::new());
+        }
+        
+        // Iterate through every possible cache index from [0..=final_timestamp / interval]
+        
+        let mut memory_cache_snapshots = Vec::new();
+        let mut current_canvas = MemoryCanvas::new(start, stop, block_size, vec![]);
+        current_canvas.insert_blocks();
+        
+        for cache_index in 0..=final_timestamp / interval {
+            let updates_in_bucket = buckets.get(&cache_index).
+            memory_cache_snapshots.push(MemoryCacheSnapshot::new(current_canvas.clone(), updates_in_bucket.clone()));
+            current_canvas.paint_temporary_updates(updates_in_bucket.clone());
+        }
+
+        (memory_cache_snapshots, update_intervals.clone())
+            /* *
         let mut update_iter = update_intervals.iter().peekable();
+
         
         let chunks = (interval..=final_timestamp).step_by(interval);
         let mut updates_till_now = Vec::new();
@@ -58,7 +88,7 @@ naively splitting update_intervals into chunks of interval operations each will 
         let mut chunk_no = 1;
         let chunks_len = final_timestamp / interval + 1;
 
-        
+
         for chunk in chunks {
             // logging
             println!("Caching chunk {chunk_no} of {chunks_len}");
@@ -85,7 +115,6 @@ naively splitting update_intervals into chunks of interval operations each will 
             memory_cache_snapshots.push(MemoryCacheSnapshot::new(new_snapshot.clone(), temporary_updates.clone()));
             new_snapshot.paint_temporary_updates(temporary_updates);
         }
-        /*
     let chunks = update_intervals.chunks(interval);
     let mut updates_till_now = Vec::new();
     let mut memory_cache_snapshots = Vec::new();
@@ -105,8 +134,8 @@ naively splitting update_intervals into chunks of interval operations each will 
         memory_cache_snapshots.push(MemoryCacheSnapshot::new(new_snapshot.clone(), temporary_updates.clone()));
         new_snapshot.paint_temporary_updates(temporary_updates);
     }
-     */
         (memory_cache_snapshots, updates_till_now)
+     */
     }
 
     pub fn change_block_size(&mut self, new_block_size: usize) {
