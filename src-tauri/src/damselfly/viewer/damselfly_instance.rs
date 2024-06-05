@@ -117,10 +117,6 @@ impl DamselflyInstance {
             result.push((parent_address, status));
         }
 
-        //debug
-        if let Some(result) = result.get(3720) {
-            dbg!(&result);
-        }
         (timestamp, result)
     }
 
