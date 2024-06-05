@@ -17,7 +17,7 @@ pub struct MemoryCanvas {
     block_size: usize,
     start: usize,
     stop: usize,
-    blocks: Vec<Block>,
+    pub blocks: Vec<Block>,
     full_lapper: Lapper<usize, MemoryUpdateType>,
 }
 
