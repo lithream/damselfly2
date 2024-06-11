@@ -139,7 +139,7 @@ impl MemorySysTraceParser {
                 self.load_poolname(trimmed_string);
                 return true;
             }
-            if trimmed_string.starts_with('+') || trimmed_string.starts_with('-') || trimmed_string.starts_with('^') {
+            if trimmed_string.starts_with("+ ") || trimmed_string.starts_with("- ") || trimmed_string.starts_with("^ ") {
                 return false;
             }
         }
