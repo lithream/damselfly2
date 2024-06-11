@@ -267,7 +267,7 @@ fn get_operation_log(state: tauri::State<AppState>, damselfly_instance: u64) -> 
         Ok(viewer
             .damselflies
             .get_mut(damselfly_instance as usize)
-            .expect("[tauri::command::get_operation_log]: damselfly_instance not found: {damselfly_instance}")
+            .expect("[tauri::command::get_operation_log]: damselfly_instance not found")
             .get_operation_history()
             .iter()
             .take(128)

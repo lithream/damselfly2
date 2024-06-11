@@ -89,15 +89,7 @@ impl GraphViewer {
                 }
             }
         }
-        
-        /*
-        for (index, snapshot) in self.memory_usage_snapshots.iter().enumerate() {
-            let distinct_blocks_percentage =
-                (snapshot.get_distinct_blocks() as f64 * 100.0) / self.get_max_distinct_blocks() as f64;
-            vector.push([index as f64, distinct_blocks_percentage]);
-        }
-        
-         */
+       
         vector
     }
     
@@ -124,13 +116,7 @@ impl GraphViewer {
                 }
             }
         }
-        
-        /*
-        for (index, usage) in self.memory_usage_snapshots.iter().enumerate() {
-            vector.push([index as f64, usage.get_largest_free_block().2 as f64]);
-        }
-        
-         */
+       
         vector
     }
 
@@ -155,13 +141,7 @@ impl GraphViewer {
                 }
             }
         }
-        
-        /*
-        for (index, usage) in self.memory_usage_snapshots.iter().enumerate() {
-            vector.push([index as f64, usage.get_free_blocks() as f64 * 100.0 / self.get_max_free_blocks() as f64]);
-        }
-        
-         */
+       
         vector
     }
     
