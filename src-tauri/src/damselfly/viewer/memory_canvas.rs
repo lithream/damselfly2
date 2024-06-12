@@ -39,25 +39,9 @@ impl MemoryCanvas {
                 = self.full_lapper.find(block.get_block_start(), block.get_block_stop())
                 .collect::<Vec<&UpdateInterval>>();
             UpdateIntervalSorter::sort_by_timestamp(&mut overlapping_operations);
-            let mut update_blacklist = HashSet::new();
-//            let compressed_intervals = UpdateQueueCompressor::compress_intervals(overlapping_operations);
-            let mut interval_iter = overlapping_operations.iter().rev();
-            loop {
-                if let MemoryStatus::Allocated(_, _, _) = block.get_block_status() { break }
-                if let Some(update_interval) = interval_iter.next() {
-                    match &update_interval.val {
-                        MemoryUpdateType::Allocation(allocation) => {
-                            if !update_blacklist.contains(&allocation.get_absolute_address()) {
-                                block.paint_block(&update_interval.val);
-                            }
-                        }
-                        MemoryUpdateType::Free(free) => {
-                            update_blacklist.insert(free.get_absolute_address());
-                        }
-                    }
-                } else {
-                    break;
-                }
+
+            for update in overlapping_operations.iter() {
+                block.paint_block(&update.val);
             }
         }
     }
@@ -69,24 +53,9 @@ impl MemoryCanvas {
                 = temp_lapper.find(block.get_block_start(), block.get_block_stop())
                         .collect::<Vec<&UpdateInterval>>();
             UpdateIntervalSorter::sort_by_timestamp(&mut overlapping_operations);
-            let mut update_blacklist = HashSet::new();
-            let mut interval_iter = overlapping_operations.iter().rev();
-            loop {
-                if let MemoryStatus::Allocated(_, _, _) = block.get_block_status() { break }
-                if let Some(update_interval) = interval_iter.next() {
-                    match &update_interval.val {
-                        MemoryUpdateType::Allocation(allocation) => {
-                            if !update_blacklist.contains(&allocation.get_absolute_address()) {
-                                block.paint_block(&update_interval.val);
-                            }
-                        }
-                        MemoryUpdateType::Free(free) => {
-                            update_blacklist.insert(free.get_absolute_address());
-                        }
-                    }
-                } else {
-                    break;
-                }
+
+            for update in overlapping_operations.iter() {
+                block.paint_block(&update.val);
             }
         }
     }
@@ -98,26 +67,13 @@ impl MemoryCanvas {
             let mut overlapping_operations
                 = temp_lapper.find(block.get_block_start(), block.get_block_stop())
                         .collect::<Vec<&UpdateInterval>>();
+            if block.get_block_start() == 3779230184 {
+                eprintln!("anchor");
+            }
             UpdateIntervalSorter::sort_by_timestamp(&mut overlapping_operations);
-            let mut update_blacklist = HashSet::new();
-//            let compressed_intervals = UpdateQueueCompressor::compress_intervals(overlapping_operations);
-            let mut interval_iter = overlapping_operations.iter().rev();
-            loop {
-                if let MemoryStatus::Allocated(_, _, _) = block.get_block_status() { break }
-                if let Some(update_interval) = interval_iter.next() {
-                    match &update_interval.val {
-                        MemoryUpdateType::Allocation(allocation) => {
-                            if !update_blacklist.contains(&allocation.get_absolute_address()) {
-                                block.paint_block(&update_interval.val);
-                            }
-                        }
-                        MemoryUpdateType::Free(free) => {
-                            update_blacklist.insert(free.get_absolute_address());
-                        }
-                    }
-                } else {
-                    break;
-                }
+
+            for update in overlapping_operations.iter() {
+                block.paint_block(&update.val);
             }
         }
         blocks

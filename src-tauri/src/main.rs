@@ -358,10 +358,12 @@ mod tests {
 
     #[test]
     fn benchmark() {
-        let mut damselfly_viewer = DamselflyViewer::new("/work/dev/hp/dune/trace.log", "/work/dev/hp/dune/build/output/threadx-cortexa7-debug/ares/dragonfly-lp1/debug/defaultProductGroup/threadxApp", 1000);
-        damselfly_viewer.damselflies[1].set_map_block_size(16);
-        let (timestamp, map) = damselfly_viewer.damselflies[1].get_map_full_at_nosync_colours_truncate(14087, 256);
-        let slice = &map[2920..2950];
+        let local_log = "/home/signal/dev/test/trace.log";
+        let local_app = "/home/signal/dev/test/threadxApp";
+        let mut damselfly_viewer = DamselflyViewer::new(local_log, local_app, 1000);
+        damselfly_viewer.damselflies[0].set_map_block_size(8);
+        let (timestamp, map) = damselfly_viewer.damselflies[0].get_map_full_at_nosync_colours_truncate(13325, 256);
+        let slice = &map[35770..35870];
         let graph = damselfly_viewer.damselflies[0].get_usage_graph();
         eprintln!("done");
     }
