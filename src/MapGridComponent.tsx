@@ -81,7 +81,7 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
                 curY += blockWidth;
             }
 
-            if (curBlock[0] == selectedBlock && curBlock[1] != -1) {
+            if (curBlock[0] == selectedBlock && curBlock[1] > 1) {
                 ctx.fillStyle = "green";
             } else {
                 ctx.fillStyle = getColorForBlock(curBlock[1]);
@@ -93,7 +93,7 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
     const getColorForBlock = (blockValue: number) => {
         switch(blockValue) {
             case 0: return "lightgrey";
-            case 1: return "green";
+            case 1: return "lightgrey";
             case 2: return "yellow";
             default: return "red";
         }

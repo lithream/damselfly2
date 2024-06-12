@@ -48,15 +48,22 @@ impl MapViewer {
     }
 
     pub fn get_update_history(&self, history_size: usize) -> Vec<MemoryUpdateType> {
-        self.update_intervals
+        println!("[get_update_history]: current timestamp: {}", self.current_timestamp);
+        let mut update_history = Vec::new();
+        for update in &self.update_intervals {
+            if update.val.get_timestamp() > self.current_timestamp {
+                break;
+            }
+            update_history.push(update);
+        }
+        update_history
             .iter()
-            .take(self.current_timestamp)
             .rev()
             .take(history_size)
             .map(|update_interval| update_interval.val.clone())
             .collect()
     }
-
+    
     pub fn get_updates_from(&self, start: usize, end: usize) -> Vec<UpdateInterval> {
         self.update_intervals[start..=end].to_vec()
     }
@@ -79,6 +86,10 @@ impl MapViewer {
     
     pub fn set_timestamp(&mut self, new_timestamp: usize) {
         self.current_timestamp = new_timestamp.clamp(usize::MIN, self.update_intervals.last().unwrap().val.get_timestamp());
+    }
+    
+    pub fn get_timestamp(&self) -> usize {
+        self.current_timestamp
     }
 
     pub fn pan_forward(&mut self, units: usize) {

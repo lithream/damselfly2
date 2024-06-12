@@ -91,13 +91,12 @@ impl MemorySysTraceParser {
         self.parse_symbols(log, binary_path);
         let mut log_iter = log.split('\n').peekable();
         while let Some(line) = log_iter.peek() {
+            println!("Reading line: {}", line.cyan());
             if self.is_line_useless(line) {
                 log_iter.next();
                 continue;
             }
-            if self.counter % 1000 == 0 {
-                println!("Processing instruction: {}", line.cyan());
-            }
+            println!("Processing valid instruction: {}", line.green());
             let memory_update = self.process_instruction(&mut log_iter);
             self.memory_updates.push(memory_update);
             self.counter += 1;
@@ -413,16 +412,16 @@ impl MemorySysTraceParser {
         self.record_queue.push(record);
     }
 
-    fn line_to_record(&self, line: &str) -> Result<RecordType, &'static str> {
+    fn line_to_record(&self, line: &str) -> Result<RecordType, String> {
         let line_parts = line.split('>').collect::<Vec<_>>();
         let dataline = line_parts.get(1);
         if dataline.is_none() {
-            return Err("[MemorySysTraceParser::parse_line]: Failed to split by > char");
+            return Err(String::from("[MemorySysTraceParser::parse_line]: Failed to split by > char"));
         }
 
         let timestamp_dataline = line_parts.get(0);
         if timestamp_dataline.is_none() {
-            return Err("[MemorySysTraceParser::parse_line]: Failed to split by > char");
+            return Err(String::from("[MemorySysTraceParser::parse_line]: Failed to split by > char"));
         }
 
         let timestamp_dataline = timestamp_dataline.unwrap().trim();
@@ -433,13 +432,13 @@ impl MemorySysTraceParser {
 
         let timestamp = timestamp_parts.get(5);
         if timestamp.is_none() {
-            return Err("[MemorySysTraceParser::parse_line]: Failed to get timestamp");
+            return Err(String::from("[MemorySysTraceParser::parse_line]: Failed to get timestamp"));
         }
 
         let timestamp = timestamp.unwrap().trim();
         let units = timestamp_parts.get(6);
         if units.is_none() {
-            return Err("[MemorySysTraceParser::parse_line]: Failed to get timestamp units");
+            return Err(String::from("[MemorySysTraceParser::parse_line]: Failed to get timestamp units"));
         }
 
         let units = units.unwrap().trim();
@@ -447,7 +446,7 @@ impl MemorySysTraceParser {
         let dataline = dataline.unwrap().trim();
         let split_dataline = dataline.split(' ').collect::<Vec<_>>();
         if split_dataline.len() < 2 {
-            return Err ("[MemorySysTraceParser::parse_line]: Line length mismatch");
+            return Err(String::from("[MemorySysTraceParser::parse_line]: Line length mismatch"));
         }
 
         let mut address_needed = false;
@@ -471,7 +470,7 @@ impl MemorySysTraceParser {
             },
             "POOLBOUNDS" => record = RecordType::PoolBounds(0, 0),
             "POOLNAME" => record = RecordType::PoolName(String::new()),
-            _  => return Err("[MemorySysTraceParser::parse_line]: Invalid operation type"),
+            unknown  => return Err(format!("[MemorySysTraceParser::parse_line]: Invalid operation type {}", unknown)),
         }
 
         let mut address = 0;

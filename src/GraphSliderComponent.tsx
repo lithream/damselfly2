@@ -19,7 +19,7 @@ interface InputProps {
 const Input = styled(MuiInput, {
     shouldForwardProp: (prop) => prop !== 'widthMultiplier',
 })<InputProps>`
-    width: ${({ widthMultiplier }) => Math.max(42, ((widthMultiplier || 0) * 10 + 22))}px;
+    width: ${({ widthMultiplier }) => Math.max(90, ((widthMultiplier || 0) * 10 + 70))}px;
 `;
 
 function GraphSlider({ xClick, setXClick, xLimit }: SliderProps) {

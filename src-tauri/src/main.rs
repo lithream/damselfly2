@@ -267,7 +267,7 @@ fn get_operation_log(state: tauri::State<AppState>, damselfly_instance: u64) -> 
         Ok(viewer
             .damselflies
             .get_mut(damselfly_instance as usize)
-            .expect("[tauri::command::get_operation_log]: damselfly_instance not found: {damselfly_instance}")
+            .expect("[tauri::command::get_operation_log]: damselfly_instance not found")
             .get_operation_history()
             .iter()
             .take(128)
@@ -357,11 +357,13 @@ mod tests {
     use crate::get_viewer_map_full_at_colours;
 
     #[test]
-    fn benchmark() {
-        let mut damselfly_viewer = DamselflyViewer::new("/work/dev/hp/dune/trace.log", "/work/dev/hp/dune/build/output/threadx-cortexa7-debug/ares/dragonfly-lp1/debug/defaultProductGroup/threadxApp", 1000);
-        damselfly_viewer.damselflies[0].set_map_block_size(32);
-        let (timestamp, map) = damselfly_viewer.damselflies[0].get_map_full_at_nosync_colours_truncate(21695, 256);
-        let slice = &map[11300..11400];
+    fn test() {
+        let local_log = "/home/signal/dev/test/trace.log";
+        let local_app = "/home/signal/dev/test/threadxApp";
+        let mut damselfly_viewer = DamselflyViewer::new(local_log, local_app, 1000);
+        damselfly_viewer.damselflies[0].set_map_block_size(8);
+        let (timestamp, map) = damselfly_viewer.damselflies[0].get_map_full_at_nosync_colours_truncate(13325, 256);
+        let slice = &map[35770..35870];
         let graph = damselfly_viewer.damselflies[0].get_usage_graph();
         eprintln!("done");
     }
