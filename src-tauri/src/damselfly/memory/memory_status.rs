@@ -5,11 +5,12 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub enum MemoryStatus {
-    // parent address, total size, callstack
-    Allocated(usize, usize, Arc<String>),
-    PartiallyAllocated(usize, usize, Arc<String>),
-    Free(usize, usize, Arc<String>),
-    Unused,
+    // parent address, total size, address, callstack
+    Allocated(usize, usize, usize, Arc<String>),
+    PartiallyAllocated(usize, usize, usize, Arc<String>),
+    Free(usize, usize, usize, Arc<String>),
+    // address
+    Unused(usize),
 }
 
 impl PartialEq for MemoryStatus {
@@ -31,10 +32,19 @@ impl Serialize for MemoryStatus {
 impl MemoryStatus {
     pub fn get_parent_address(&self) -> Option<usize> {
         match self {
-            MemoryStatus::Allocated(parent_address, _, _) => Some(*parent_address),
-            MemoryStatus::PartiallyAllocated(parent_address, _, _) => Some(*parent_address),
-            MemoryStatus::Free(parent_address, _, _) => Some(*parent_address),
-            MemoryStatus::Unused => None,
+            MemoryStatus::Allocated(parent_address, _, _, _) => Some(*parent_address),
+            MemoryStatus::PartiallyAllocated(parent_address, _, _, _) => Some(*parent_address),
+            MemoryStatus::Free(parent_address, _, _, _) => Some(*parent_address),
+            MemoryStatus::Unused(address) => None,
+        }
+    }
+    
+    pub fn get_address(&self) -> usize {
+        match self {
+            MemoryStatus::Allocated(_, _, address, _) => *address,
+            MemoryStatus::PartiallyAllocated(_, _, address, _) => *address,
+            MemoryStatus::Free(_, _, address, _) => *address,
+            MemoryStatus::Unused(address) => *address
         }
     }
 }
@@ -42,16 +52,16 @@ impl MemoryStatus {
 impl Display for MemoryStatus {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let str = match self {
-            MemoryStatus::Allocated(parent_address, size, callstack) => {
+            MemoryStatus::Allocated(parent_address, size, address, callstack) => {
                 format!("A {} {} {}", parent_address, size, callstack)
             }
-            MemoryStatus::PartiallyAllocated(parent_address, size, callstack) => {
+            MemoryStatus::PartiallyAllocated(parent_address, size, address, callstack) => {
                 format!("P {} {} {}", parent_address, size, callstack)
             }
-            MemoryStatus::Free(parent_address, size, callstack) => {
+            MemoryStatus::Free(parent_address, size, address, callstack) => {
                 format!("F {} {} {}", parent_address, size, callstack)
             }
-            MemoryStatus::Unused => "U".to_string(),
+            MemoryStatus::Unused(address) => "U".to_string(),
         };
         write!(f, "{}", str)
     }

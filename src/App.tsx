@@ -19,6 +19,7 @@ function App() {
   const [dataLoaded, setDataLoaded] = useState<boolean>(false);
   const [xClick, setXClick] = useState<number>(0);
   const [selectedBlock, setSelectedBlock] = useState<number>(0);
+  const [lookupTile, setLookupTile] = useState<number>(0);
   const [xLimit, setXLimit] = useState<number>(0);
   const [realtimeGraph, setRealtimeGraph] = useState<boolean>(true);
   const [realtimeGraphOffset, setRealtimeGraphOffset] = useState<number>(0);
@@ -141,14 +142,14 @@ function App() {
             <div className="tabContent">
               {activeTab === 'operationLog' && <OperationLog activeInstance={selectedPool} memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} />}
               {activeTab === 'callstack' && <Callstack activeInstance={selectedPool} xClick={xClick} />}
-              {activeTab === 'block' && <BlockStatus activeInstance={selectedPool} selectedBlock={selectedBlock} timestamp={realtimeGraph ? xClick + realtimeGraphOffset : xClick} realtimeGraph={realtimeGraph}/>}
+              {activeTab === 'block' && <BlockStatus activeInstance={selectedPool} lookupTile={lookupTile} timestamp={realtimeGraph ? xClick + realtimeGraphOffset : xClick} realtimeGraph={realtimeGraph}/>}
             </div>
             <div className="bottom">
               {/* GraphSlider or other components if needed */}
             </div>
           </div>
           <div className="right">
-            <MapGrid memoryData={memoryData} blockSize={4} squareSize={squareSize} selectedBlock={selectedBlock} setSelectedBlock={setSelectedBlock}></MapGrid>
+            <MapGrid memoryData={memoryData} blockSize={4} squareSize={squareSize} selectedBlock={selectedBlock} setSelectedBlock={setSelectedBlock} setLookupTile={setLookupTile}></MapGrid>
           </div>
         </div>
         <div className="controlPanel">

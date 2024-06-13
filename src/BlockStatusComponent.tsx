@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/tauri";
 
 interface BlockStatusProps {
   activeInstance: number;
-  selectedBlock: number;
+  lookupTile: number;
   timestamp: number;
   realtimeGraph: boolean;
 }
@@ -25,18 +25,18 @@ type MemoryUpdateType = {
   Free?: Free;
 };
 
-function BlockStatus({ activeInstance, selectedBlock, timestamp, realtimeGraph }: BlockStatusProps) {
+function BlockStatus({ activeInstance, lookupTile, timestamp, realtimeGraph }: BlockStatusProps) {
   const [memoryUpdates, setMemoryUpdates] = useState<MemoryUpdateType[]>([]);
 
   useEffect(() => {
-    console.log(`fetching block status. selectedBlock = ${selectedBlock}`);
+    console.log(`fetching block status. selectedBlock = ${lookupTile}`);
     console.log(`timestamp: ${timestamp}`);
     const fetchBlockUpdates = async () => {
       try {
         if (realtimeGraph) {
           const updates: MemoryUpdateType[] = await invoke("query_block_realtime", {
             damselflyInstance: activeInstance,
-            address: selectedBlock,
+            address: lookupTile,
             timestamp: timestamp,
           });
           console.log(`(realtime) updates length ${updates.length}`);
@@ -44,7 +44,7 @@ function BlockStatus({ activeInstance, selectedBlock, timestamp, realtimeGraph }
         } else {
           const updates: MemoryUpdateType[] = await invoke("query_block", {
             damselflyInstance: activeInstance,
-            address: selectedBlock,
+            address: lookupTile,
             timestamp: timestamp,
           });
           console.log(`(optime) updates length ${updates.length}`);
@@ -56,7 +56,7 @@ function BlockStatus({ activeInstance, selectedBlock, timestamp, realtimeGraph }
     };
 
     fetchBlockUpdates().then();
-  }, [realtimeGraph, selectedBlock, timestamp]);
+  }, [realtimeGraph, lookupTile, timestamp]);
 
   const renderUpdate = (update: MemoryUpdateType) => {
     // Determine if it's an Allocation or Free
@@ -65,6 +65,9 @@ function BlockStatus({ activeInstance, selectedBlock, timestamp, realtimeGraph }
 
     return (
       <div style={{ padding: "10px", borderBottom: "1px solid #ccc" }}>
+        <div>
+          <strong>Address: {lookupTile.toString(16)}</strong>
+        </div>
         <div>
           <strong>Type:</strong> {isAllocation ? "Allocation" : "Free"}
         </div>

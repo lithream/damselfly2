@@ -7,10 +7,11 @@ interface MapGridProps {
     squareSize: number;
     selectedBlock: number;
     setSelectedBlock: (block: number) => void;
+    setLookupTile: (block: number) => void;
 }
 
-function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelectedBlock }: MapGridProps) {
-    const [selectedIndexDebug, setSelectedIndexDebug] = useState<number>(0);
+function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelectedBlock, setLookupTile }: MapGridProps) {
+    const [selectedTile, setSelectedTile] = useState<number>(0);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
@@ -29,7 +30,7 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
                 canvas.removeEventListener('click', handleCanvasClick);
             }
         }
-    }, [selectedBlock, squareSize, memoryData, blockSize]);
+    }, [selectedBlock, selectedTile, squareSize, memoryData, blockSize]);
 
     const handleCanvasClick = (event: MouseEvent) => {
         const canvas = canvasRef.current;
@@ -46,7 +47,8 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
         console.log(`Block clicked at row: ${row}, col: ${col}, index: ${index}`);
         console.log(`Setting selected block to: 0x${memoryData.data[index][0].toString(16)}`);
         setSelectedBlock(memoryData.data[index][0]);
-        setSelectedIndexDebug(index);
+        setLookupTile(memoryData.data[index][2]);
+        setSelectedTile(index);
     }
 
 
@@ -71,6 +73,7 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
 
         let curX = -blockWidth;
         let curY = 0;
+        let curBlockStatus = data[selectedTile][1];
 
         for (let i = 0; i < data.length; ++i) {
             const curBlock = data[i];
@@ -81,7 +84,9 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
                 curY += blockWidth;
             }
 
-            if (curBlock[0] == selectedBlock && curBlock[1] > 1) {
+            if (i == selectedTile) {
+                ctx.fillStyle = "blue";
+            } else if (curBlock[0] == selectedBlock && curBlock[1] == curBlockStatus &&curBlock[1] > 0) {
                 ctx.fillStyle = "green";
             } else {
                 ctx.fillStyle = getColorForBlock(curBlock[1]);
@@ -93,7 +98,7 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
     const getColorForBlock = (blockValue: number) => {
         switch(blockValue) {
             case 0: return "lightgrey";
-            case 1: return "lightgrey";
+            case 1: return "lightgreen";
             case 2: return "yellow";
             default: return "red";
         }
@@ -103,7 +108,7 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
     return (
         <div>
             <canvas ref={canvasRef} />
-            <div>Selected Block Index: {selectedBlock}, {selectedIndexDebug}</div>  {/* Debug Window to show the selected block index */}
+            <div>Selected Block Index: {selectedBlock}, {selectedTile}</div>  {/* Debug Window to show the selected block index */}
         </div>
     );
 }

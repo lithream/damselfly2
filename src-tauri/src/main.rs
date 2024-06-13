@@ -207,7 +207,7 @@ fn get_viewer_map_full_at_colours(
     state: tauri::State<AppState>,
     timestamp: u64,
     truncate_after: u64,
-) -> Result<(u64, Vec<(i64, u64)>), String> {
+) -> Result<(u64, Vec<(i64, u64, usize)>), String> {
     eprintln!("[tauri::get_viewer_map_full_at_colours]: timestamp: {timestamp}");
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &mut *viewer_lock {
@@ -229,7 +229,7 @@ fn get_viewer_map_full_at_colours_realtime_sampled(
     state: tauri::State<AppState>,
     timestamp: u64,
     truncate_after: u64,
-) -> Result<(u64, Vec<(i64, u64)>), String> {
+) -> Result<(u64, Vec<(i64, u64, usize)>), String> {
     eprintln!("[tauri::get_viewer_map_full_at_colours_realtime_sampled]: realtime_timestamp: {timestamp}");
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &mut *viewer_lock {

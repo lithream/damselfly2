@@ -82,11 +82,12 @@ impl DamselflyInstance {
         &mut self,
         timestamp: u64,
         truncate_after: u64,
-    ) -> (u64, Vec<(i64, u64)>) {
+    ) -> (u64, Vec<(i64, u64, usize)>) {
         self.map_viewer.set_timestamp(timestamp as usize);
         let full_map = self.map_viewer.paint_map_full_from_cache();
 
-        let mut result: Vec<(i64, u64)> = Vec::new();
+        // parent address, address, status
+        let mut result: Vec<(i64, u64, usize)> = Vec::new();
         let mut consecutive_identical_blocks = 0;
 
         for (index, block) in full_map.iter().enumerate() {
@@ -103,10 +104,10 @@ impl DamselflyInstance {
             }
 
             let status = match block {
-                MemoryStatus::Allocated(_, _, _) => 3,
-                MemoryStatus::PartiallyAllocated(_, _, _) => 2,
-                MemoryStatus::Free(_, _, _) => 1,
-                MemoryStatus::Unused => 0,
+                MemoryStatus::Allocated(_, _, _, _) => 3,
+                MemoryStatus::PartiallyAllocated(_, _, _, _) => 2,
+                MemoryStatus::Free(_, _, _, _) => 1,
+                MemoryStatus::Unused(_) => 0,
             };
 
             let parent_address: i64 = if block.get_parent_address().is_none() {
@@ -114,7 +115,9 @@ impl DamselflyInstance {
             } else {
                 block.get_parent_address().unwrap() as i64
             };
-            result.push((parent_address, status));
+
+            let address = block.get_address();
+            result.push((parent_address, status, address));
         }
 
         (timestamp, result)
@@ -124,7 +127,7 @@ impl DamselflyInstance {
         &mut self,
         timestamp: u64,
         truncate_after: u64,
-    ) -> (u64, Vec<(i64, u64)>) {
+    ) -> (u64, Vec<(i64, u64, usize)>) {
         let operation_timestamp = self
             .graph_viewer
             .get_operation_timestamp_of_realtime_timestamp(timestamp);

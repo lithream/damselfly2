@@ -15,7 +15,7 @@ impl Block {
         Block {
             block_bounds: (block_index, block_index + block_size),
             remaining_bytes: block_size,
-            block_status: MemoryStatus::Unused,
+            block_status: MemoryStatus::Unused(block_index),
         }
     }
 
@@ -52,11 +52,11 @@ impl Block {
 
     fn update_block_status(&mut self, absolute_address: usize, absolute_size: usize, callstack: Arc<String>) {
         if self.remaining_bytes == 0 {
-            self.block_status = MemoryStatus::Allocated(absolute_address, absolute_size, callstack);
+            self.block_status = MemoryStatus::Allocated(absolute_address, absolute_size, self.block_status.get_address(), callstack);
         } else if self.remaining_bytes < (self.block_bounds.1 - self.block_bounds.0) {
-            self.block_status = MemoryStatus::PartiallyAllocated(absolute_address, absolute_size, callstack);
+            self.block_status = MemoryStatus::PartiallyAllocated(absolute_address, absolute_size, self.block_status.get_address(), callstack);
         } else if self.remaining_bytes == (self.block_bounds.1 - self.block_bounds.0) {
-            self.block_status = MemoryStatus::Free(absolute_address, absolute_size, callstack);
+            self.block_status = MemoryStatus::Free(absolute_address, absolute_size, self.block_status.get_address(), callstack);
         } else {
             panic!("[MemoryCanvas::update_block_status]: Remaining bytes exceeds span");
         }
