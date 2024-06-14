@@ -7,11 +7,11 @@ interface MapGridProps {
     squareSize: number;
     selectedBlock: number;
     setSelectedBlock: (block: number) => void;
+    lookupTile: number;
     setLookupTile: (block: number) => void;
 }
 
-function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelectedBlock, setLookupTile }: MapGridProps) {
-    const [selectedTile, setSelectedTile] = useState<number>(0);
+function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelectedBlock, lookupTile, setLookupTile }: MapGridProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
@@ -30,7 +30,7 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
                 canvas.removeEventListener('click', handleCanvasClick);
             }
         }
-    }, [selectedBlock, selectedTile, squareSize, memoryData, blockSize]);
+    }, [selectedBlock, lookupTile, squareSize, memoryData, blockSize]);
 
     const handleCanvasClick = (event: MouseEvent) => {
         const canvas = canvasRef.current;
@@ -73,7 +73,12 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
 
         let curX = -blockWidth;
         let curY = 0;
-        let curBlockStatus = data[selectedTile][1];
+        let curBlockStatus;
+        if (data.length <= lookupTile) {
+            curBlockStatus = 0;
+        } else {
+            curBlockStatus = data[lookupTile][1];
+        }
 
         for (let i = 0; i < data.length; ++i) {
             const curBlock = data[i];
@@ -84,7 +89,7 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
                 curY += blockWidth;
             }
 
-            if (i == selectedTile) {
+            if (i == lookupTile) {
                 ctx.fillStyle = "blue";
             } else if (curBlock[0] == selectedBlock && curBlock[1] == curBlockStatus &&curBlock[1] > 0) {
                 ctx.fillStyle = "green";
@@ -108,7 +113,7 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
     return (
         <div>
             <canvas ref={canvasRef} />
-            <div>Selected Block Index: {selectedBlock}, {selectedTile}</div>  {/* Debug Window to show the selected block index */}
+            <div>Selected Block Index: {selectedBlock}, {lookupTile}</div>  {/* Debug Window to show the selected block index */}
         </div>
     );
 }

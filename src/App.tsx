@@ -140,7 +140,7 @@ function App() {
               <button onClick={() => setActiveTab('block')} className={activeTab === 'block' ? 'active' : ''}>Block</button>
             </div>
             <div className="tabContent">
-              {activeTab === 'operationLog' && <OperationLog activeInstance={selectedPool} memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} />}
+              {activeTab === 'operationLog' && <OperationLog activeInstance={selectedPool} memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} setRealtimeGraph={setRealtimeGraph} setXClick={setXClick} setSelectedBlock={setSelectedBlock} setLookupTile={setLookupTile}/>}
               {activeTab === 'callstack' && <Callstack activeInstance={selectedPool} xClick={xClick} />}
               {activeTab === 'block' && <BlockStatus activeInstance={selectedPool} lookupTile={lookupTile} timestamp={realtimeGraph ? xClick + realtimeGraphOffset : xClick} realtimeGraph={realtimeGraph}/>}
             </div>
@@ -149,7 +149,7 @@ function App() {
             </div>
           </div>
           <div className="right">
-            <MapGrid memoryData={memoryData} blockSize={4} squareSize={squareSize} selectedBlock={selectedBlock} setSelectedBlock={setSelectedBlock} setLookupTile={setLookupTile}></MapGrid>
+            <MapGrid memoryData={memoryData} blockSize={4} squareSize={squareSize} selectedBlock={selectedBlock} setSelectedBlock={setSelectedBlock} lookupTile={lookupTile} setLookupTile={setLookupTile}></MapGrid>
           </div>
         </div>
         <div className="controlPanel">
@@ -176,8 +176,16 @@ function App() {
               <span className="legend-text">PARTIALLY ALLOCATED</span>
             </div>
             <div className="legend-item">
+              <div className="legend-square" style={{ backgroundColor: 'lightgreen' }}></div>
+              <span className="legend-text">FREED</span>
+            </div>
+            <div className="legend-item">
               <div className="legend-square" style={{ backgroundColor: 'grey' }}></div>
-              <span className="legend-text">FREE</span>
+              <span className="legend-text">UNUSED</span>
+            </div>
+            <div className="legend-item">
+              <div className="legend-square" style={{ backgroundColor: 'blue' }}></div>
+              <span className="legend-text">SELECTED</span>
             </div>
           </div>
         </div>
