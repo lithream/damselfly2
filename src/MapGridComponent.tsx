@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import Data from "./Data.tsx";
 
 interface MapGridProps {
@@ -7,11 +7,12 @@ interface MapGridProps {
     squareSize: number;
     selectedBlock: number;
     setSelectedBlock: (block: number) => void;
-    lookupTile: number;
     setLookupTile: (block: number) => void;
+    selectedTile: number;
+    setSelectedTile: (block: number) => void;
 }
 
-function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelectedBlock, lookupTile, setLookupTile }: MapGridProps) {
+function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelectedBlock, setLookupTile, selectedTile, setSelectedTile }: MapGridProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
@@ -30,7 +31,7 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
                 canvas.removeEventListener('click', handleCanvasClick);
             }
         }
-    }, [selectedBlock, lookupTile, squareSize, memoryData, blockSize]);
+    }, [selectedBlock, selectedTile, squareSize, memoryData, blockSize]);
 
     const handleCanvasClick = (event: MouseEvent) => {
         const canvas = canvasRef.current;
@@ -74,11 +75,16 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
         let curX = -blockWidth;
         let curY = 0;
         let curBlockStatus;
-        if (data.length <= lookupTile) {
-            curBlockStatus = 0;
-        } else {
-            curBlockStatus = data[lookupTile][1];
+        if (selectedTile == -1) {
+            for (let i = 0; i < data.length; ++i) {
+                if (data[i][0] == selectedBlock) {
+                    setSelectedTile(i);
+                    break;
+                }
+                setSelectedTile(0);
+            }
         }
+        curBlockStatus = data[selectedTile][1];
 
         for (let i = 0; i < data.length; ++i) {
             const curBlock = data[i];
@@ -89,7 +95,7 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
                 curY += blockWidth;
             }
 
-            if (i == lookupTile) {
+            if (i == selectedTile) {
                 ctx.fillStyle = "blue";
             } else if (curBlock[0] == selectedBlock && curBlock[1] == curBlockStatus &&curBlock[1] > 0) {
                 ctx.fillStyle = "green";
@@ -113,7 +119,7 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
     return (
         <div>
             <canvas ref={canvasRef} />
-            <div>Selected Block Index: {selectedBlock}, {lookupTile}</div>  {/* Debug Window to show the selected block index */}
+            <div>Selected Block Index: {selectedBlock}, {selectedTile}</div>  {/* Debug Window to show the selected block index */}
         </div>
     );
 }

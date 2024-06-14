@@ -9,11 +9,12 @@ interface OperationLogProps {
     xClick: number;
     setSelectedBlock: (block: number) => void;
     setLookupTile: (block: number) => void;
+    setSelectedTile: (block: number) => void;
     setRealtimeGraph: (realtime: boolean) => void;
     setXClick: (x: number) => void;
 }
 
-function OperationLog({ activeInstance, memoryData, setSelectedBlock, setLookupTile, setRealtimeGraph, setXClick }: OperationLogProps) {
+function OperationLog({ activeInstance, memoryData, setSelectedBlock, setLookupTile, setSelectedTile, setRealtimeGraph, setXClick }: OperationLogProps) {
     const [log, setLog] = useState<string[]>([]);
     useEffect(() => {
         const fetchLog = async () => {
@@ -42,6 +43,7 @@ function OperationLog({ activeInstance, memoryData, setSelectedBlock, setLookupT
 
             setSelectedBlock(address);
             setLookupTile(address);
+            setSelectedTile(-1);
             setRealtimeGraph(false);
             setXClick(optime);
         }

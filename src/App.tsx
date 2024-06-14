@@ -20,6 +20,7 @@ function App() {
   const [xClick, setXClick] = useState<number>(0);
   const [selectedBlock, setSelectedBlock] = useState<number>(0);
   const [lookupTile, setLookupTile] = useState<number>(0);
+  const [selectedTile, setSelectedTile] = useState<number>(0);
   const [xLimit, setXLimit] = useState<number>(0);
   const [realtimeGraph, setRealtimeGraph] = useState<boolean>(true);
   const [realtimeGraphOffset, setRealtimeGraphOffset] = useState<number>(0);
@@ -140,7 +141,7 @@ function App() {
               <button onClick={() => setActiveTab('block')} className={activeTab === 'block' ? 'active' : ''}>Block</button>
             </div>
             <div className="tabContent">
-              {activeTab === 'operationLog' && <OperationLog activeInstance={selectedPool} memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} setRealtimeGraph={setRealtimeGraph} setXClick={setXClick} setSelectedBlock={setSelectedBlock} setLookupTile={setLookupTile}/>}
+              {activeTab === 'operationLog' && <OperationLog activeInstance={selectedPool} memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} setSelectedBlock={setSelectedBlock} setLookupTile={setLookupTile} setSelectedTile={setSelectedTile} setRealtimeGraph={setRealtimeGraph} setXClick={setXClick} />}
               {activeTab === 'callstack' && <Callstack activeInstance={selectedPool} xClick={xClick} />}
               {activeTab === 'block' && <BlockStatus activeInstance={selectedPool} lookupTile={lookupTile} timestamp={realtimeGraph ? xClick + realtimeGraphOffset : xClick} realtimeGraph={realtimeGraph}/>}
             </div>
@@ -149,7 +150,7 @@ function App() {
             </div>
           </div>
           <div className="right">
-            <MapGrid memoryData={memoryData} blockSize={4} squareSize={squareSize} selectedBlock={selectedBlock} setSelectedBlock={setSelectedBlock} lookupTile={lookupTile} setLookupTile={setLookupTile}></MapGrid>
+            <MapGrid memoryData={memoryData} blockSize={4} squareSize={squareSize} selectedBlock={selectedBlock} setSelectedBlock={setSelectedBlock} setLookupTile={setLookupTile} selectedTile={selectedTile} setSelectedTile={setSelectedTile}></MapGrid>
           </div>
         </div>
         <div className="controlPanel">
