@@ -75,16 +75,32 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
         let curX = -blockWidth;
         let curY = 0;
         let curBlockStatus;
-        if (selectedTile == -1) {
+
+        let selectedTileOutOfBounds = false;
+        let selectedTileFoundInNewBounds = false;
+        let fallbackSelectedTile = NaN;
+
+        if (selectedTile == -1 || data.length <= selectedTile) {
+            selectedTileOutOfBounds = true;
             for (let i = 0; i < data.length; ++i) {
                 if (data[i][0] == selectedBlock) {
                     setSelectedTile(i);
+                    fallbackSelectedTile = i;
+                    selectedTileFoundInNewBounds = true;
                     break;
                 }
-                setSelectedTile(0);
             }
         }
-        curBlockStatus = data[selectedTile][1];
+
+        if (!selectedTileOutOfBounds) {
+            curBlockStatus = data[selectedTile][1];
+        } else if (selectedTileFoundInNewBounds) {
+            curBlockStatus = data[fallbackSelectedTile][1];
+            setSelectedTile(fallbackSelectedTile);
+        } else {
+            curBlockStatus = data[0][1];
+            setSelectedTile(0);
+        }
 
         for (let i = 0; i < data.length; ++i) {
             const curBlock = data[i];
@@ -97,7 +113,11 @@ function MapGrid({ memoryData, blockSize, squareSize, selectedBlock, setSelected
 
             if (i == selectedTile) {
                 ctx.fillStyle = "blue";
-            } else if (curBlock[0] == selectedBlock && curBlock[1] == curBlockStatus &&curBlock[1] > 0) {
+            } else if (curBlock[0] == selectedBlock &&
+                ((curBlockStatus > 1) ?
+                    (curBlock[1] > 1) :
+                    (curBlock[1] == curBlockStatus)) &&
+                curBlock[1] > 0) {
                 ctx.fillStyle = "green";
             } else {
                 ctx.fillStyle = getColorForBlock(curBlock[1]);
