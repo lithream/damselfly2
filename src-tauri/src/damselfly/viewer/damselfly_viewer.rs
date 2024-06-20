@@ -22,11 +22,11 @@ impl DamselflyViewer {
         let (memory_updates, pool_list, max_timestamp) = (parse_results.memory_updates, parse_results.pool_list, parse_results.max_timestamp);
         // cache size can't be larger than the list of updates
         let cache_size = min(cache_size, memory_updates.len() as u64);
-        let memory_usage_stats = MemoryUsageFactory::new(memory_updates.clone()).calculate_usage_stats();
 
         let updates_sorted_into_pools = UpdatePoolFactory::sort_updates_into_pools(pool_list, memory_updates);
         for (pool, updates) in updates_sorted_into_pools {
-            damselfly_viewer.spawn_damselfly(updates, memory_usage_stats.clone(), pool, max_timestamp, cache_size);
+            let memory_usage_stats = MemoryUsageFactory::new(updates.clone()).calculate_usage_stats();
+            damselfly_viewer.spawn_damselfly(updates, memory_usage_stats, pool, max_timestamp, cache_size);
         }
 
         damselfly_viewer

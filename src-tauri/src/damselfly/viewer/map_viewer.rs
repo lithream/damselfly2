@@ -147,7 +147,7 @@ impl MapViewer {
                 }
                 panic!("[MapViewer::get_current_operation]: No operation found at timestamp: {}", self.current_timestamp);
             }
-            Some(update) => return update.val.clone()
+            Some(update) => update.val.clone()
         }
     }
 

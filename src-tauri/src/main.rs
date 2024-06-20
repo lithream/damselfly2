@@ -76,6 +76,21 @@ fn get_viewer_usage_graph(state: tauri::State<AppState>, damselfly_instance: u64
 }
 
 #[tauri::command]
+fn get_viewer_usage_graph_no_fallbacks(state: tauri::State<AppState>, damselfly_instance: u64) -> Result<Vec<[f64; 2]>, String> {
+    let mut viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = &mut *viewer_lock {
+        let res = Ok(viewer
+            .damselflies
+            .get_mut(damselfly_instance as usize)
+            .expect("[tauri::command::get_viewer_usage_graph]: damselfly_instance not found: {damselfly_instance}")
+            .get_usage_graph());
+        res
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }
+}
+
+#[tauri::command]
 fn get_viewer_usage_graph_sampled(state: tauri::State<AppState>, damselfly_instance: u64) -> Result<Vec<[f64; 2]>, String> {
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &mut *viewer_lock {

@@ -38,9 +38,11 @@ impl DamselflyInstance {
             max_distinct_blocks as usize,
             max_timestamp,
         );
+
         let update_intervals = UpdateIntervalFactory::new(memory_updates).construct_enum_vector();
         let map_viewer = MapViewer::new(name.clone(), update_intervals.clone(), lowest_address, highest_address, cache_size as u64);
         let full_lapper = Lapper::new(update_intervals);
+
         Self {
             name,
             graph_viewer,
@@ -139,6 +141,10 @@ impl DamselflyInstance {
     pub fn get_usage_graph(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_usage_plot_points()
     }
+    
+    pub fn get_usage_graph_no_fallbacks(&self) -> Vec<[f64;2]> {
+        self.graph_viewer.get_usage_plot_points_no_fallbacks()
+    }
 
     pub fn get_usage_graph_realtime_sampled(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_usage_plot_points_realtime_sampled()
@@ -148,6 +154,10 @@ impl DamselflyInstance {
         self.graph_viewer.get_distinct_blocks_plot_points()
     }
 
+    pub fn get_distinct_blocks_graph_no_fallbacks(&self) -> Vec<[f64; 2]> {
+        self.graph_viewer.get_distinct_blocks_plot_points_no_fallbacks()
+    }
+    
     pub fn get_distinct_blocks_graph_realtime_sampled(&self) -> Vec<[f64; 2]> {
         self.graph_viewer
             .get_distinct_blocks_plot_points_realtime_sampled()
@@ -157,6 +167,10 @@ impl DamselflyInstance {
         self.graph_viewer.get_largest_free_block_plot_points()
     }
 
+    pub fn get_largest_block_graph_no_fallbacks(&self) -> Vec<[f64; 2]> {
+        self.graph_viewer.get_largest_free_block_plot_points_no_fallbacks()
+    }
+    
     pub fn get_largest_block_graph_realtime_sampled(&self) -> Vec<[f64; 2]> {
         self.graph_viewer
             .get_largest_free_block_plot_points_realtime_sampled()
@@ -166,6 +180,10 @@ impl DamselflyInstance {
         self.graph_viewer.get_free_blocks_plot_points()
     }
 
+    pub fn get_free_blocks_graph_no_fallbacks(&self) -> Vec<[f64; 2]> {
+        self.graph_viewer.get_free_blocks_plot_points_no_fallbacks()
+    }
+    
     pub fn get_free_blocks_graph_realtime_sampled(&self) -> Vec<[f64; 2]> {
         self.graph_viewer
             .get_free_blocks_plot_points_realtime_sampled()
