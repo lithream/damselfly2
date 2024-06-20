@@ -159,7 +159,7 @@ function App() {
             <button onClick={() => increaseBlockSize()}>+</button>
             <button onClick={() => decreaseBlockSize()}>-</button>
             <button onClick={() => toggleRealtime()}>
-              {realtimeGraph ? "REALTIME" : "OPTIME"}
+              {realtimeGraph ? "TIME" : "OP #"}
             </button>
             <button onClick={() => increaseSquareSize()}>+</button>
             <button onClick={() => decreaseSquareSize()}>-</button>
