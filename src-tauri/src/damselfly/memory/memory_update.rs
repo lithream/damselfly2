@@ -53,6 +53,13 @@ impl MemoryUpdateType {
         }
     }
 
+    pub fn set_timestamp(&mut self, new_timestamp: usize) {
+        match self {
+            MemoryUpdateType::Allocation(allocation) => allocation.set_timestamp(new_timestamp),
+            MemoryUpdateType::Free(free) => free.set_timestamp(new_timestamp),
+        }
+    }
+
     pub fn get_real_timestamp(&self) -> &String {
         match self {
             MemoryUpdateType::Allocation(allocation) => allocation.get_real_timestamp(),
@@ -78,6 +85,7 @@ pub trait MemoryUpdate {
     fn get_absolute_size(&self) -> usize;
     fn get_callstack(&self) -> Arc<String>;
     fn get_timestamp(&self) -> usize;
+    fn set_timestamp(&mut self, new_timestamp: usize);
     fn get_real_timestamp(&self) -> &String;
     fn wrap_in_enum(self) -> MemoryUpdateType;
 }
@@ -142,6 +150,11 @@ impl MemoryUpdate for Allocation {
     fn get_timestamp(&self) -> usize {
         self.timestamp
     }
+
+    fn set_timestamp(&mut self, new_timestamp: usize) {
+        self.timestamp = new_timestamp;
+    }
+
     fn get_real_timestamp(&self) -> &String {
         &self.real_timestamp
     }
@@ -167,6 +180,11 @@ impl MemoryUpdate for Free {
     fn get_timestamp(&self) -> usize {
         self.timestamp
     }
+
+    fn set_timestamp(&mut self, new_timestamp: usize) {
+        self.timestamp = new_timestamp;
+    }
+
     fn get_real_timestamp(&self) -> &String {
         &self.real_timestamp
     }

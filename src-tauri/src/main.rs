@@ -20,12 +20,16 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             initialise_viewer,
             get_viewer_usage_graph,
+            get_viewer_usage_graph_no_fallbacks,
             get_viewer_usage_graph_sampled,
             get_viewer_distinct_blocks_graph,
+            get_viewer_distinct_blocks_graph_no_fallbacks,
             get_viewer_distinct_blocks_graph_sampled,
             get_viewer_largest_block_graph,
+            get_viewer_largest_block_graph_no_fallbacks,
             get_viewer_largest_block_graph_sampled,
             get_viewer_free_blocks_graph,
+            get_viewer_free_blocks_graph_no_fallbacks,
             get_viewer_free_blocks_graph_sampled,
             get_viewer_map_full_at_colours,
             get_viewer_map_full_at_colours_realtime_sampled,
@@ -83,7 +87,8 @@ fn get_viewer_usage_graph_no_fallbacks(state: tauri::State<AppState>, damselfly_
             .damselflies
             .get_mut(damselfly_instance as usize)
             .expect("[tauri::command::get_viewer_usage_graph]: damselfly_instance not found: {damselfly_instance}")
-            .get_usage_graph());
+            .get_usage_graph_no_fallbacks());
+        eprintln!("viewer usage graph no fallbacks: res len = {}", res.as_ref().unwrap().len());
         res
     } else {
         Err("Viewer is not initialised".to_string())
@@ -119,6 +124,20 @@ fn get_viewer_distinct_blocks_graph(state: tauri::State<AppState>, damselfly_ins
 }
 
 #[tauri::command]
+fn get_viewer_distinct_blocks_graph_no_fallbacks(state: tauri::State<AppState>, damselfly_instance: u64) -> Result<Vec<[f64; 2]>, String> {
+    let mut viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = &mut *viewer_lock {
+        Ok(viewer
+            .damselflies
+            .get_mut(damselfly_instance as usize)
+            .expect("[tauri::command::get_viewer_distinct_blocks_graph]: damselfly_instance not found: {damselfly_instance}")
+            .get_distinct_blocks_graph_no_fallbacks())
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }
+}
+
+#[tauri::command]
 fn get_viewer_distinct_blocks_graph_sampled(state: tauri::State<AppState>, damselfly_instance: u64) -> Result<Vec<[f64; 2]>, String> {
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &mut *viewer_lock {
@@ -147,6 +166,20 @@ fn get_viewer_largest_block_graph(state: tauri::State<AppState>, damselfly_insta
 }
 
 #[tauri::command]
+fn get_viewer_largest_block_graph_no_fallbacks(state: tauri::State<AppState>, damselfly_instance: u64) -> Result<Vec<[f64; 2]>, String> {
+    let mut viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = &mut *viewer_lock {
+        Ok(viewer
+            .damselflies
+            .get_mut(damselfly_instance as usize)
+            .expect("[tauri::command::get_viewer_largest_block_graph]: damselfly instance not found: {damselfly_instance}")
+            .get_largest_block_graph_no_fallbacks())
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }
+}
+
+#[tauri::command]
 fn get_viewer_largest_block_graph_sampled(state: tauri::State<AppState>, damselfly_instance: u64) -> Result<Vec<[f64; 2]>, String> {
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &mut *viewer_lock {
@@ -169,6 +202,20 @@ fn get_viewer_free_blocks_graph(state: tauri::State<AppState>, damselfly_instanc
             .get_mut(damselfly_instance as usize)
             .expect("[tauri::command::get_viewer_free_blocks_graph]: damselfly_instance not found: {damselfly_instance}")
             .get_free_blocks_graph())
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_viewer_free_blocks_graph_no_fallbacks(state: tauri::State<AppState>, damselfly_instance: u64) -> Result<Vec<[f64; 2]>, String> {
+    let mut viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = &mut *viewer_lock {
+        Ok(viewer
+            .damselflies
+            .get_mut(damselfly_instance as usize)
+            .expect("[tauri::command::get_viewer_free_blocks_graph]: damselfly_instance not found: {damselfly_instance}")
+            .get_free_blocks_graph_no_fallbacks())
     } else {
         Err("Viewer is not initialised".to_string())
     }
@@ -352,6 +399,7 @@ fn query_block_realtime(
         Err("Viewer is not initialised".to_string())
     }
 }
+
 
 #[tauri::command]
 fn get_pool_list(state: tauri::State<AppState>) -> Result<Vec<String>, String> {

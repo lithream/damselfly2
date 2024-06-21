@@ -37,6 +37,22 @@ pub struct MemorySysTraceParser {
     counter: u64,
 }
 
+pub struct PoolRestrictedParseResults {
+    pub memory_updates: Vec<MemoryUpdateType>,
+    pub max_timestamp: u64,
+    pub pool: MemoryPool,
+}
+
+impl PoolRestrictedParseResults {
+    pub fn new(memory_updates: Vec<MemoryUpdateType>, max_timestamp: u64, pool: MemoryPool) -> Self {
+        Self {
+            memory_updates,
+            max_timestamp,
+            pool
+        }
+    }
+}
+
 pub struct ParseResults {
     pub memory_updates: Vec<MemoryUpdateType>,
     pub max_timestamp: u64,
@@ -103,6 +119,21 @@ impl MemorySysTraceParser {
         }
         println!("Processing complete.");
         ParseResults::new(self.memory_updates, self.pool_list, self.counter)
+    }
+    
+    pub fn parse_log_contents_split_by_pools(mut self, log: &str, binary_path: &str) -> Vec<PoolRestrictedParseResults> {
+        let parse_results = self.parse_log(log, binary_path);
+        let mut pool_restricted_parse_results = Vec::new();
+        for pool in parse_results.pool_list.get_pools() {
+            let updates_in_pool = parse_results.memory_updates
+                .iter()
+                .filter(|update| pool.contains(update.get_start(), update.get_end()))
+                .cloned()
+                .collect();
+            pool_restricted_parse_results.push(PoolRestrictedParseResults::new(updates_in_pool, parse_results.max_timestamp, pool.clone()));
+        }
+        
+        pool_restricted_parse_results
     }
 
     fn compute_pool_bounds(&mut self, line: &str) -> (usize, usize) {

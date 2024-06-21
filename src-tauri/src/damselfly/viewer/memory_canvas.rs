@@ -159,13 +159,13 @@ mod tests {
         let mut canvas = MemoryCanvas::new(0, 128, 4, update_intervals);
         let canvas_status = canvas.render();
         assert!(matches!(canvas_status[0], MemoryStatus::Allocated(..)));
-        assert!(matches!(canvas_status[1], MemoryStatus::Unused));
+        assert!(matches!(canvas_status[1], MemoryStatus::Unused(..)));
         assert!(matches!(canvas_status[2], MemoryStatus::Allocated(..)));
         assert!(matches!(canvas_status[3], MemoryStatus::Allocated(..)));
-        assert!(matches!(canvas_status[4], MemoryStatus::Unused));
+        assert!(matches!(canvas_status[4], MemoryStatus::Unused(..)));
         assert!(matches!(canvas_status[5], MemoryStatus::PartiallyAllocated(..)));
         assert!(matches!(canvas_status[6], MemoryStatus::PartiallyAllocated(..)));
-        assert!(matches!(canvas_status[7], MemoryStatus::Unused));
-        assert!(matches!(canvas_status[8], MemoryStatus::Unused));
+        assert!(matches!(canvas_status[7], MemoryStatus::Unused(..)));
+        assert!(matches!(canvas_status[8], MemoryStatus::Unused(..)));
     }
 }

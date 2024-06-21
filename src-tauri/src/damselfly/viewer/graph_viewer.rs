@@ -98,7 +98,7 @@ impl GraphViewer {
     pub fn get_distinct_blocks_plot_points_no_fallbacks(&self) -> Vec<[f64; 2]> {
         let mut vector = Vec::new();
         for (index, usage) in self.memory_usage_snapshots.iter().enumerate() {
-            vector.push([index as f64, usage.get_distinct_blocks() as f64 * 100.0 / self.max_distinct_blocks]);
+            vector.push([index as f64, usage.get_distinct_blocks() as f64 * 100.0 / self.max_distinct_blocks as f64]);
         }
         
         vector

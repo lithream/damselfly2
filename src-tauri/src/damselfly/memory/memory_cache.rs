@@ -27,7 +27,8 @@ impl MemoryCache {
     pub fn query_cache(&self, timestamp: usize) -> Result<Vec<MemoryStatus>, String> {
         let cache_index = (timestamp / self.interval).clamp(0, self.memory_cache_snapshots.len() - 1);
         if let Some(memory_cache_snapshot) = self.memory_cache_snapshots.get(cache_index) {
-            Ok(memory_cache_snapshot.render_at(timestamp))
+            let offset = timestamp - (cache_index * self.interval);
+            Ok(memory_cache_snapshot.render_this_many(offset))
         } else {
             Err("[MemoryCache::query_cache]: Cache index out of bounds.".to_string())
         }
@@ -35,13 +36,13 @@ impl MemoryCache {
 
     fn generate_cache(update_intervals: &Vec<UpdateInterval>, interval: usize, block_size: usize) -> (Vec<MemoryCacheSnapshot>, Vec<UpdateInterval>) {
         let (start, stop) = Utility::get_canvas_span(update_intervals);
-        let final_timestamp = update_intervals.last().unwrap().val.get_timestamp();
+        let final_timestamp = update_intervals.len() - 1;
 
         let mut buckets: HashMap<usize, Vec<UpdateInterval>> = HashMap::new();
         
         // Categories update into buckets in the hashmap
-        for update in update_intervals {
-            let cache_index = update.val.get_timestamp() / interval;
+        for (index, update) in update_intervals.iter().enumerate() {
+            let cache_index = index / interval;
             buckets
                 .entry(cache_index)
                 .and_modify(|bucket| bucket.push(update.clone()))

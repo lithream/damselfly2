@@ -84,10 +84,10 @@ function Graph({ activeInstance, dataLoaded, realtimeGraph, setXClick , xClick, 
                 largestFreeBlockData = trimmedData[2];
                 freeBlocksData = trimmedData[3];
             } else {
-                usageData = await invoke('get_viewer_usage_graph', { damselflyInstance: activeInstance  });
-                fragmentationData = await invoke('get_viewer_distinct_blocks_graph', { damselflyInstance: activeInstance });
-                largestFreeBlockData = await invoke('get_viewer_largest_block_graph', { damselflyInstance: activeInstance });
-                freeBlocksData = await invoke('get_viewer_free_blocks_graph', { damselflyInstance: activeInstance });
+                usageData = await invoke('get_viewer_usage_graph_no_fallbacks', { damselflyInstance: activeInstance  });
+                fragmentationData = await invoke('get_viewer_distinct_blocks_graph_no_fallbacks', { damselflyInstance: activeInstance });
+                largestFreeBlockData = await invoke('get_viewer_largest_block_graph_no_fallbacks', { damselflyInstance: activeInstance });
+                freeBlocksData = await invoke('get_viewer_free_blocks_graph_no_fallbacks', { damselflyInstance: activeInstance });
             }
 
             let formattedData = [];

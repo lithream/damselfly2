@@ -263,6 +263,14 @@ impl DamselflyInstance {
             .collect()
     }
 
+    pub fn query_block_naive(&self, address: usize) -> Vec<MemoryUpdateType> {
+        eprintln!("[DamselflyInstance::query_block_naive]: address: {address}");
+        self.full_lapper
+            .find(address, address + self.map_viewer.get_block_size())
+            .map(|interval| interval.val.clone())
+            .collect()
+    }
+
     pub fn query_block_realtime(&self, address: usize, timestamp: usize) -> Vec<MemoryUpdateType> {
         let timestamp = self.graph_viewer.get_operation_timestamp_of_realtime_timestamp(timestamp as u64) as usize;
         eprintln!("[DamselflyInstance::query_block_realtime]: realtime converted to optimestamp: {timestamp}");

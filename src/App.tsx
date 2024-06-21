@@ -124,6 +124,7 @@ function App() {
   }
 
   const handleSelectPool = (index: number) => {
+    setXClick(0);
     setSelectedPool(index);
   };
 
