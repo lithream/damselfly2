@@ -14,37 +14,27 @@ pub struct DamselflyViewer {
 }
 
 impl DamselflyViewer {
-    pub fn new(log_path: &str, binary_path: &str, cache_size: u64) -> Self {
+    pub fn new(log_path: &str, binary_path: &str, cache_size: u64, distinct_block_left_padding: usize, distinct_block_right_padding: usize) -> Self {
         let mut damselfly_viewer = DamselflyViewer {
             damselflies: Vec::new()
         };
         let mem_sys_trace_parser = MemorySysTraceParser::new();
         let pool_restricted_parse_results = mem_sys_trace_parser.parse_log_contents_split_by_pools(log_path, binary_path);
-//        let parse_results = mem_sys_trace_parser.parse_log(log_path, binary_path);
         for parse_results in &pool_restricted_parse_results {
             let (memory_updates, max_timestamp) = (parse_results.memory_updates.clone(), parse_results.max_timestamp);
             let mut resampled_memory_updates = Vec::new();
+            // This should really be iter_mut, but I don't want to break anything
             for (index, memory_update) in memory_updates.iter().enumerate() {
                 let mut resampled_memory_update = memory_update.clone();
                 resampled_memory_update.set_timestamp(index);
                 resampled_memory_updates.push(resampled_memory_update);
             }
+
             let cache_size = min(cache_size, resampled_memory_updates.len() as u64);
-            let memory_usage_stats = MemoryUsageFactory::new(resampled_memory_updates.clone()).calculate_usage_stats();
+            let memory_usage_stats = MemoryUsageFactory::new(resampled_memory_updates.clone(), distinct_block_left_padding, distinct_block_right_padding).calculate_usage_stats();
             damselfly_viewer.spawn_damselfly(resampled_memory_updates, memory_usage_stats, parse_results.pool.clone(), max_timestamp, cache_size);
         }
-        /*
-        let (memory_updates, pool_list, max_timestamp) = (parse_results.memory_updates, parse_results.pool_list, parse_results.max_timestamp);
-        // cache size can't be larger than the list of updates
-        let cache_size = min(cache_size, memory_updates.len() as u64);
 
-        let updates_sorted_into_pools = UpdatePoolFactory::sort_updates_into_pools(pool_list, memory_updates);
-        for (pool, updates) in updates_sorted_into_pools {
-            let memory_usage_stats = MemoryUsageFactory::new(updates.clone()).calculate_usage_stats();
-            damselfly_viewer.spawn_damselfly(updates, memory_usage_stats, pool, max_timestamp, cache_size);
-        }
-
-         */
         damselfly_viewer
     }
 
@@ -73,14 +63,14 @@ mod tests {
     fn initialise_test_log() -> DamselflyViewer {
         let mst_parser = MemorySysTraceParser::new();
         let updates = mst_parser.parse_log_directly(TEST_LOG, TEST_BINARY_PATH);
-        let viewer = DamselflyViewer::new(TEST_LOG_PATH, TEST_BINARY_PATH, DEFAULT_CACHE_INTERVAL);
+        let viewer = DamselflyViewer::new(TEST_LOG_PATH, TEST_BINARY_PATH, DEFAULT_CACHE_INTERVAL, 0, 0);
         viewer
     }
 
     fn initialise_log(log_path: &str) -> DamselflyViewer {
         let mst_parser = MemorySysTraceParser::new();
         let updates = mst_parser.parse_log_directly(TEST_LOG, TEST_BINARY_PATH);
-        let viewer = DamselflyViewer::new(log_path, TEST_BINARY_PATH, DEFAULT_CACHE_INTERVAL);
+        let viewer = DamselflyViewer::new(log_path, TEST_BINARY_PATH, DEFAULT_CACHE_INTERVAL, 0, 0);
         viewer
     }
 
@@ -88,12 +78,12 @@ mod tests {
     fn test_bug() {
         let mst_parser = MemorySysTraceParser::new();
         let updates = mst_parser.parse_log("/home/signal/dev/trace.log", "/home/signal/dev/threadxApp");
-        let viewer = DamselflyViewer::new("/home/signal/dev/trace.log", "/home/signal/dev/threadxApp", 1000);
+        let viewer = DamselflyViewer::new("/home/signal/dev/trace.log", "/home/signal/dev/threadxApp", 1000, 0, 0);
     }
 
     #[test]
     fn test_bug_2() {
-        let viewer = DamselflyViewer::new("/home/signal/Downloads/dn/trace.log", "/home/signal/Downloads/dn/threadxApp", 1000);
+        let viewer = DamselflyViewer::new("/home/signal/Downloads/dn/trace.log", "/home/signal/Downloads/dn/threadxApp", 1000, 0, 0);
         assert_eq!(viewer.damselflies.len(), 2);
     }
 }

@@ -83,8 +83,20 @@ function App() {
       const logFilePath = await invoke("choose_files");
       const binaryFilePath = await invoke("choose_files");
 
+      let left_padding: string | null = prompt("Enter left padding for allocations.\n");
+      let right_padding: string | null = prompt("Enter right padding for allocations.\n");
+      if (left_padding === null) {
+        left_padding = "0";
+      }
+      if (right_padding === null) {
+        right_padding = "0";
+      }
+      let left_padding_int = parseInt(left_padding);
+      let right_padding_int = parseInt(right_padding);
+
+
       if (logFilePath && binaryFilePath) {
-        await invoke("initialise_viewer", { log_path: logFilePath, binary_path: binaryFilePath, cache_size: cacheSizeInt });
+        await invoke("initialise_viewer", { log_path: logFilePath, binary_path: binaryFilePath, cache_size: cacheSizeInt, distinct_block_left_padding: left_padding_int, distinct_block_right_padding: right_padding_int });
         setDataLoaded(true);
       }
     } catch (error) {

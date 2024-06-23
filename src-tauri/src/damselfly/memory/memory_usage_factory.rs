@@ -11,16 +11,21 @@ pub struct MemoryUsageFactory {
     memory_updates: Vec<MemoryUpdateType>,
     lowest_address: usize,
     highest_address: usize,
+    distinct_block_left_padding: usize,
+    distinct_block_right_padding: usize,
     lapper: Lapper<usize, MemoryUpdateType>,
     counter: u64,
 }
 
 impl MemoryUsageFactory {
-    pub fn new(memory_updates: Vec<MemoryUpdateType>) -> MemoryUsageFactory {
+    pub fn new(memory_updates: Vec<MemoryUpdateType>, distinct_block_left_padding: usize, distinct_block_right_padding: usize)
+        -> MemoryUsageFactory {
         MemoryUsageFactory {
             memory_updates,
             lowest_address: usize::MAX,
             highest_address: usize::MIN,
+            distinct_block_left_padding,
+            distinct_block_right_padding,
             lapper: Lapper::new(vec![]),
             counter: 0,
         }
@@ -36,7 +41,7 @@ impl MemoryUsageFactory {
         let mut max_free_blocks: u128 = 0;
         let mut memory_usages = Vec::new();
 
-        let mut distinct_block_counter = DistinctBlockCounter::default();
+        let mut distinct_block_counter = DistinctBlockCounter::new(vec![], self.distinct_block_left_padding, self.distinct_block_right_padding);
         let mut max_distinct_blocks: u128 = 0;
 
         for (index, update) in self.memory_updates.iter().enumerate() {
@@ -70,15 +75,17 @@ impl MemoryUsageFactory {
 }
 
 mod tests {
+    use std::sync::Arc;
     use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
     use crate::damselfly::consts::{TEST_BINARY_PATH, TEST_LOG};
+    use crate::damselfly::memory::memory_update::{Allocation, MemoryUpdateType};
     use crate::damselfly::memory::memory_usage_factory::MemoryUsageFactory;
     use crate::damselfly::memory::memory_usage_stats::MemoryUsageStats;
 
     fn initialise_test_log() -> MemoryUsageStats {
         let mst_parser = MemorySysTraceParser::new();
         let updates = mst_parser.parse_log_directly(TEST_LOG, TEST_BINARY_PATH).memory_updates;
-        let mut memory_usage_factory = MemoryUsageFactory::new(updates);
+        let mut memory_usage_factory = MemoryUsageFactory::new(updates, 0, 0);
         memory_usage_factory.calculate_usage_stats()
     }
 
@@ -117,5 +124,51 @@ mod tests {
         assert_eq!(memory_usages[2].get_latest_operation(), 2);
         assert_eq!(memory_usages[3].get_latest_operation(), 3);
         assert_eq!(memory_usages[4].get_latest_operation(), 4);
+    }
+
+    #[test]
+    fn calculate_fragmentation_zero_padding_test() {
+        let first_update = MemoryUpdateType::Allocation(Allocation::new(0, 8, Arc::new(String::new()), 0, String::from("0001.676 s")));
+        let second_update = MemoryUpdateType::Allocation(Allocation::new(12, 8, Arc::new(String::new()), 0, String::from("0001.677 s")));
+        let usage_stats =
+            MemoryUsageFactory::new(vec![first_update, second_update], 0, 0)
+                .calculate_usage_stats();
+        assert_eq!(usage_stats.get_max_distinct_blocks(), 2);
+    }
+
+    #[test]
+    fn calculate_fragmentation_right_padding_test() {
+        let first_update = MemoryUpdateType::Allocation(Allocation::new(0, 8, Arc::new(String::new()), 0, String::from("0001.676 s")));
+        let second_update = MemoryUpdateType::Allocation(Allocation::new(12, 8, Arc::new(String::new()), 0, String::from("0001.677 s")));
+        let usage_stats =
+            MemoryUsageFactory::new(vec![first_update, second_update], 0, 4)
+                .calculate_usage_stats();
+        assert_eq!(usage_stats.get_max_distinct_blocks(), 1);
+    }
+
+    #[test]
+    fn calculate_fragmentation_left_padding_test() {
+        let first_update = MemoryUpdateType::Allocation(Allocation::new(0, 8, Arc::new(String::new()), 0, String::from("0001.676 s")));
+        let second_update = MemoryUpdateType::Allocation(Allocation::new(12, 8, Arc::new(String::new()), 0, String::from("0001.677 s")));
+        let usage_stats =
+            MemoryUsageFactory::new(vec![first_update, second_update], 4, 0)
+                .calculate_usage_stats();
+        assert_eq!(usage_stats.get_max_distinct_blocks(), 2);
+    }
+
+    #[test]
+    fn calculate_fragmentation_both_padding_test() {
+        let first_update = MemoryUpdateType::Allocation(Allocation::new(8, 8, Arc::new(String::new()), 0, String::from("0001.676 s")));
+        let second_update = MemoryUpdateType::Allocation(Allocation::new(20, 8, Arc::new(String::new()), 1, String::from("0001.677 s")));
+        let third_update = MemoryUpdateType::Allocation(Allocation::new(32, 8, Arc::new(String::new()), 2, String::from("0001.678 s")));
+        let usage_stats =
+            MemoryUsageFactory::new(vec![first_update.clone(), second_update.clone(), third_update.clone()], 2, 2)
+                .calculate_usage_stats();
+        assert_eq!(usage_stats.get_max_distinct_blocks(), 1);
+
+        let usage_stats =
+            MemoryUsageFactory::new(vec![first_update, second_update, third_update], 4, 0)
+                .calculate_usage_stats();
+        assert_eq!(usage_stats.get_max_distinct_blocks(), 1);
     }
 }

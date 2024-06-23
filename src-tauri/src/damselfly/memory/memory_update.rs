@@ -18,6 +18,13 @@ impl MemoryUpdateType {
         }
     }
 
+    pub fn set_absolute_address(&mut self, new_address: usize) {
+        match self {
+            MemoryUpdateType::Allocation(allocation) => allocation.set_absolute_address(new_address),
+            MemoryUpdateType::Free(free) => free.set_absolute_address(new_address),
+        }
+    }
+
     pub fn get_absolute_size(&self) -> usize {
         match self {
             MemoryUpdateType::Allocation(allocation) => allocation.get_absolute_size(),
@@ -82,7 +89,9 @@ impl Display for MemoryUpdateType {
 
 pub trait MemoryUpdate {
     fn get_absolute_address(&self) -> usize;
+    fn set_absolute_address(&mut self, new_address: usize);
     fn get_absolute_size(&self) -> usize;
+    fn set_absolute_size(&mut self, new_size: usize);
     fn get_callstack(&self) -> Arc<String>;
     fn get_timestamp(&self) -> usize;
     fn set_timestamp(&mut self, new_timestamp: usize);
@@ -139,8 +148,16 @@ impl MemoryUpdate for Allocation {
         self.address
     }
 
+    fn set_absolute_address(&mut self, new_address: usize) {
+        self.address = new_address
+    }
+
     fn get_absolute_size(&self) -> usize {
         self.size
+    }
+
+    fn set_absolute_size(&mut self, new_size: usize) {
+        self.size = new_size;
     }
 
     fn get_callstack(&self) -> Arc<String> {
@@ -169,8 +186,16 @@ impl MemoryUpdate for Free {
         self.address
     }
 
+    fn set_absolute_address(&mut self, new_address: usize) {
+        self.address = new_address
+    }
+
     fn get_absolute_size(&self) -> usize {
         self.size
+    }
+
+    fn set_absolute_size(&mut self, new_size: usize) {
+        self.size = new_size;
     }
 
     fn get_callstack(&self) -> Arc<String> {

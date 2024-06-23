@@ -46,8 +46,8 @@ fn main() {
 }
 
 #[tauri::command(rename_all = "snake_case")]
-fn initialise_viewer(state: tauri::State<AppState>, log_path: String, binary_path: String, cache_size: u64) {
-    let viewer = DamselflyViewer::new(&log_path, &binary_path, cache_size);
+fn initialise_viewer(state: tauri::State<AppState>, log_path: String, binary_path: String, cache_size: u64, distinct_block_left_padding: usize, distinct_block_right_padding: usize) {
+    let viewer = DamselflyViewer::new(&log_path, &binary_path, cache_size, distinct_block_left_padding, distinct_block_right_padding);
     state.viewer.lock().unwrap().replace(viewer);
 }
 

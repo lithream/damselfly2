@@ -7,9 +7,12 @@ use crate::damselfly::memory::NoHashMap;
 use crate::damselfly::update_interval::update_interval_factory::UpdateIntervalFactory;
 use crate::damselfly::update_interval::update_queue_compressor::UpdateQueueCompressor;
 
+#[derive(Default)]
 pub struct DistinctBlockCounter {
     start: usize,
     stop: usize,
+    left_padding: usize,
+    right_padding: usize,
     memory_updates: NoHashMap<usize, MemoryUpdateType>,
     starts_set: HashSet<usize>,
     ends_set: HashSet<usize>,
@@ -19,23 +22,8 @@ pub struct DistinctBlockCounter {
     free_blocks: Vec<(usize, usize)>,
 }
 
-impl Default for DistinctBlockCounter {
-    fn default() -> Self {
-        Self {
-            start: 0,
-            stop: 0,
-            memory_updates: NoHashMap::default(),
-            starts_set: HashSet::new(),
-            ends_set: HashSet::new(),
-            starts_tree: BTreeSet::new(),
-            ends_tree: BTreeSet::new(),
-            distinct_blocks: 0,
-            free_blocks: Vec::new(),
-        }
-    }
-}
 impl DistinctBlockCounter {
-    pub fn new(memory_updates: Vec<MemoryUpdateType>) -> DistinctBlockCounter {
+    pub fn new(memory_updates: Vec<MemoryUpdateType>, left_padding: usize, right_padding: usize) -> DistinctBlockCounter {
         let mut memory_updates_map: NoHashMap<usize, MemoryUpdateType> = NoHashMap::default();
         for memory_update in memory_updates {
             memory_updates_map.insert(memory_update.get_absolute_address(), memory_update);
@@ -43,6 +31,8 @@ impl DistinctBlockCounter {
         DistinctBlockCounter {
             start: usize::MAX,
             stop: usize::MIN,
+            left_padding,
+            right_padding,
             memory_updates: memory_updates_map,
             starts_set: HashSet::new(),
             ends_set: HashSet::new(),
@@ -54,8 +44,8 @@ impl DistinctBlockCounter {
     }
 
     pub fn push_update(&mut self, update: &MemoryUpdateType) {
-        let start = update.get_start();
-        let end = update.get_end();
+        let start = update.get_start() - self.left_padding;
+        let end = update.get_end() + self.right_padding;
         let mut left_attached = false;
         let mut right_attached = false;
         let mut block_delta: i64 = 0;
@@ -69,7 +59,7 @@ impl DistinctBlockCounter {
 
         
         match update {
-            MemoryUpdateType::Allocation(allocation) => {
+            MemoryUpdateType::Allocation(_) => {
                 // glues together two blocks, reducing fragmentation
                 if left_attached && right_attached {
                     block_delta = -1;
@@ -86,7 +76,7 @@ impl DistinctBlockCounter {
                 self.starts_tree.insert(start);
                 self.ends_tree.insert(start);
             }
-            MemoryUpdateType::Free(free) => {
+            MemoryUpdateType::Free(_) => {
                 // breaks a block into two blocks, increasing fragmentation
                 if left_attached && right_attached {
                     block_delta = 1;
@@ -192,7 +182,7 @@ mod tests {
     use crate::damselfly::memory::memory_update::MemoryUpdateType;
     use crate::damselfly::update_interval::distinct_block_counter::DistinctBlockCounter;
 
-    fn initialise_test_log() -> (Vec<MemoryUpdateType>, DistinctBlockCounter) {
+    fn _initialise_test_log() -> (Vec<MemoryUpdateType>, DistinctBlockCounter) {
         let mst_parser = MemorySysTraceParser::new();
         let updates = mst_parser.parse_log_directly(TEST_LOG, TEST_BINARY_PATH).memory_updates;
         (updates, DistinctBlockCounter::default())
@@ -200,13 +190,13 @@ mod tests {
 
     #[test]
     fn zero_distinct_blocks_test() {
-        let (_, mut distinct_block_counter) = initialise_test_log();
+        let (_, mut distinct_block_counter) = _initialise_test_log();
         assert_eq!(distinct_block_counter.get_distinct_blocks(), 0);
     }
 
     #[test]
     fn one_distinct_block_test() {
-        let (updates, mut distinct_block_counter) = initialise_test_log();
+        let (updates, mut distinct_block_counter) = _initialise_test_log();
         distinct_block_counter.push_update(&updates[0]);
     }
 }
