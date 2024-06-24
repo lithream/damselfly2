@@ -30,8 +30,8 @@ function App() {
   const [activeTab, setActiveTab] = useState('callstack');
   const [poolList, setPoolList] = useState<{name: string, index: number}[]>([]);
   const [selectedPool, setSelectedPool] = useState<number>(0);
-  const [leftPaddings, setLeftPaddings] = useState<[number]>([0]);
-  const [rightPaddings, setRightPaddings] = useState<[number]>([0]);
+  const [leftPadding, setLeftPadding] = useState<number>(0);
+  const [rightPadding, setRightPadding] = useState<number>(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -59,26 +59,7 @@ function App() {
           console.log("memory data set");
           setMemoryData(memoryData);
           const poolNames: string[] = await invoke("get_pool_list");
-          for (let i = 0; i < poolNames.length; ++i) {
-            let left_padding: string | null = prompt(`Enter left padding for allocations in pool: ${poolNames[i]}.\n`);
-            let right_padding: string | null = prompt(`Enter right padding for allocations in pool: ${poolNames[i]}.\n`);
-            if (left_padding === null) {
-              left_padding = "0";
-            }
-            if (right_padding === null) {
-              right_padding = "0";
-            }
-            let currentLeftPaddings = leftPaddings;
-            currentLeftPaddings[i] = parseInt(left_padding);
-            let currentRightPaddings = rightPaddings;
-            currentRightPaddings[i] = parseInt(right_padding);
-            setLeftPaddings(currentLeftPaddings);
-            setRightPaddings(currentRightPaddings);
-          }
           setPoolList(poolNames.map((name, index) => ({ name, index })));
-          for (let i = 0; i < poolNames.length; ++i) {
-
-          }
         } catch (error) {
           console.log("error");
           console.error("Error fetching memory data: ", error);
@@ -103,6 +84,17 @@ function App() {
       console.log(`cacheSizeInt = ${cacheSizeInt}`);
       const logFilePath = await invoke("choose_files");
       const binaryFilePath = await invoke("choose_files");
+
+      let left_padding: string | null = prompt("Enter left padding for allocations.\n");
+      let right_padding: string | null = prompt("Enter right padding for allocations.\n");
+      if (left_padding === null) {
+        left_padding = "0";
+      }
+      if (right_padding === null) {
+        right_padding = "0";
+      }
+      setLeftPadding(parseInt(left_padding));
+      setRightPadding(parseInt(right_padding));
 
       if (logFilePath && binaryFilePath) {
         await invoke("initialise_viewer", { log_path: logFilePath, binary_path: binaryFilePath, cache_size: cacheSizeInt, distinct_block_left_padding: parseInt(left_padding), distinct_block_right_padding: parseInt(right_padding) });
