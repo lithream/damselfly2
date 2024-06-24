@@ -31,6 +31,13 @@ impl MemoryUpdateType {
             MemoryUpdateType::Free(free) => free.get_absolute_size(),
         }
     }
+    
+    pub fn set_absolute_size(&mut self, new_size: usize) {
+        match self {
+            MemoryUpdateType::Allocation(allocation) => allocation.set_absolute_size(new_size),
+            MemoryUpdateType::Free(free) => free.set_absolute_size(new_size),
+        }
+    }
 
     pub fn get_callstack(&self) -> Arc<String> {
         match self {

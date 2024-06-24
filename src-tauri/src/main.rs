@@ -279,6 +279,7 @@ fn get_viewer_map_full_at_colours(
             .expect("[tauri::command::get_viewer_map_full_at_colours]: damselfly_instance not found: {damselfly_instance}")
             .get_map_full_at_nosync_colours_truncate(timestamp, truncate_after);
         eprintln!("[tauri::get_viewer_map_full_at_colours]: res length: {}", &res.1.len());
+        
         Ok(res)
     } else {
         Err("Viewer is not initialised".to_string())

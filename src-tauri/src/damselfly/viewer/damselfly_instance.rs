@@ -15,13 +15,18 @@ use crate::damselfly::viewer::map_viewer::MapViewer;
 
 pub struct DamselflyInstance {
     name: String,
+    distinct_block_left_padding: usize,
+    distinct_block_right_padding: usize,
     graph_viewer: GraphViewer,
     map_viewer: MapViewer,
     full_lapper: Lapper<usize, MemoryUpdateType>,
 }
 
 impl DamselflyInstance {
-    pub fn new(name: String, memory_updates: Vec<MemoryUpdateType>, memory_usage_stats: MemoryUsageStats, lowest_address: usize, highest_address: usize, cache_size: usize, max_timestamp: u64) -> Self {
+    pub fn new(name: String, memory_updates: Vec<MemoryUpdateType>, memory_usage_stats: MemoryUsageStats,
+               lowest_address: usize, highest_address: usize, cache_size: usize, max_timestamp: u64,
+               distinct_block_left_padding: usize, distinct_block_right_padding: usize
+    ) -> Self {
         let memory_usages = memory_usage_stats.get_memory_usages();
         let max_usage = memory_usage_stats.get_max_usage();
         let max_distinct_blocks = memory_usage_stats.get_max_distinct_blocks();
@@ -45,6 +50,8 @@ impl DamselflyInstance {
 
         Self {
             name,
+            distinct_block_left_padding,
+            distinct_block_right_padding,
             graph_viewer,
             map_viewer,
             full_lapper,

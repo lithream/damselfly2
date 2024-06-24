@@ -11,12 +11,16 @@ use crate::damselfly::viewer::update_pool_factory::UpdatePoolFactory;
 
 pub struct DamselflyViewer {
     pub damselflies: Vec<DamselflyInstance>,
+    distinct_block_left_padding: usize,
+    distinct_block_right_padding: usize,
 }
 
 impl DamselflyViewer {
     pub fn new(log_path: &str, binary_path: &str, cache_size: u64, distinct_block_left_padding: usize, distinct_block_right_padding: usize) -> Self {
         let mut damselfly_viewer = DamselflyViewer {
-            damselflies: Vec::new()
+            damselflies: Vec::new(),
+            distinct_block_left_padding,
+            distinct_block_right_padding,
         };
         let mem_sys_trace_parser = MemorySysTraceParser::new();
         let pool_restricted_parse_results = mem_sys_trace_parser.parse_log_contents_split_by_pools(log_path, binary_path);
@@ -30,6 +34,12 @@ impl DamselflyViewer {
                 resampled_memory_updates.push(resampled_memory_update);
             }
 
+            // Compensate for padding
+            for memory_update in resampled_memory_updates.iter_mut() {
+                memory_update.set_absolute_address(memory_update.get_absolute_address() - distinct_block_left_padding);
+                memory_update.set_absolute_size(memory_update.get_absolute_size() + distinct_block_right_padding);
+            }
+            
             let cache_size = min(cache_size, resampled_memory_updates.len() as u64);
             let memory_usage_stats = MemoryUsageFactory::new(resampled_memory_updates.clone(), distinct_block_left_padding, distinct_block_right_padding).calculate_usage_stats();
             damselfly_viewer.spawn_damselfly(resampled_memory_updates, memory_usage_stats, parse_results.pool.clone(), max_timestamp, cache_size);
