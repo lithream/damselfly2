@@ -6,6 +6,8 @@ interface BlockStatusProps {
   lookupTile: number;
   timestamp: number;
   realtimeGraph: boolean;
+  leftPadding: number;
+  rightPadding: number;
 }
 
 interface MemoryUpdate {
@@ -25,7 +27,7 @@ type MemoryUpdateType = {
   Free?: Free;
 };
 
-function BlockStatus({ activeInstance, lookupTile, timestamp, realtimeGraph }: BlockStatusProps) {
+function BlockStatus({ activeInstance, lookupTile, timestamp, realtimeGraph, leftPadding, rightPadding }: BlockStatusProps) {
   const [memoryUpdates, setMemoryUpdates] = useState<MemoryUpdateType[]>([]);
 
   useEffect(() => {
@@ -66,7 +68,7 @@ function BlockStatus({ activeInstance, lookupTile, timestamp, realtimeGraph }: B
     return (
       <div style={{ padding: "10px", borderBottom: "1px solid #ccc" }}>
         <div>
-          <strong>Address: {lookupTile.toString(16)}</strong>
+          <strong>Address: {(lookupTile + leftPadding).toString(16)}</strong>
         </div>
         <div>
           <strong>Type:</strong> {isAllocation ? "Allocation" : "Free"}
@@ -76,6 +78,7 @@ function BlockStatus({ activeInstance, lookupTile, timestamp, realtimeGraph }: B
         </div>
         <div>
           <strong>Size:</strong> {updateData?.size}
+          <strong>Size:</strong> {updateData ? updateData.size - rightPadding : 0}
         </div>
         <div>
           <strong>Timestamp:</strong> {updateData?.timestamp} (

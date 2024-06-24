@@ -30,6 +30,8 @@ function App() {
   const [activeTab, setActiveTab] = useState('callstack');
   const [poolList, setPoolList] = useState<{name: string, index: number}[]>([]);
   const [selectedPool, setSelectedPool] = useState<number>(0);
+  const [leftPadding, setLeftPadding] = useState<number>(0);
+  const [rightPadding, setRightPadding] = useState<number>(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -91,12 +93,11 @@ function App() {
       if (right_padding === null) {
         right_padding = "0";
       }
-      let left_padding_int = parseInt(left_padding);
-      let right_padding_int = parseInt(right_padding);
-
+      setLeftPadding(parseInt(left_padding));
+      setRightPadding(parseInt(right_padding));
 
       if (logFilePath && binaryFilePath) {
-        await invoke("initialise_viewer", { log_path: logFilePath, binary_path: binaryFilePath, cache_size: cacheSizeInt, distinct_block_left_padding: left_padding_int, distinct_block_right_padding: right_padding_int });
+        await invoke("initialise_viewer", { log_path: logFilePath, binary_path: binaryFilePath, cache_size: cacheSizeInt, distinct_block_left_padding: parseInt(left_padding), distinct_block_right_padding: parseInt(right_padding) });
         setDataLoaded(true);
       }
     } catch (error) {
@@ -156,7 +157,7 @@ function App() {
             <div className="tabContent">
               {activeTab === 'operationLog' && <OperationLog activeInstance={selectedPool} memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} setSelectedBlock={setSelectedBlock} setLookupTile={setLookupTile} setSelectedTile={setSelectedTile} setRealtimeGraph={setRealtimeGraph} setXClick={setXClick} />}
               {activeTab === 'callstack' && <Callstack activeInstance={selectedPool} xClick={xClick} />}
-              {activeTab === 'block' && <BlockStatus activeInstance={selectedPool} lookupTile={lookupTile} timestamp={realtimeGraph ? xClick + realtimeGraphOffset : xClick} realtimeGraph={realtimeGraph}/>}
+              {activeTab === 'block' && <BlockStatus activeInstance={selectedPool} lookupTile={lookupTile} timestamp={realtimeGraph ? xClick + realtimeGraphOffset : xClick} realtimeGraph={realtimeGraph} leftPadding={leftPadding} rightPadding={rightPadding}/>}
             </div>
             <div className="bottom">
               {/* GraphSlider or other components if needed */}

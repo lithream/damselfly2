@@ -24,7 +24,7 @@ impl MemoryUpdateType {
             MemoryUpdateType::Free(free) => free.set_absolute_address(new_address),
         }
     }
-
+    
     pub fn get_absolute_size(&self) -> usize {
         match self {
             MemoryUpdateType::Allocation(allocation) => allocation.get_absolute_size(),

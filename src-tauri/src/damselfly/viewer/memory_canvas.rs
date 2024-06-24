@@ -67,9 +67,6 @@ impl MemoryCanvas {
             let mut overlapping_operations
                 = temp_lapper.find(block.get_block_start(), block.get_block_stop())
                         .collect::<Vec<&UpdateInterval>>();
-            if block.get_block_start() == 3779230184 {
-                eprintln!("anchor");
-            }
             UpdateIntervalSorter::sort_by_timestamp(&mut overlapping_operations);
 
             for update in overlapping_operations.iter() {
