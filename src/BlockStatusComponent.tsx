@@ -74,10 +74,9 @@ function BlockStatus({ activeInstance, lookupTile, timestamp, realtimeGraph, lef
           <strong>Type:</strong> {isAllocation ? "Allocation" : "Free"}
         </div>
         <div>
-          <strong>Start:</strong> 0x{updateData?.address.toString(16)}
+          <strong>Start:</strong> 0x{updateData ? (updateData.address + leftPadding).toString(16) : 0}
         </div>
         <div>
-          <strong>Size:</strong> {updateData?.size}
           <strong>Size:</strong> {updateData ? updateData.size - rightPadding : 0}
         </div>
         <div>

@@ -121,10 +121,18 @@ impl MemorySysTraceParser {
         ParseResults::new(self.memory_updates, self.pool_list, self.counter)
     }
     
-    pub fn parse_log_contents_split_by_pools(mut self, log: &str, binary_path: &str) -> Vec<PoolRestrictedParseResults> {
+    pub fn parse_log_contents_split_by_pools(mut self, log: &str, binary_path: &str, left_padding: usize, right_padding: usize) -> Vec<PoolRestrictedParseResults> {
         let parse_results = self.parse_log(log, binary_path);
         let mut pool_restricted_parse_results = Vec::new();
-        for pool in parse_results.pool_list.get_pools() {
+        let shifted_pools: Vec<MemoryPool> = parse_results.pool_list.get_pools()
+            .iter().cloned()
+            .map(|mut pool| {
+                pool.set_start(pool.get_start() - left_padding);
+                pool.set_size(pool.get_size() + right_padding);
+                pool
+            })
+            .collect();
+        for pool in shifted_pools {
             let updates_in_pool = parse_results.memory_updates
                 .iter()
                 .filter(|update| pool.contains(update.get_start(), update.get_end()))

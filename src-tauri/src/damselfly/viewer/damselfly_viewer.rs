@@ -23,7 +23,7 @@ impl DamselflyViewer {
             distinct_block_right_padding,
         };
         let mem_sys_trace_parser = MemorySysTraceParser::new();
-        let pool_restricted_parse_results = mem_sys_trace_parser.parse_log_contents_split_by_pools(log_path, binary_path);
+        let pool_restricted_parse_results = mem_sys_trace_parser.parse_log_contents_split_by_pools(log_path, binary_path, distinct_block_left_padding, distinct_block_right_padding);
         for parse_results in &pool_restricted_parse_results {
             let (memory_updates, max_timestamp) = (parse_results.memory_updates.clone(), parse_results.max_timestamp);
             let mut resampled_memory_updates = Vec::new();
