@@ -32,7 +32,7 @@ function Graph({ activeInstance, dataLoaded, realtimeGraph, setXClick , xClick, 
 
     const trim_blank_start_from_graphs = (
         usageData: Array<[number, number]>,
-        fragmentationData: Array<[number, number]>,
+        distinctBlocksData: Array<[number, number]>,
         largestFreeBlockData: Array<[number, number]>,
         freeBlocksData: Array<[number, number]>) => {
 
@@ -46,7 +46,7 @@ function Graph({ activeInstance, dataLoaded, realtimeGraph, setXClick , xClick, 
         for (let i = 0; i < usageData.length; i++) {
             if (in_blank_area
                 && (usageData[i][1] != 0
-                    || fragmentationData[i][1] != 0
+                    || distinctBlocksData[i][1] != 0
                     || largestFreeBlockData[i][1] != 0
                     || freeBlocksData[i][1] != 0)
                 ) {
@@ -54,7 +54,7 @@ function Graph({ activeInstance, dataLoaded, realtimeGraph, setXClick , xClick, 
             }
             if (!in_blank_area) {
                 trimmedUsageData.push(usageData[i]);
-                trimmedFragmentationData.push(fragmentationData[i]);
+                trimmedFragmentationData.push(distinctBlocksData[i]);
                 trimmedLargestFreeBlockData.push(largestFreeBlockData[i]);
                 trimmedFreeBlocksData.push(freeBlocksData[i]);
             } else {
@@ -69,23 +69,23 @@ function Graph({ activeInstance, dataLoaded, realtimeGraph, setXClick , xClick, 
     const fetchData = async () => {
         try {
             let usageData: Array<[number, number]>;
-            let fragmentationData: Array<[number, number]>;
+            let distinctBlocksData: Array<[number, number]>;
             let largestFreeBlockData: Array<[number, number]>;
             let freeBlocksData: Array<[number, number]>;
 
             if (realtimeGraph) {
                 usageData = await invoke('get_viewer_usage_graph_sampled', { damselflyInstance: activeInstance });
-                fragmentationData = await invoke('get_viewer_distinct_blocks_graph_sampled', { damselflyInstance: activeInstance });
+                distinctBlocksData = await invoke('get_viewer_distinct_blocks_graph_sampled', { damselflyInstance: activeInstance });
                 largestFreeBlockData = await invoke('get_viewer_largest_block_graph_sampled', { damselflyInstance: activeInstance });
                 freeBlocksData = await invoke('get_viewer_free_blocks_graph_sampled', { damselflyInstance: activeInstance });
-                let trimmedData = trim_blank_start_from_graphs(usageData, fragmentationData, largestFreeBlockData, freeBlocksData);
+                let trimmedData = trim_blank_start_from_graphs(usageData, distinctBlocksData, largestFreeBlockData, freeBlocksData);
                 usageData = trimmedData[0];
-                fragmentationData = trimmedData[1];
+                distinctBlocksData = trimmedData[1];
                 largestFreeBlockData = trimmedData[2];
                 freeBlocksData = trimmedData[3];
             } else {
                 usageData = await invoke('get_viewer_usage_graph_no_fallbacks', { damselflyInstance: activeInstance  });
-                fragmentationData = await invoke('get_viewer_distinct_blocks_graph_no_fallbacks', { damselflyInstance: activeInstance });
+                distinctBlocksData = await invoke('get_viewer_distinct_blocks_graph_no_fallbacks', { damselflyInstance: activeInstance });
                 largestFreeBlockData = await invoke('get_viewer_largest_block_graph_no_fallbacks', { damselflyInstance: activeInstance });
                 freeBlocksData = await invoke('get_viewer_free_blocks_graph_no_fallbacks', { damselflyInstance: activeInstance });
             }
@@ -93,7 +93,7 @@ function Graph({ activeInstance, dataLoaded, realtimeGraph, setXClick , xClick, 
             let formattedData = [];
             for (let i = 0; i < usageData.length; i++) {
                 let usage = usageData[i][1];
-                let fragmentation = fragmentationData[i][1];
+                let fragmentation = distinctBlocksData[i][1];
                 let largestFreeBlock = largestFreeBlockData[i][1];
                 let freeBlocks = freeBlocksData[i][1];
                 let datapoint: GraphData = {

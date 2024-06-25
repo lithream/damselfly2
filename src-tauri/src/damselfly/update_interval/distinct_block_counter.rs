@@ -74,7 +74,7 @@ impl DistinctBlockCounter {
                 self.starts_set.insert(start);
                 self.ends_set.insert(end);
                 self.starts_tree.insert(start);
-                self.ends_tree.insert(start);
+                self.ends_tree.insert(end);
             }
             MemoryUpdateType::Free(_) => {
                 // breaks a block into two blocks, increasing fragmentation
@@ -198,5 +198,17 @@ mod tests {
     fn one_distinct_block_test() {
         let (updates, mut distinct_block_counter) = _initialise_test_log();
         distinct_block_counter.push_update(&updates[0]);
+    }
+
+    #[test]
+    fn distinct_blocks_free_blocks_test() {
+        let (updates, mut distinct_block_counter) = _initialise_test_log();
+        for update in &updates {
+            distinct_block_counter.push_update(update);
+        }
+        let distinct_blocks = distinct_block_counter.get_distinct_blocks();
+        let free_blocks = distinct_block_counter.get_free_blocks();
+        assert_eq!(distinct_blocks, 4);
+        assert_eq!(free_blocks.len(), 3);
     }
 }
