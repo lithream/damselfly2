@@ -28,6 +28,7 @@ impl DamselflyInstance {
         let max_usage = memory_usage_stats.get_max_usage();
         let max_distinct_blocks = memory_usage_stats.get_max_distinct_blocks();
         let max_free_blocks = memory_usage_stats.get_max_free_blocks();
+        let max_free_segment_fragmentation = memory_usage_stats.get_max_free_segment_fragmentation();
 
         let sampled_memory_usages =
             SampledMemoryUsages::new(DEFAULT_SAMPLE_INTERVAL, memory_usages.clone());
@@ -38,6 +39,7 @@ impl DamselflyInstance {
             max_usage,
             max_free_blocks,
             max_distinct_blocks as usize,
+            max_free_segment_fragmentation,
             max_timestamp,
         );
 
@@ -161,10 +163,17 @@ impl DamselflyInstance {
     }
     
     pub fn get_distinct_blocks_graph_realtime_sampled(&self) -> Vec<[f64; 2]> {
-        self.graph_viewer
-            .get_distinct_blocks_plot_points_realtime_sampled()
+        self.graph_viewer.get_distinct_blocks_plot_points_realtime_sampled()
     }
-
+    
+    pub fn get_free_segment_fragmentation_graph_no_fallbacks(&self) -> Vec<[f64; 2]> {
+        self.graph_viewer.get_free_segment_fragmentation_plot_points_no_fallbacks()
+    }
+    
+    pub fn get_free_segment_fragmentation_graph_realtime_sampled(&self) -> Vec<[f64; 2]> {
+        self.graph_viewer.get_free_segment_fragmentation_plot_points_realtime_sampled()
+    }
+    
     pub fn get_largest_block_graph(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_largest_free_block_plot_points()
     }

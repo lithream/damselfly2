@@ -7,18 +7,22 @@ pub struct MemoryUsage {
     // (start, end, size)
     largest_free_block: (usize, usize, usize),
     free_blocks: usize,
+    free_segment_fragmentation: u128,
     latest_operation: usize,
     timestamp_microseconds: u64,
     timestamp: u64
 }
 
 impl MemoryUsage {
-    pub fn new(memory_used_absolute: i128, distinct_blocks: u128, largest_free_block: (usize, usize, usize), free_blocks: usize, latest_operation: usize, timestamp_microseconds: u64, timestamp: u64) -> MemoryUsage {
+    pub fn new(memory_used_absolute: i128, distinct_blocks: u128, largest_free_block: (usize, usize, usize), 
+               free_blocks: usize, free_segment_fragmentation: u128, latest_operation: usize, timestamp_microseconds: u64, 
+               timestamp: u64) -> MemoryUsage {
         MemoryUsage {
             memory_used_absolute,
             distinct_blocks,
             largest_free_block,
             free_blocks,
+            free_segment_fragmentation,
             latest_operation,
             timestamp_microseconds,
             timestamp
@@ -36,6 +40,10 @@ impl MemoryUsage {
     
     pub fn get_distinct_blocks(&self) -> u128 {
         self.distinct_blocks
+    }
+    
+    pub fn get_free_segment_fragmentation(&self) -> u128 {
+        self.free_segment_fragmentation
     }
     
     pub fn set_distinct_blocks(&mut self, distinct_blocks: u128) {
@@ -66,6 +74,10 @@ impl MemoryUsage {
     
     pub fn set_free_blocks(&mut self, free_blocks: usize) {
         self.free_blocks = free_blocks;
+    }
+    
+    pub fn set_free_segment_fragmentation(&mut self, free_segment_fragmentation: u128) {
+        self.free_segment_fragmentation = free_segment_fragmentation
     }
     
     pub fn get_timestamp_microseconds(&self) -> u64 { self.timestamp_microseconds }
@@ -100,9 +112,9 @@ mod tests {
 
     #[test]
     fn ordering_test() {
-        let base = MemoryUsage::new(128, 4, (0, 0, 0), 0, 4, 0, 0);
-        let larger = MemoryUsage::new(256, 3, (0, 0, 0), 0, 3, 0, 0);
-        let equal = MemoryUsage::new(128, 32, (0, 0, 0), 0, 32, 0, 0);
+        let base = MemoryUsage::new(128, 4, (0, 0, 0), 0, 0, 4, 0, 0);
+        let larger = MemoryUsage::new(256, 3, (0, 0, 0), 0, 0, 3, 0, 0);
+        let equal = MemoryUsage::new(128, 32, (0, 0, 0), 0, 0, 32, 0, 0);
         assert_eq!(base, equal);
         assert!(base < larger);
         assert!(equal < larger);

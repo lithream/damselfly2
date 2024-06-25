@@ -16,9 +16,10 @@ interface GraphProps {
 type GraphData = {
     timestamp: number,
     usage: number,
-    fragmentation: number,
+    distinct_blocks: number,
     largest_free_block: number,
     free_blocks: number,
+    free_segment_fragmentation: number,
 }
 
 function Graph({ activeInstance, dataLoaded, realtimeGraph, setXClick , xClick, setXLimit, setRealtimeGraphOffset }: GraphProps) {
@@ -34,12 +35,14 @@ function Graph({ activeInstance, dataLoaded, realtimeGraph, setXClick , xClick, 
         usageData: Array<[number, number]>,
         distinctBlocksData: Array<[number, number]>,
         largestFreeBlockData: Array<[number, number]>,
-        freeBlocksData: Array<[number, number]>) => {
+        freeBlocksData: Array<[number, number]>,
+        freeSegmentFragmentationData: Array<[number, number]>) => {
 
         let trimmedUsageData: Array<[number, number]> = [];
         let trimmedFragmentationData: Array<[number, number]> = [];
         let trimmedLargestFreeBlockData: Array<[number, number]> = [];
         let trimmedFreeBlocksData: Array<[number, number]> = [];
+        let trimmedFreeSegmentFragmentationData: Array<[number, number]> = [];
         let realtimeGraphOffset: number = 0;
 
         let in_blank_area = true;
@@ -57,13 +60,14 @@ function Graph({ activeInstance, dataLoaded, realtimeGraph, setXClick , xClick, 
                 trimmedFragmentationData.push(distinctBlocksData[i]);
                 trimmedLargestFreeBlockData.push(largestFreeBlockData[i]);
                 trimmedFreeBlocksData.push(freeBlocksData[i]);
+                trimmedFreeSegmentFragmentationData.push(freeSegmentFragmentationData[i]);
             } else {
                 realtimeGraphOffset += 1;
             }
         }
 
         setRealtimeGraphOffset(realtimeGraphOffset);
-        return [trimmedUsageData, trimmedFragmentationData, trimmedLargestFreeBlockData, trimmedFreeBlocksData];
+        return [trimmedUsageData, trimmedFragmentationData, trimmedLargestFreeBlockData, trimmedFreeBlocksData, trimmedFreeSegmentFragmentationData];
     }
 
     const fetchData = async () => {
@@ -72,36 +76,42 @@ function Graph({ activeInstance, dataLoaded, realtimeGraph, setXClick , xClick, 
             let distinctBlocksData: Array<[number, number]>;
             let largestFreeBlockData: Array<[number, number]>;
             let freeBlocksData: Array<[number, number]>;
+            let freeSegmentFragmentationData: Array<[number, number]>;
 
             if (realtimeGraph) {
                 usageData = await invoke('get_viewer_usage_graph_sampled', { damselflyInstance: activeInstance });
                 distinctBlocksData = await invoke('get_viewer_distinct_blocks_graph_sampled', { damselflyInstance: activeInstance });
                 largestFreeBlockData = await invoke('get_viewer_largest_block_graph_sampled', { damselflyInstance: activeInstance });
                 freeBlocksData = await invoke('get_viewer_free_blocks_graph_sampled', { damselflyInstance: activeInstance });
-                let trimmedData = trim_blank_start_from_graphs(usageData, distinctBlocksData, largestFreeBlockData, freeBlocksData);
+                freeSegmentFragmentationData = await invoke('get_viewer_free_segment_fragmentation_graph_sampled', { damselflyInstance: activeInstance });
+                let trimmedData = trim_blank_start_from_graphs(usageData, distinctBlocksData, largestFreeBlockData, freeBlocksData, freeSegmentFragmentationData);
                 usageData = trimmedData[0];
                 distinctBlocksData = trimmedData[1];
                 largestFreeBlockData = trimmedData[2];
                 freeBlocksData = trimmedData[3];
+                freeSegmentFragmentationData = trimmedData[4];
             } else {
                 usageData = await invoke('get_viewer_usage_graph_no_fallbacks', { damselflyInstance: activeInstance  });
                 distinctBlocksData = await invoke('get_viewer_distinct_blocks_graph_no_fallbacks', { damselflyInstance: activeInstance });
                 largestFreeBlockData = await invoke('get_viewer_largest_block_graph_no_fallbacks', { damselflyInstance: activeInstance });
                 freeBlocksData = await invoke('get_viewer_free_blocks_graph_no_fallbacks', { damselflyInstance: activeInstance });
+                freeSegmentFragmentationData = await invoke('get_viewer_free_segment_fragmentation_graph_no_fallbacks', { damselflyInstance: activeInstance });
             }
 
             let formattedData = [];
             for (let i = 0; i < usageData.length; i++) {
                 let usage = usageData[i][1];
-                let fragmentation = distinctBlocksData[i][1];
+                let distinct_blocks = distinctBlocksData[i][1];
                 let largestFreeBlock = largestFreeBlockData[i][1];
                 let freeBlocks = freeBlocksData[i][1];
+                let freeSegmentFragmentation = freeSegmentFragmentationData[i][1];
                 let datapoint: GraphData = {
                     timestamp: i,
                     usage: usage,
-                    fragmentation: fragmentation,
+                    distinct_blocks: distinct_blocks,
                     largest_free_block: largestFreeBlock,
                     free_blocks: freeBlocks,
+                    free_segment_fragmentation: freeSegmentFragmentation,
                 };
                 formattedData.push(datapoint);
             }
@@ -139,9 +149,10 @@ function Graph({ activeInstance, dataLoaded, realtimeGraph, setXClick , xClick, 
             <Tooltip />
             <Legend />
             <Line type="monotone" dataKey="usage" stroke="#8884d8" dot={false} activeDot={false} />
-            <Line type="monotone" dataKey="fragmentation" stroke="#82ca9d" dot={false} activeDot={false} />
+            <Line type="monotone" dataKey="distinct_blocks" stroke="#82ca9d" dot={false} activeDot={false} />
             <Line type="monotone" dataKey="free_blocks" stroke="#82ffff" dot={false} activeDot={false} />
-            {dataLoaded && <ReferenceLine x={xClick} stroke="red" label="Selected" />}
+            <Line type="monotone" dataKey="free_segment_fragmentation" stroke="#000000" dot={false} activeDot={false} />
+            {dataLoaded && <ReferenceLine x={xClick} stroke="red" label="" />}
         </LineChart>
     );
 }

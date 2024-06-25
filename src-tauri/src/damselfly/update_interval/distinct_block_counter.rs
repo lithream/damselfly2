@@ -13,6 +13,7 @@ pub struct DistinctBlockCounter {
     stop: usize,
     left_padding: usize,
     right_padding: usize,
+    manually_track_memory_bounds: bool,
     memory_updates: NoHashMap<usize, MemoryUpdateType>,
     starts_set: HashSet<usize>,
     ends_set: HashSet<usize>,
@@ -20,19 +21,37 @@ pub struct DistinctBlockCounter {
     ends_tree: BTreeSet<usize>,
     distinct_blocks: u128,
     free_blocks: Vec<(usize, usize)>,
+    free_space: u128,
+    free_blocks_to_free_space_ratio: u128,
 }
 
 impl DistinctBlockCounter {
-    pub fn new(memory_updates: Vec<MemoryUpdateType>, left_padding: usize, right_padding: usize) -> DistinctBlockCounter {
+    pub fn new(memory_updates: Vec<MemoryUpdateType>, left_padding: usize, right_padding: usize, memory_bounds: Option<(usize, usize)>) -> DistinctBlockCounter {
         let mut memory_updates_map: NoHashMap<usize, MemoryUpdateType> = NoHashMap::default();
         for memory_update in memory_updates {
             memory_updates_map.insert(memory_update.get_absolute_address(), memory_update);
         }
+        
+        let start;
+        let stop;
+        let mut manually_track_memory_bounds = true;
+        match memory_bounds {
+            None => {
+                start = usize::MAX;
+                stop = usize::MIN;
+            }
+            Some((bounds_start, bounds_stop)) => {
+                start = bounds_start;
+                stop = bounds_stop;
+                manually_track_memory_bounds = true;
+            }
+        }
         DistinctBlockCounter {
-            start: usize::MAX,
-            stop: usize::MIN,
+            start, 
+            stop,
             left_padding,
             right_padding,
+            manually_track_memory_bounds,
             memory_updates: memory_updates_map,
             starts_set: HashSet::new(),
             ends_set: HashSet::new(),
@@ -40,6 +59,8 @@ impl DistinctBlockCounter {
             ends_tree: BTreeSet::new(),
             distinct_blocks: 0,
             free_blocks: Vec::new(),
+            free_space: 0,
+            free_blocks_to_free_space_ratio: 0,
         }
     }
 
@@ -95,8 +116,11 @@ impl DistinctBlockCounter {
             }
         };
         
-        self.calculate_new_memory_bounds(update);
+        if self.manually_track_memory_bounds {
+            self.calculate_new_memory_bounds(update);
+        }
         self.calculate_free_blocks();
+        self.get_free_segment_fragmentation();
         self.distinct_blocks = self.distinct_blocks.saturating_add_signed(block_delta as i128);
     }
 
@@ -126,12 +150,24 @@ impl DistinctBlockCounter {
                 if cur_start_val > cur_end_val {
                     free_blocks.push((*cur_end_val, *cur_start_val));
                     cur_end = ends_iter.next();
+                    self.free_space += (*cur_start_val - *cur_end_val) as u128;
                 }
             } 
         
         self.free_blocks = free_blocks;
     }
-
+    
+    pub fn get_free_segment_fragmentation(&self) -> u128 {
+        let largest_free_block = self.free_blocks.iter().max_by(|prev, next| {
+            (prev.1 - prev.0).cmp(&(next.1 - next.0))
+        });
+        if let Some(largest_free_block) = largest_free_block {
+            // Subtract 1 so that optimal usage of free space (one big block) gives us 0
+            return (self.free_space / (largest_free_block.1 - largest_free_block.0) as u128).saturating_sub(1);
+        }
+        0
+    }
+    
     // returns (start, end, size)
     pub fn get_largest_free_block(&self) -> (usize, usize, usize) {
         let mut largest_block = (0, 0, 0);
@@ -174,6 +210,7 @@ impl DistinctBlockCounter {
     pub fn get_memory_bounds(&self) -> (usize, usize) {
         (self.start, self.stop)
     }
+
 }
 
 mod tests {

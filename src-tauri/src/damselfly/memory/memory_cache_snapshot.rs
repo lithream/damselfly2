@@ -27,7 +27,7 @@ impl MemoryCacheSnapshot {
 
     pub fn render_this_many(&self, time: usize) -> Vec<MemoryStatus> {
         let mut updates_to_append = Vec::new();
-        for update in &self.temporary_updates[0..time] {
+        for update in &self.temporary_updates[0..=time] {
             updates_to_append.push(update.clone());
         }
 

@@ -87,8 +87,9 @@ mod tests {
     #[test]
     fn test_bug() {
         let mst_parser = MemorySysTraceParser::new();
-        let updates = mst_parser.parse_log("/home/signal/dev/trace.log", "/home/signal/dev/threadxApp");
-        let viewer = DamselflyViewer::new("/home/signal/dev/trace.log", "/home/signal/dev/threadxApp", 1000, 0, 0);
+        let mut viewer = DamselflyViewer::new("/work/dev/hp/dune/trace.log", "/work/dev/hp/dune/build/output/threadx-cortexa7-debug/ares/dragonfly-lp1/debug/defaultProductGroup/threadxApp", 1000, 0, 0);
+        let map = viewer.damselflies[0].get_map_full_at_nosync_colours_truncate(0, 256);
+        dbg!(&map);
     }
 
     #[test]

@@ -14,6 +14,7 @@ pub struct GraphViewer {
     max_usage: i128,
     max_free_blocks: u128,
     max_distinct_blocks: usize,
+    max_free_segment_fragmentation: u128,
     left_mark: usize,
     right_mark: usize,
     graph_mode: GraphMode,
@@ -21,7 +22,9 @@ pub struct GraphViewer {
 }
 
 impl GraphViewer {
-    pub fn new(memory_usage_snapshots: Vec<MemoryUsage>, sampled_memory_usage_snapshots: SampledMemoryUsages, max_usage: i128, max_free_blocks: u128, max_distinct_blocks: usize, max_timestamp: u64) -> GraphViewer {
+    pub fn new(memory_usage_snapshots: Vec<MemoryUsage>, sampled_memory_usage_snapshots: SampledMemoryUsages, 
+               max_usage: i128, max_free_blocks: u128, max_distinct_blocks: usize,
+               max_free_segment_fragmentation: u128, max_timestamp: u64) -> GraphViewer {
         GraphViewer {
             memory_usage_snapshots,
             sampled_memory_usage_snapshots,
@@ -30,6 +33,7 @@ impl GraphViewer {
             max_usage,
             max_free_blocks,
             max_distinct_blocks,
+            max_free_segment_fragmentation,
             left_mark: 0,
             right_mark: 0,
             graph_mode: GraphMode::NORMAL,
@@ -99,6 +103,26 @@ impl GraphViewer {
         let mut vector = Vec::new();
         for (index, usage) in self.memory_usage_snapshots.iter().enumerate() {
             vector.push([index as f64, usage.get_distinct_blocks() as f64 * 100.0 / self.max_distinct_blocks as f64]);
+        }
+        
+        vector
+    }
+    
+    pub fn get_free_segment_fragmentation_plot_points_no_fallbacks(&self) -> Vec<[f64; 2]> {
+        let mut vector = Vec::new();
+        for (index, usage) in self.memory_usage_snapshots.iter().enumerate() {
+            vector.push([index as f64, usage.get_free_segment_fragmentation() as f64 * 100.0 / self.max_free_segment_fragmentation as f64]);
+        }
+        
+        vector
+    }
+
+    pub fn get_free_segment_fragmentation_plot_points_realtime_sampled(&self) -> Vec<[f64; 2]> {
+        let mut vector = Vec::new();
+        for (index, snapshot) in self.sampled_memory_usage_snapshots.get_samples().iter().enumerate() {
+            let distinct_blocks_percentage =
+                (snapshot.get_sampled_usage().get_free_segment_fragmentation() as f64 * 100.0) / self.max_free_segment_fragmentation as f64;
+            vector.push([index as f64, distinct_blocks_percentage]);
         }
         
         vector

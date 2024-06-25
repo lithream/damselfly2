@@ -6,15 +6,18 @@ pub struct MemoryUsageStats {
     max_usage: i128,
     max_free_blocks: u128,
     max_distinct_blocks: u128,
+    max_free_segment_fragmentation: u128,
 }
 
 impl MemoryUsageStats {
-    pub fn new(memory_usages: Vec<MemoryUsage>, max_usage: i128, max_free_blocks: u128, max_distinct_blocks: u128) -> Self {
+    pub fn new(memory_usages: Vec<MemoryUsage>, max_usage: i128, max_free_blocks: u128, max_distinct_blocks: u128,
+               max_free_segment_fragmentation: u128) -> Self {
         Self {
             memory_usages,
             max_usage,
             max_free_blocks,
             max_distinct_blocks,
+            max_free_segment_fragmentation,
         }
     }
     
@@ -33,4 +36,6 @@ impl MemoryUsageStats {
     pub fn get_max_distinct_blocks(&self) -> u128 {
         self.max_distinct_blocks
     }
+    
+    pub fn get_max_free_segment_fragmentation(&self) -> u128 { self.max_free_segment_fragmentation }
 }

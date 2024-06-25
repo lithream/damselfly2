@@ -39,9 +39,10 @@ impl MemoryUsageFactory {
         let mut current_usage = 0;
         let mut max_usage = 0;
         let mut max_free_blocks: u128 = 0;
+        let mut max_free_segment_fragmentation = 0;
         let mut memory_usages = Vec::new();
 
-        let mut distinct_block_counter = DistinctBlockCounter::new(vec![], self.distinct_block_left_padding, self.distinct_block_right_padding);
+        let mut distinct_block_counter = DistinctBlockCounter::new(vec![], self.distinct_block_left_padding, self.distinct_block_right_padding, Some((self.lowest_address, self.highest_address)));
         let mut max_distinct_blocks: u128 = 0;
 
         for (index, update) in self.memory_updates.iter().enumerate() {
@@ -52,14 +53,16 @@ impl MemoryUsageFactory {
             let distinct_blocks = distinct_block_counter.get_distinct_blocks();
             let free_blocks = distinct_block_counter.get_free_blocks();
             let largest_free_block = distinct_block_counter.get_largest_free_block();
+            let free_segment_fragmentation = distinct_block_counter.get_free_segment_fragmentation();
             let real_timestamp_microseconds = Utility::convert_to_microseconds(update.get_real_timestamp());
             max_distinct_blocks = max(max_distinct_blocks, distinct_blocks);
             max_free_blocks = max(max_free_blocks, free_blocks.len() as u128);
+            max_free_segment_fragmentation = max(max_free_segment_fragmentation, free_segment_fragmentation);
 
-            memory_usages.push(MemoryUsage::new(current_usage, distinct_blocks, largest_free_block, free_blocks.len(), index, real_timestamp_microseconds, self.counter));
+            memory_usages.push(MemoryUsage::new(current_usage, distinct_blocks, largest_free_block, free_blocks.len(), free_segment_fragmentation, index, real_timestamp_microseconds, self.counter));
             self.counter += 1;
         }
-        MemoryUsageStats::new(memory_usages, max_usage, max_free_blocks, max_distinct_blocks)
+        MemoryUsageStats::new(memory_usages, max_usage, max_free_blocks, max_distinct_blocks, max_free_segment_fragmentation)
     }
 
     fn get_total_usage_delta(memory_update: &MemoryUpdateType) -> i128 {
