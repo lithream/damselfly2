@@ -155,7 +155,7 @@ function App() {
               <button onClick={() => setActiveTab('block')} className={activeTab === 'block' ? 'active' : ''}>Block</button>
             </div>
             <div className="tabContent">
-              {activeTab === 'operationLog' && <OperationLog activeInstance={selectedPool} memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} setSelectedBlock={setSelectedBlock} setLookupTile={setLookupTile} setSelectedTile={setSelectedTile} setRealtimeGraph={setRealtimeGraph} setXClick={setXClick} />}
+              {activeTab === 'operationLog' && <OperationLog activeInstance={selectedPool} memoryData={memoryData} dataLoaded={dataLoaded} xClick={xClick} setSelectedBlock={setSelectedBlock} setLookupTile={setLookupTile} setSelectedTile={setSelectedTile} setRealtimeGraph={setRealtimeGraph} setXClick={setXClick} leftPadding={leftPadding} rightPadding={rightPadding}/>}
               {activeTab === 'callstack' && <Callstack activeInstance={selectedPool} xClick={xClick} />}
               {activeTab === 'block' && <BlockStatus activeInstance={selectedPool} lookupTile={lookupTile} timestamp={realtimeGraph ? xClick + realtimeGraphOffset : xClick} realtimeGraph={realtimeGraph} leftPadding={leftPadding} rightPadding={rightPadding}/>}
             </div>

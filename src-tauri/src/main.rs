@@ -384,7 +384,7 @@ fn set_block_size(state: tauri::State<AppState>, damselfly_instance: u64, new_bl
 }
 
 #[tauri::command]
-fn get_operation_log(state: tauri::State<AppState>, damselfly_instance: u64) -> Result<Vec<String>, String> {
+fn get_operation_log(state: tauri::State<AppState>, damselfly_instance: u64, left_padding: u64, right_padding: u64) -> Result<Vec<String>, String> {
     let mut viewer_lock = state.viewer.lock().unwrap();
     if let Some(viewer) = &mut *viewer_lock {
         Ok(viewer
@@ -394,7 +394,16 @@ fn get_operation_log(state: tauri::State<AppState>, damselfly_instance: u64) -> 
             .get_operation_history()
             .iter()
             .take(128)
-            .map(|update| update.to_string())
+            .map(|update| {
+                let mut update_with_padding_trimmed = update.clone();
+                update_with_padding_trimmed.set_absolute_size(
+                    update_with_padding_trimmed.get_absolute_size() - right_padding as usize
+                );
+                update_with_padding_trimmed.set_absolute_address(
+                    update_with_padding_trimmed.get_absolute_address() - left_padding as usize
+                );
+                update_with_padding_trimmed.to_string()
+            })
             .collect())
     } else {
         Err("Viewer is not initialised".to_string())

@@ -18,12 +18,13 @@ pub struct MemoryUsageFactory {
 }
 
 impl MemoryUsageFactory {
-    pub fn new(memory_updates: Vec<MemoryUpdateType>, distinct_block_left_padding: usize, distinct_block_right_padding: usize)
+    pub fn new(memory_updates: Vec<MemoryUpdateType>, distinct_block_left_padding: usize, distinct_block_right_padding: usize,
+                pool_start: usize, pool_stop: usize)
         -> MemoryUsageFactory {
         MemoryUsageFactory {
             memory_updates,
-            lowest_address: usize::MAX,
-            highest_address: usize::MIN,
+            lowest_address: pool_start,
+            highest_address: pool_stop,
             distinct_block_left_padding,
             distinct_block_right_padding,
             lapper: Lapper::new(vec![]),
@@ -40,6 +41,7 @@ impl MemoryUsageFactory {
         let mut max_usage = 0;
         let mut max_free_blocks: u128 = 0;
         let mut max_free_segment_fragmentation = 0;
+        let mut max_largest_free_block = 0;
         let mut memory_usages = Vec::new();
 
         let mut distinct_block_counter = DistinctBlockCounter::new(vec![], self.distinct_block_left_padding, self.distinct_block_right_padding, Some((self.lowest_address, self.highest_address)));
@@ -58,11 +60,13 @@ impl MemoryUsageFactory {
             max_distinct_blocks = max(max_distinct_blocks, distinct_blocks);
             max_free_blocks = max(max_free_blocks, free_blocks.len() as u128);
             max_free_segment_fragmentation = max(max_free_segment_fragmentation, free_segment_fragmentation);
+            max_largest_free_block = max(max_largest_free_block, largest_free_block.2);
 
             memory_usages.push(MemoryUsage::new(current_usage, distinct_blocks, largest_free_block, free_blocks.len(), free_segment_fragmentation, index, real_timestamp_microseconds, self.counter));
             self.counter += 1;
         }
-        MemoryUsageStats::new(memory_usages, max_usage, max_free_blocks, max_distinct_blocks, max_free_segment_fragmentation)
+        MemoryUsageStats::new(memory_usages, max_usage, max_free_blocks, max_distinct_blocks,
+                              max_free_segment_fragmentation, max_largest_free_block as u128)
     }
 
     fn get_total_usage_delta(memory_update: &MemoryUpdateType) -> i128 {
@@ -88,7 +92,7 @@ mod tests {
     fn initialise_test_log() -> MemoryUsageStats {
         let mst_parser = MemorySysTraceParser::new();
         let updates = mst_parser.parse_log_directly(TEST_LOG, TEST_BINARY_PATH).memory_updates;
-        let mut memory_usage_factory = MemoryUsageFactory::new(updates, 0, 0);
+        let mut memory_usage_factory = MemoryUsageFactory::new(updates, 0, 0, usize::MIN, usize::MAX);
         memory_usage_factory.calculate_usage_stats()
     }
 
@@ -134,7 +138,7 @@ mod tests {
         let first_update = MemoryUpdateType::Allocation(Allocation::new(0, 8, Arc::new(String::new()), 0, String::from("0001.676 s")));
         let second_update = MemoryUpdateType::Allocation(Allocation::new(12, 8, Arc::new(String::new()), 0, String::from("0001.677 s")));
         let usage_stats =
-            MemoryUsageFactory::new(vec![first_update, second_update], 0, 0)
+            MemoryUsageFactory::new(vec![first_update, second_update], 0, 0, usize::MIN, usize::MAX)
                 .calculate_usage_stats();
         assert_eq!(usage_stats.get_max_distinct_blocks(), 2);
     }
@@ -144,7 +148,7 @@ mod tests {
         let first_update = MemoryUpdateType::Allocation(Allocation::new(0, 8, Arc::new(String::new()), 0, String::from("0001.676 s")));
         let second_update = MemoryUpdateType::Allocation(Allocation::new(12, 8, Arc::new(String::new()), 0, String::from("0001.677 s")));
         let usage_stats =
-            MemoryUsageFactory::new(vec![first_update, second_update], 0, 4)
+            MemoryUsageFactory::new(vec![first_update, second_update], 0, 4, usize::MIN, usize::MAX)
                 .calculate_usage_stats();
         assert_eq!(usage_stats.get_max_distinct_blocks(), 1);
     }
@@ -154,7 +158,7 @@ mod tests {
         let first_update = MemoryUpdateType::Allocation(Allocation::new(0, 8, Arc::new(String::new()), 0, String::from("0001.676 s")));
         let second_update = MemoryUpdateType::Allocation(Allocation::new(12, 8, Arc::new(String::new()), 0, String::from("0001.677 s")));
         let usage_stats =
-            MemoryUsageFactory::new(vec![first_update, second_update], 4, 0)
+            MemoryUsageFactory::new(vec![first_update, second_update], 0, 8, usize::MIN, usize::MAX)
                 .calculate_usage_stats();
         assert_eq!(usage_stats.get_max_distinct_blocks(), 2);
     }
@@ -165,12 +169,12 @@ mod tests {
         let second_update = MemoryUpdateType::Allocation(Allocation::new(20, 8, Arc::new(String::new()), 1, String::from("0001.677 s")));
         let third_update = MemoryUpdateType::Allocation(Allocation::new(32, 8, Arc::new(String::new()), 2, String::from("0001.678 s")));
         let usage_stats =
-            MemoryUsageFactory::new(vec![first_update.clone(), second_update.clone(), third_update.clone()], 2, 2)
+            MemoryUsageFactory::new(vec![first_update.clone(), second_update.clone(), third_update.clone()], 2, 2, usize::MIN, usize::MAX)
                 .calculate_usage_stats();
         assert_eq!(usage_stats.get_max_distinct_blocks(), 1);
 
         let usage_stats =
-            MemoryUsageFactory::new(vec![first_update, second_update, third_update], 4, 0)
+            MemoryUsageFactory::new(vec![first_update, second_update, third_update], 4, 0, usize::MIN, usize::MAX)
                 .calculate_usage_stats();
         assert_eq!(usage_stats.get_max_distinct_blocks(), 1);
     }

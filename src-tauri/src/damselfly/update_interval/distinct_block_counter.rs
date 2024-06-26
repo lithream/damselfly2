@@ -46,7 +46,7 @@ impl DistinctBlockCounter {
                 manually_track_memory_bounds = true;
             }
         }
-        DistinctBlockCounter {
+        let mut distinct_block_counter = DistinctBlockCounter {
             start, 
             stop,
             left_padding,
@@ -61,12 +61,17 @@ impl DistinctBlockCounter {
             free_blocks: Vec::new(),
             free_space: 0,
             free_blocks_to_free_space_ratio: 0,
-        }
+        };
+        distinct_block_counter.starts_set.insert(stop);
+        distinct_block_counter.ends_set.insert(start);
+        distinct_block_counter.starts_tree.insert(stop);
+        distinct_block_counter.ends_tree.insert(start);
+        distinct_block_counter
     }
 
     pub fn push_update(&mut self, update: &MemoryUpdateType) {
-        let start = update.get_start() - self.left_padding;
-        let end = update.get_end() + self.right_padding;
+        let start = update.get_start().saturating_sub(self.left_padding);
+        let end = update.get_end().saturating_add(self.right_padding);
         let mut left_attached = false;
         let mut right_attached = false;
         let mut block_delta: i64 = 0;
@@ -130,6 +135,7 @@ impl DistinctBlockCounter {
         let mut cur_start = starts_iter.next();
         let mut cur_end = ends_iter.next();
         let mut free_blocks: Vec<(usize, usize)> = Vec::new();
+        
         // free blocks start from the end of an alloc and last until the start of a new alloc.
         // exception: adjacent allocs, as they are not merged
             while let (Some(cur_start_val), Some(cur_end_val)) = (cur_start, cur_end) {
@@ -149,8 +155,8 @@ impl DistinctBlockCounter {
                 // if start > end, we have a free block spanning from [end..start)
                 if cur_start_val > cur_end_val {
                     free_blocks.push((*cur_end_val, *cur_start_val));
-                    cur_end = ends_iter.next();
                     self.free_space += (*cur_start_val - *cur_end_val) as u128;
+                    cur_end = ends_iter.next();
                 }
             } 
         

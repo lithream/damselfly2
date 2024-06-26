@@ -12,15 +12,19 @@ interface OperationLogProps {
     setSelectedTile: (block: number) => void;
     setRealtimeGraph: (realtime: boolean) => void;
     setXClick: (x: number) => void;
+    leftPadding: number;
+    rightPadding: number;
 }
 
-function OperationLog({ activeInstance, memoryData, setSelectedBlock, setLookupTile, setSelectedTile, setRealtimeGraph, setXClick }: OperationLogProps) {
+function OperationLog({ activeInstance, memoryData, setSelectedBlock, setLookupTile, setSelectedTile, setRealtimeGraph, setXClick, leftPadding, rightPadding }: OperationLogProps) {
     const [log, setLog] = useState<string[]>([]);
     useEffect(() => {
         const fetchLog = async () => {
             try {
                 const fetchedLog = await invoke<string[]>("get_operation_log", {
-                    damselflyInstance: activeInstance
+                    damselflyInstance: activeInstance,
+                    leftPadding: leftPadding,
+                    rightPadding: rightPadding
                 });
                 setLog(fetchedLog);
             } catch (error) {

@@ -29,6 +29,7 @@ impl DamselflyInstance {
         let max_distinct_blocks = memory_usage_stats.get_max_distinct_blocks();
         let max_free_blocks = memory_usage_stats.get_max_free_blocks();
         let max_free_segment_fragmentation = memory_usage_stats.get_max_free_segment_fragmentation();
+        let max_largest_free_block = memory_usage_stats.get_max_largest_free_block();
 
         let sampled_memory_usages =
             SampledMemoryUsages::new(DEFAULT_SAMPLE_INTERVAL, memory_usages.clone());
@@ -40,6 +41,7 @@ impl DamselflyInstance {
             max_free_blocks,
             max_distinct_blocks as usize,
             max_free_segment_fragmentation,
+            max_largest_free_block,
             max_timestamp,
         );
 

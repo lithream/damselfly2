@@ -26,6 +26,7 @@ impl DamselflyViewer {
         let pool_restricted_parse_results = mem_sys_trace_parser.parse_log_contents_split_by_pools(log_path, binary_path, distinct_block_left_padding, distinct_block_right_padding);
         for parse_results in &pool_restricted_parse_results {
             let (memory_updates, max_timestamp) = (parse_results.memory_updates.clone(), parse_results.max_timestamp);
+            let (pool_start, pool_stop) = (parse_results.pool.get_start(), parse_results.pool.get_start() + parse_results.pool.get_size());
             let mut resampled_memory_updates = Vec::new();
             // This should really be iter_mut, but I don't want to break anything
             for (index, memory_update) in memory_updates.iter().enumerate() {
@@ -41,7 +42,12 @@ impl DamselflyViewer {
             }
             
             let cache_size = min(cache_size, resampled_memory_updates.len() as u64);
-            let memory_usage_stats = MemoryUsageFactory::new(resampled_memory_updates.clone(), distinct_block_left_padding, distinct_block_right_padding).calculate_usage_stats();
+            let memory_usage_stats = MemoryUsageFactory::new(resampled_memory_updates.clone(), 
+                                                             distinct_block_left_padding,
+                                                             distinct_block_right_padding,
+                                                             pool_start,
+                                                             pool_stop,
+                                                            ).calculate_usage_stats();
             damselfly_viewer.spawn_damselfly(resampled_memory_updates, memory_usage_stats, parse_results.pool.clone(), max_timestamp, cache_size);
         }
 
@@ -96,5 +102,11 @@ mod tests {
     fn test_bug_2() {
         let viewer = DamselflyViewer::new("/home/signal/Downloads/dn/trace.log", "/home/signal/Downloads/dn/threadxApp", 1000, 0, 0);
         assert_eq!(viewer.damselflies.len(), 2);
+    }
+
+    #[test]
+    fn test_bug_3() {
+        let viewer = DamselflyViewer::new("/home/signal/dev/trace.log", "/home/signal/dev/threadxApp", 1000, 0, 8);
+        eprintln!("anchor");
     }
 }
