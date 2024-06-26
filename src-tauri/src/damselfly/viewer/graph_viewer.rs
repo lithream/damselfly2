@@ -159,7 +159,7 @@ impl GraphViewer {
         let mut vector = Vec::new();
         
         for (index, usage) in self.memory_usage_snapshots.iter().enumerate() {
-            vector.push([index as f64, usage.get_largest_free_block().2 as f64]);
+            vector.push([index as f64, usage.get_largest_free_block().2 as f64 * 100.0 / self.]);
         }
         
         vector

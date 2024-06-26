@@ -174,6 +174,14 @@ impl DamselflyInstance {
         self.graph_viewer.get_free_segment_fragmentation_plot_points_realtime_sampled()
     }
     
+    pub fn get_largest_free_block_graph_no_fallbacks(&self) -> Vec<[f64; 2]> {
+        self.graph_viewer.get_largest_free_block_plot_points_no_fallbacks()
+    }
+    
+    pub fn get_largest_free_block_graph_realtime_sampled(&self) -> Vec<[f64; 2]> {
+        self.graph_viewer.get_largest_free_block_plot_points_realtime_sampled()
+    }
+    
     pub fn get_largest_block_graph(&self) -> Vec<[f64; 2]> {
         self.graph_viewer.get_largest_free_block_plot_points()
     }

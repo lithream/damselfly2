@@ -33,6 +33,8 @@ fn main() {
             get_viewer_free_blocks_graph_sampled,
             get_viewer_free_segment_fragmentation_graph_no_fallbacks,
             get_viewer_free_segment_fragmentation_graph_sampled,
+            get_viewer_largest_free_block_graph_no_fallbacks,
+            get_viewer_largest_free_block_graph_sampled,
             get_viewer_map_full_at_colours,
             get_viewer_map_full_at_colours_realtime_sampled,
             choose_files,
@@ -260,6 +262,34 @@ fn get_viewer_free_segment_fragmentation_graph_sampled(state: tauri::State<AppSt
             .get_mut(damselfly_instance as usize)
             .expect("[tauri::command::get_viewer_free_blocks_graph_sampled]: damselfly_instance not found: {damselfly_instance}")
             .get_free_segment_fragmentation_graph_realtime_sampled())
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_viewer_largest_free_block_graph_no_fallbacks(state: tauri::State<AppState>, damselfly_instance: u64) -> Result<Vec<[f64; 2]>, String> {
+    let mut viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = &mut *viewer_lock {
+        Ok(viewer
+            .damselflies
+            .get_mut(damselfly_instance as usize)
+            .expect("[tauri::command::get_viewer_free_blocks_graph_sampled]: damselfly_instance not found: {damselfly_instance}")
+            .get_largest_free_block_graph_no_fallbacks())
+    } else {
+        Err("Viewer is not initialised".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_viewer_largest_free_block_graph_sampled(state: tauri::State<AppState>, damselfly_instance: u64) -> Result<Vec<[f64; 2]>, String> {
+    let mut viewer_lock = state.viewer.lock().unwrap();
+    if let Some(viewer) = &mut *viewer_lock {
+        Ok(viewer
+            .damselflies
+            .get_mut(damselfly_instance as usize)
+            .expect("[tauri::command::get_viewer_free_blocks_graph_sampled]: damselfly_instance not found: {damselfly_instance}")
+            .get_largest_free_block_graph_realtime_sampled())
     } else {
         Err("Viewer is not initialised".to_string())
     }
