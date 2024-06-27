@@ -1,16 +1,13 @@
-use std::cmp::{max, min};
-use std::collections::HashSet;
 use std::iter::StepBy;
 use std::ops::Range;
-use std::sync::Arc;
+
 use rust_lapper::Lapper;
+
 use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use crate::damselfly::update_interval::update_interval_sorter::UpdateIntervalSorter;
-use crate::damselfly::update_interval::update_queue_compressor::UpdateQueueCompressor;
 use crate::damselfly::update_interval::UpdateInterval;
 use crate::damselfly::viewer::memory_block::Block;
-
 
 #[derive(Clone)]
 pub struct MemoryCanvas {
@@ -139,6 +136,7 @@ impl MemoryCanvas {
 
 mod tests {
     use std::sync::Arc;
+
     use crate::damselfly::memory::memory_status::MemoryStatus;
     use crate::damselfly::memory::memory_update::{Allocation, MemoryUpdateType};
     use crate::damselfly::update_interval::update_interval_factory::UpdateIntervalFactory;

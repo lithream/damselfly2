@@ -1,8 +1,9 @@
 use std::cmp::{max, min};
-use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_CACHE_INTERVAL, DEFAULT_MEMORYSPAN};
+
+use crate::damselfly::consts::{DEFAULT_BLOCK_SIZE, DEFAULT_MEMORYSPAN};
 use crate::damselfly::memory::memory_cache::MemoryCache;
 use crate::damselfly::memory::memory_status::MemoryStatus;
-use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
+use crate::damselfly::memory::memory_update::MemoryUpdateType;
 use crate::damselfly::update_interval::UpdateInterval;
 use crate::damselfly::viewer::memory_canvas::MemoryCanvas;
 
@@ -80,10 +81,6 @@ impl MapViewer {
         self.highest_address
     }
 
-    pub fn set_timestamp_from_realtime(&mut self, new_timestamp: u64) {
-        
-    }
-    
     pub fn set_timestamp(&mut self, new_timestamp: usize) {
         self.current_timestamp = new_timestamp.clamp(usize::MIN, self.update_intervals.last().unwrap().val.get_timestamp());
     }

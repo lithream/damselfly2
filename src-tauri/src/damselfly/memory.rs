@@ -17,4 +17,4 @@ pub mod memory_usage_sample;
 pub mod memory_usage_stats;
 pub mod memory_pool;
 pub mod memory_pool_list;
-
+pub mod memory_snapshot;

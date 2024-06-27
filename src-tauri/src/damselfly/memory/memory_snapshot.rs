@@ -1,5 +1,9 @@
+use rust_lapper::Lapper;
+use crate::damselfly::memory::memory_update::MemoryUpdateType;
+use crate::damselfly::update_interval::UpdateInterval;
+
 pub struct MemorySnapshot {
-    lapper: Lapper<UpdateInterval>
+    lapper: Lapper<usize, MemoryUpdateType>
 }
 
 impl MemorySnapshot {

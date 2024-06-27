@@ -1,9 +1,8 @@
 use std::cmp::{max, min};
 use std::collections::HashMap;
-use std::slice::Iter;
+
 use crate::damselfly::memory::memory_usage::MemoryUsage;
 use crate::damselfly::memory::memory_usage_sample::MemoryUsageSample;
-use crate::damselfly::memory::sampled_memory_usages::SampledMemoryUsages;
 use crate::damselfly::memory::utility::Utility;
 
 pub struct SampledMemoryUsagesFactory {
@@ -100,11 +99,7 @@ impl SampledMemoryUsagesFactory {
 }
 
 mod tests {
-    use crate::damselfly::consts::TEST_LOG;
-    use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
     use crate::damselfly::memory::memory_usage::MemoryUsage;
-    use crate::damselfly::memory::memory_usage_factory::MemoryUsageFactory;
-    use crate::damselfly::memory::memory_usage_sample::MemoryUsageSample;
     use crate::damselfly::memory::sampled_memory_usages_factory::SampledMemoryUsagesFactory;
 
     #[test]
@@ -279,21 +274,6 @@ mod tests {
         assert_eq!(buckets[3].get_sampled_usage().get_free_blocks(), 15);
         assert_eq!(buckets[3].get_sampled_usage().get_latest_operation(), 18);
         assert_eq!(buckets[3].get_sampled_usage().get_timestamp_microseconds(), 6);
-    }
-
-    #[test]
-    fn real_log_test() {
-        let memory_updates = MemorySysTraceParser::new().parse_log_directly(TEST_LOG, "./threadxApp").memory_updates;
-        let memory_usage_stats = MemoryUsageFactory::new(memory_updates, 0, 0, usize::MIN, usize::MAX).calculate_usage_stats();
-        let memory_usages = memory_usage_stats.get_memory_usages();
-        let memory_usage_sampler = SampledMemoryUsagesFactory::new(1000000, memory_usages.clone());
-        let buckets = memory_usage_sampler.divide_usages_into_buckets();
-        let buckets_filter: Vec<MemoryUsageSample> = buckets
-            .iter()
-            .filter(|&bucket| bucket.get_sampled_usage().get_memory_used_absolute() > 0)
-            .cloned()
-            .collect();
-        eprintln!("{}", buckets.len());
     }
 }
 

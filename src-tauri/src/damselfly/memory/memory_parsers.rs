@@ -1,12 +1,13 @@
-use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::Read;
 use std::iter::Peekable;
 use std::str::{FromStr, Split};
 use std::sync::Arc;
+
 use addr2line::Context;
 use owo_colors::OwoColorize;
+
 use crate::damselfly::memory::memory_pool::MemoryPool;
 use crate::damselfly::memory::memory_pool_list::MemoryPoolList;
 use crate::damselfly::memory::memory_update::{Allocation, Free, MemoryUpdate, MemoryUpdateType};
@@ -121,7 +122,7 @@ impl MemorySysTraceParser {
         ParseResults::new(self.memory_updates, self.pool_list, self.counter)
     }
     
-    pub fn parse_log_contents_split_by_pools(mut self, log: &str, binary_path: &str, left_padding: usize, right_padding: usize) -> Vec<PoolRestrictedParseResults> {
+    pub fn parse_log_contents_split_by_pools(self, log: &str, binary_path: &str, left_padding: usize, right_padding: usize) -> Vec<PoolRestrictedParseResults> {
         let parse_results = self.parse_log(log, binary_path);
         let mut pool_restricted_parse_results = Vec::new();
         let shifted_pools: Vec<MemoryPool> = parse_results.pool_list.get_pools()
@@ -979,7 +980,7 @@ mod tests {
 
     #[test]
     fn get_pool_bounds_test() {
-        let mut mst_parser = MemorySysTraceParser::new();
+        let mst_parser = MemorySysTraceParser::new();
         let log = "\
 00000151: 03c30560 |V|A|005|        0 us   0003.937 s    < DT:  unknown > + e1684a04 c
 00000152: 03c30560 |V|A|005|        0 us   0003.937 s    < DT:  unknown > ^ e1684a04 [e03c2221]

@@ -80,10 +80,10 @@ mod tests {
     use crate::damselfly::consts::{OVERLAP_FINDER_TEST_LOG, TEST_BINARY_PATH};
     use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
     use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
-    use crate::damselfly::update_interval::interval_to_update_converter::IntervalToUpdateConverter;
     use crate::damselfly::update_interval::overlap_finder::OverlapFinder;
     use crate::damselfly::update_interval::update_interval_factory::UpdateIntervalFactory;
     use crate::damselfly::update_interval::update_queue_compressor::UpdateQueueCompressor;
+    use crate::damselfly::update_interval::utility::Utility;
 
     fn initialise_test_log() -> OverlapFinder {
         let mst_parser = MemorySysTraceParser::new();
@@ -96,7 +96,7 @@ mod tests {
     fn compress_updates_test() {
         let overlap_finder = initialise_test_log();
         let overlaps = overlap_finder.find_overlaps(0, 400);
-        let updates = IntervalToUpdateConverter::convert_intervals_to_updates(&overlaps);
+        let updates = Utility::convert_intervals_to_updates(&overlaps);
         let compressed_updates = UpdateQueueCompressor::compress_ref_to_allocs(&updates);
 
         assert_eq!(compressed_updates.len(), 5);

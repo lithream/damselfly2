@@ -4,7 +4,6 @@
 use damselfly3::damselfly::memory::memory_status::MemoryStatus;
 use damselfly3::damselfly::memory::memory_update::MemoryUpdateType;
 use damselfly3::damselfly::viewer::damselfly_viewer::DamselflyViewer;
-use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
 
 struct AppState {
@@ -482,22 +481,5 @@ fn get_pool_list(state: tauri::State<AppState>) -> Result<Vec<String>, String> {
         .collect());
     } else {
         Err("Viewer is not initialised".to_string())
-    }
-}
-
-mod tests {
-    use damselfly3::damselfly::viewer::damselfly_viewer::DamselflyViewer;
-    use crate::get_viewer_map_full_at_colours;
-
-    #[test]
-    fn test() {
-        let local_log = "/home/signal/dev/test/trace.log";
-        let local_app = "/home/signal/dev/test/threadxApp";
-        let mut damselfly_viewer = DamselflyViewer::new(local_log, local_app, 1000);
-        damselfly_viewer.damselflies[0].set_map_block_size(8);
-        let (timestamp, map) = damselfly_viewer.damselflies[0].get_map_full_at_nosync_colours_truncate(13325, 256);
-        let slice = &map[35770..35870];
-        let graph = damselfly_viewer.damselflies[0].get_usage_graph();
-        eprintln!("done");
     }
 }

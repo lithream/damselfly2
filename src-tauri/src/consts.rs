@@ -1,1 +1,0 @@
-pub const DEFAULT_CELL_WIDTH: f32 = 3.0;

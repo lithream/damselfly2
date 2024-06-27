@@ -35,7 +35,7 @@ impl MemoryStatus {
             MemoryStatus::Allocated(parent_address, _, _, _) => Some(*parent_address),
             MemoryStatus::PartiallyAllocated(parent_address, _, _, _) => Some(*parent_address),
             MemoryStatus::Free(parent_address, _, _, _) => Some(*parent_address),
-            MemoryStatus::Unused(address) => None,
+            MemoryStatus::Unused(_) => None,
         }
     }
     
@@ -52,16 +52,16 @@ impl MemoryStatus {
 impl Display for MemoryStatus {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let str = match self {
-            MemoryStatus::Allocated(parent_address, size, address, callstack) => {
+            MemoryStatus::Allocated(parent_address, size, _address, callstack) => {
                 format!("A {} {} {}", parent_address, size, callstack)
             }
-            MemoryStatus::PartiallyAllocated(parent_address, size, address, callstack) => {
+            MemoryStatus::PartiallyAllocated(parent_address, size, _address, callstack) => {
                 format!("P {} {} {}", parent_address, size, callstack)
             }
-            MemoryStatus::Free(parent_address, size, address, callstack) => {
+            MemoryStatus::Free(parent_address, size, _address, callstack) => {
                 format!("F {} {} {}", parent_address, size, callstack)
             }
-            MemoryStatus::Unused(address) => "U".to_string(),
+            MemoryStatus::Unused(_address) => "U".to_string(),
         };
         write!(f, "{}", str)
     }

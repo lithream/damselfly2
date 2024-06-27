@@ -1,11 +1,8 @@
-use std::cmp::{max, min, Ordering};
+use std::cmp::{max, min};
 use std::collections::{BTreeSet, HashSet};
-use std::time::Instant;
-use rust_lapper::Lapper;
+
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use crate::damselfly::memory::NoHashMap;
-use crate::damselfly::update_interval::update_interval_factory::UpdateIntervalFactory;
-use crate::damselfly::update_interval::update_queue_compressor::UpdateQueueCompressor;
 
 #[derive(Default)]
 pub struct DistinctBlockCounter {
@@ -14,7 +11,6 @@ pub struct DistinctBlockCounter {
     left_padding: usize,
     right_padding: usize,
     manually_track_memory_bounds: bool,
-    memory_updates: NoHashMap<usize, MemoryUpdateType>,
     starts_set: HashSet<usize>,
     ends_set: HashSet<usize>,
     starts_tree: BTreeSet<usize>,
@@ -22,7 +18,6 @@ pub struct DistinctBlockCounter {
     distinct_blocks: u128,
     free_blocks: Vec<(usize, usize)>,
     free_space: u128,
-    free_blocks_to_free_space_ratio: u128,
 }
 
 impl DistinctBlockCounter {
@@ -52,7 +47,6 @@ impl DistinctBlockCounter {
             left_padding,
             right_padding,
             manually_track_memory_bounds,
-            memory_updates: memory_updates_map,
             starts_set: HashSet::new(),
             ends_set: HashSet::new(),
             starts_tree: BTreeSet::new(),
@@ -60,7 +54,6 @@ impl DistinctBlockCounter {
             distinct_blocks: 0,
             free_blocks: Vec::new(),
             free_space: 0,
-            free_blocks_to_free_space_ratio: 0,
         };
         distinct_block_counter.starts_set.insert(stop);
         distinct_block_counter.ends_set.insert(start);

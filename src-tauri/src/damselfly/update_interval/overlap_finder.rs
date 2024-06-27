@@ -1,4 +1,5 @@
 use rust_lapper::{Interval, Lapper};
+
 use crate::damselfly::memory::memory_update::MemoryUpdateType;
 use crate::damselfly::update_interval::UpdateInterval;
 
@@ -30,11 +31,11 @@ impl OverlapFinder {
 }
 
 mod tests {
-    use crate::damselfly::consts::{OVERLAP_FINDER_TEST_LOG, TEST_BINARY_PATH, TEST_LOG};
+    use crate::damselfly::consts::{OVERLAP_FINDER_TEST_LOG, TEST_BINARY_PATH};
     use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
+    use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
     use crate::damselfly::update_interval::overlap_finder::OverlapFinder;
     use crate::damselfly::update_interval::update_interval_factory::UpdateIntervalFactory;
-    use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 
     fn initialise_test_log() -> OverlapFinder {
         let mst_parser = MemorySysTraceParser::new();

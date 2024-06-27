@@ -1,7 +1,6 @@
 use crate::damselfly::memory::memory_pool::MemoryPool;
 use crate::damselfly::memory::memory_pool_list::MemoryPoolList;
 use crate::damselfly::memory::memory_update::MemoryUpdateType;
-use crate::damselfly::update_interval::UpdateInterval;
 
 pub struct UpdatePoolFactory {
 }

@@ -1,26 +1,19 @@
-use std::cmp::{max, min};
-use symbolic::debuginfo::pdb::pdb::FallibleIterator;
-use crate::damselfly::consts::DEFAULT_CACHE_INTERVAL;
+use std::cmp::min;
 use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
 use crate::damselfly::memory::memory_pool::MemoryPool;
 use crate::damselfly::memory::memory_update::MemoryUpdateType;
 use crate::damselfly::memory::memory_usage_factory::MemoryUsageFactory;
 use crate::damselfly::memory::memory_usage_stats::MemoryUsageStats;
 use crate::damselfly::viewer::damselfly_instance::DamselflyInstance;
-use crate::damselfly::viewer::update_pool_factory::UpdatePoolFactory;
 
 pub struct DamselflyViewer {
     pub damselflies: Vec<DamselflyInstance>,
-    distinct_block_left_padding: usize,
-    distinct_block_right_padding: usize,
 }
 
 impl DamselflyViewer {
     pub fn new(log_path: &str, binary_path: &str, cache_size: u64, distinct_block_left_padding: usize, distinct_block_right_padding: usize) -> Self {
         let mut damselfly_viewer = DamselflyViewer {
             damselflies: Vec::new(),
-            distinct_block_left_padding,
-            distinct_block_right_padding,
         };
         let mem_sys_trace_parser = MemorySysTraceParser::new();
         let pool_restricted_parse_results = mem_sys_trace_parser.parse_log_contents_split_by_pools(log_path, binary_path, distinct_block_left_padding, distinct_block_right_padding);
@@ -66,47 +59,5 @@ impl DamselflyViewer {
                 max_timestamp,
             )
         );
-    }
-}
-
-mod tests {
-    use crate::damselfly::consts::{DEFAULT_CACHE_INTERVAL, TEST_BINARY_PATH, TEST_LOG, TEST_LOG_PATH};
-    use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
-    use crate::damselfly::memory::memory_usage::MemoryUsage;
-    use crate::damselfly::memory::memory_usage_factory::MemoryUsageFactory;
-    use crate::damselfly::viewer::damselfly_viewer::DamselflyViewer;
-
-    fn initialise_test_log() -> DamselflyViewer {
-        let mst_parser = MemorySysTraceParser::new();
-        let updates = mst_parser.parse_log_directly(TEST_LOG, TEST_BINARY_PATH);
-        let viewer = DamselflyViewer::new(TEST_LOG_PATH, TEST_BINARY_PATH, DEFAULT_CACHE_INTERVAL, 0, 0);
-        viewer
-    }
-
-    fn initialise_log(log_path: &str) -> DamselflyViewer {
-        let mst_parser = MemorySysTraceParser::new();
-        let updates = mst_parser.parse_log_directly(TEST_LOG, TEST_BINARY_PATH);
-        let viewer = DamselflyViewer::new(log_path, TEST_BINARY_PATH, DEFAULT_CACHE_INTERVAL, 0, 0);
-        viewer
-    }
-
-    #[test]
-    fn test_bug() {
-        let mst_parser = MemorySysTraceParser::new();
-        let mut viewer = DamselflyViewer::new("/work/dev/hp/dune/trace.log", "/work/dev/hp/dune/build/output/threadx-cortexa7-debug/ares/dragonfly-lp1/debug/defaultProductGroup/threadxApp", 1000, 0, 0);
-        let map = viewer.damselflies[0].get_map_full_at_nosync_colours_truncate(0, 256);
-        dbg!(&map);
-    }
-
-    #[test]
-    fn test_bug_2() {
-        let viewer = DamselflyViewer::new("/home/signal/Downloads/dn/trace.log", "/home/signal/Downloads/dn/threadxApp", 1000, 0, 0);
-        assert_eq!(viewer.damselflies.len(), 2);
-    }
-
-    #[test]
-    fn test_bug_3() {
-        let viewer = DamselflyViewer::new("/home/signal/dev/trace.log", "/home/signal/dev/threadxApp", 1000, 0, 8);
-        eprintln!("anchor");
     }
 }

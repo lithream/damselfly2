@@ -1,10 +1,6 @@
 use crate::damselfly::memory::memory_usage::MemoryUsage;
 use crate::damselfly::memory::sampled_memory_usages::SampledMemoryUsages;
 
-enum GraphMode {
-    NORMAL,
-    MARKED
-}
 
 pub struct GraphViewer {
     memory_usage_snapshots: Vec<MemoryUsage>,
@@ -16,9 +12,6 @@ pub struct GraphViewer {
     max_distinct_blocks: usize,
     max_free_segment_fragmentation: u128,
     max_largest_free_block: u128,
-    left_mark: usize,
-    right_mark: usize,
-    graph_mode: GraphMode,
     max_timestamp: u64
 }
 
@@ -38,9 +31,6 @@ impl GraphViewer {
             max_distinct_blocks,
             max_free_segment_fragmentation,
             max_largest_free_block,
-            left_mark: 0,
-            right_mark: 0,
-            graph_mode: GraphMode::NORMAL,
             max_timestamp,
         }
     }
