@@ -34,6 +34,7 @@ impl Utility {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use crate::damselfly::memory::utility::Utility;
 

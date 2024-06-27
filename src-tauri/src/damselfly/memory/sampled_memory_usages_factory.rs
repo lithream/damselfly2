@@ -98,6 +98,7 @@ impl SampledMemoryUsagesFactory {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use crate::damselfly::memory::memory_usage::MemoryUsage;
     use crate::damselfly::memory::sampled_memory_usages_factory::SampledMemoryUsagesFactory;

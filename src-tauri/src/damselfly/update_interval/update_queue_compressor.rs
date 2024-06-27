@@ -76,6 +76,7 @@ impl UpdateQueueCompressor {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use crate::damselfly::consts::{OVERLAP_FINDER_TEST_LOG, TEST_BINARY_PATH};
     use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;

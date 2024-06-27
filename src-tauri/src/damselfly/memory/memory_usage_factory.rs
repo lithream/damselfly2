@@ -81,6 +81,7 @@ impl MemoryUsageFactory {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use std::sync::Arc;
     use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;

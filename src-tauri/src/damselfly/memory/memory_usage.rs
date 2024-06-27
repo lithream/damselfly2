@@ -107,6 +107,7 @@ impl Ord for MemoryUsage {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use crate::damselfly::memory::memory_usage::MemoryUsage;
 
