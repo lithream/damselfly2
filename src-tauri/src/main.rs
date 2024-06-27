@@ -1,7 +1,6 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use damselfly3::damselfly::memory::memory_status::MemoryStatus;
 use damselfly3::damselfly::memory::memory_update::MemoryUpdateType;
 use damselfly3::damselfly::viewer::damselfly_viewer::DamselflyViewer;
 use std::sync::{Arc, Mutex};
@@ -289,34 +288,6 @@ fn get_viewer_largest_free_block_graph_sampled(state: tauri::State<AppState>, da
             .get_mut(damselfly_instance as usize)
             .expect("[tauri::command::get_viewer_free_blocks_graph_sampled]: damselfly_instance not found: {damselfly_instance}")
             .get_largest_free_block_graph_realtime_sampled())
-    } else {
-        Err("Viewer is not initialised".to_string())
-    }
-}
-
-#[tauri::command]
-fn get_viewer_map(state: tauri::State<AppState>, damselfly_instance: u64) -> Result<Vec<MemoryStatus>, String> {
-    let mut viewer_lock = state.viewer.lock().unwrap();
-    if let Some(viewer) = &mut *viewer_lock {
-        Ok(viewer
-            .damselflies
-            .get_mut(damselfly_instance as usize)
-            .expect("[tauri::command::get_viewer_map]: damselfly instance not found: {damselfly_instance}")
-            .get_map_full_nosync())
-    } else {
-        Err("Viewer is not initialised".to_string())
-    }
-}
-
-#[tauri::command]
-fn get_viewer_map_full_at(state: tauri::State<AppState>, damselfly_instance: u64, timestamp: usize) -> Result<Vec<MemoryStatus>, String> {
-    let mut viewer_lock = state.viewer.lock().unwrap();
-    if let Some(viewer) = &mut *viewer_lock {
-        Ok(viewer
-            .damselflies
-            .get_mut(damselfly_instance as usize)
-            .expect("[tauri::command::get_viewer_map_full_at]: damselfly_instance not found: {damselfly_instance}")
-            .get_map_full_at_nosync(timestamp))
     } else {
         Err("Viewer is not initialised".to_string())
     }

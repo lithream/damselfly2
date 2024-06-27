@@ -1,6 +1,5 @@
 use std::cmp::{max};
 use owo_colors::OwoColorize;
-use rust_lapper::Lapper;
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use crate::damselfly::memory::memory_usage::MemoryUsage;
 use crate::damselfly::memory::memory_usage_stats::MemoryUsageStats;

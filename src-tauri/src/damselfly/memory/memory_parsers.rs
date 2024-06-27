@@ -123,7 +123,12 @@ impl MemorySysTraceParser {
     }
     
     pub fn parse_log_contents_split_by_pools(self, log: &str, binary_path: &str, left_padding: usize, right_padding: usize) -> Vec<PoolRestrictedParseResults> {
-        let parse_results = self.parse_log(log, binary_path);
+        let mut parse_results = self.parse_log(log, binary_path);
+        if parse_results.pool_list.get_pools().is_empty() {
+            let span = Self::get_updates_span(&parse_results.memory_updates);
+            parse_results.pool_list.add_pool(MemoryPool::new(span.0 as usize, (span.1 - span.0) as usize, "_default pool".to_string()));
+        }
+
         let mut pool_restricted_parse_results = Vec::new();
         let shifted_pools: Vec<MemoryPool> = parse_results.pool_list.get_pools()
             .iter().cloned()
@@ -145,12 +150,24 @@ impl MemorySysTraceParser {
         pool_restricted_parse_results
     }
 
-    fn compute_pool_bounds(&mut self, line: &str) -> (usize, usize) {
-        let line_parts: Vec<&str> = line.split(' ').collect();
-        if line_parts.len() < 3 {
-            panic!("[MemorySysTraceParser::get_pool_bounds]: Pool bounds line has fewer than 3 parts");
-        }
-        (usize::from_str_radix(line_parts[line_parts.len() - 2], 16).unwrap(), usize::from_str_radix(line_parts[line_parts.len() - 1], 16).unwrap())
+    pub fn get_updates_span(updates: &[MemoryUpdateType]) -> (u128, u128) {
+        let lowest_address = updates
+            .iter()
+            .min_by(|prev, next| {
+                prev.get_absolute_address().cmp(&next.get_absolute_address())
+            })
+            .expect("[MemorySysTraceParser::[get_updates_span]: Unable to find lowest address for default pool")
+            .get_start();
+
+        let highest_address = updates
+            .iter()
+            .max_by(|prev, next| {
+                (prev.get_absolute_address() + prev.get_absolute_size()).cmp(&(next.get_absolute_address() + next.get_absolute_size()))
+            })
+            .expect("[MemorySysTraceParser::[get_updates_span]: Unable to find lowest address for default pool")
+            .get_end();
+
+        (lowest_address as u128, highest_address as u128)
     }
 
     /// Checks if a line in the log contains none of the following:
