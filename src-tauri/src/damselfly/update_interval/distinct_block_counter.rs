@@ -1,3 +1,5 @@
+//! State machine. Push updates to it and query statistics after each push. Despite its name it 
+//! computes statistics other than just no. of distinct blocks.
 use std::cmp::{max, min};
 use std::collections::{BTreeSet, HashSet};
 
@@ -21,6 +23,17 @@ pub struct DistinctBlockCounter {
 }
 
 impl DistinctBlockCounter {
+    /// Constructor.
+    /// 
+    /// # Arguments 
+    /// 
+    /// * `memory_updates`: Vec of memory updates.
+    /// * `left_padding`: Padding to the left of each update (shifts the address).
+    /// * `right_padding`: Padding to the right of each update (increases the size).
+    /// * `memory_bounds`: Pool bounds, if known. Otherwise, the DistinctBlockCounter will compute 
+    /// this on the fly based on the addresses it sees.
+    /// 
+    /// returns: DistinctBlockCounter 
     pub fn new(memory_updates: Vec<MemoryUpdateType>, left_padding: usize, right_padding: usize, memory_bounds: Option<(usize, usize)>) -> DistinctBlockCounter {
         let mut memory_updates_map: NoHashMap<usize, MemoryUpdateType> = NoHashMap::default();
         for memory_update in memory_updates {
@@ -55,6 +68,12 @@ impl DistinctBlockCounter {
             free_blocks: Vec::new(),
             free_space: 0,
         };
+
+        /*
+        These are added so that free blocks starting from the start of memory bounds,
+        or free blocks ending at the end of memory bounds,
+        are still counted.
+        */
         distinct_block_counter.starts_set.insert(stop);
         distinct_block_counter.ends_set.insert(start);
         distinct_block_counter.starts_tree.insert(stop);
@@ -62,6 +81,13 @@ impl DistinctBlockCounter {
         distinct_block_counter
     }
 
+    /// Push an update into the state machine. You may query statistics after each push.
+    /// 
+    /// # Arguments 
+    /// 
+    /// * `update`: Memory update to push.
+    /// 
+    /// returns: () 
     pub fn push_update(&mut self, update: &MemoryUpdateType) {
         let start = update.get_start().saturating_sub(self.left_padding);
         let end = update.get_end().saturating_add(self.right_padding);
@@ -122,6 +148,7 @@ impl DistinctBlockCounter {
         self.distinct_blocks = self.distinct_blocks.saturating_add_signed(block_delta as i128);
     }
 
+    /// Calculates free blocks and stores them within the struct.
     pub fn calculate_free_blocks(&mut self) {
         let mut starts_iter = self.starts_tree.iter();
         let mut ends_iter = self.ends_tree.iter();
@@ -156,6 +183,9 @@ impl DistinctBlockCounter {
         self.free_blocks = free_blocks;
     }
     
+    /// Gets the fragmentation of the total free area, which is equivalent to:
+    /// 
+    /// returns: ((total free bytes) / (largest free block)) - 1
     pub fn get_free_segment_fragmentation(&self) -> u128 {
         let largest_free_block = self.free_blocks.iter().max_by(|prev, next| {
             (prev.1 - prev.0).cmp(&(next.1 - next.0))
@@ -167,7 +197,9 @@ impl DistinctBlockCounter {
         0
     }
     
-    // returns (start, end, size)
+    /// Gets the largest free block
+    /// 
+    /// returns: (start, end, size)
     pub fn get_largest_free_block(&self) -> (usize, usize, usize) {
         let mut largest_block = (0, 0, 0);
         for block in &self.free_blocks {
@@ -181,6 +213,14 @@ impl DistinctBlockCounter {
         largest_block
     }
     
+    /// Updates the tracked memory bounds within the DistinctBlockCounter based on the span of
+    /// a new update.
+    /// 
+    /// # Arguments 
+    /// 
+    /// * `update`: The latest update.
+    /// 
+    /// returns: () 
     fn calculate_new_memory_bounds(&mut self, update: &MemoryUpdateType) {
         let new_start;
         let new_stop;

@@ -1,3 +1,7 @@
+//! Graph component.
+//! 
+//! Most of these methods are called in DamselflyInstance. Consult its documentation to see how each one 
+//! might be used.
 use crate::damselfly::memory::memory_usage::MemoryUsage;
 use crate::damselfly::memory::sampled_memory_usages::SampledMemoryUsages;
 
@@ -204,37 +208,6 @@ impl GraphViewer {
     
     pub fn get_operation_timestamp_of_realtime_timestamp(&self, realtime_timestamp: u64) -> u64 {
         self.sampled_memory_usage_snapshots.get_operation_timestamps_in_realtime_timestamp(realtime_timestamp).1
-    }
-
-    pub fn set_sample_interval(&mut self, new_sample_interval: u64) {
-        self.sampled_memory_usage_snapshots.set_sample_interval(new_sample_interval);
-    }
-
-    pub fn get_total_operations(&self) -> usize {
-        self.memory_usage_snapshots.len()
-    }
-
-    pub fn get_highlight(&self) -> usize {
-        if let Some(highlight) = self.current_highlight {
-            return highlight;
-        }
-        self.saved_highlight
-    }
-
-    pub fn set_current_highlight(&mut self, new_highlight: usize) {
-        self.current_highlight = Some(new_highlight);
-    }
-
-    pub fn set_saved_highlight(&mut self, new_highlight: usize) {
-        self.saved_highlight = new_highlight;
-    }
-
-    pub fn clear_current_highlight(&mut self) {
-        self.current_highlight = None;
-    }
-
-    pub fn get_saved_highlight(&self) -> usize {
-        self.saved_highlight
     }
 
     fn get_max_usage(&self) -> i128 {

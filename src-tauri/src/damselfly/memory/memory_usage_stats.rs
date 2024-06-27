@@ -1,3 +1,4 @@
+//! Contains memory usage stats.
 use crate::damselfly::memory::memory_usage::MemoryUsage;
 
 #[derive(Clone)]

@@ -1,9 +1,18 @@
+//! Utility struct that compresses updates. It does this by deleting allocs that have a corresponding free.
+//! Use this when you only care about the result of a collection of updates.
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use crate::damselfly::update_interval::UpdateInterval;
 
 pub struct UpdateQueueCompressor { }
 
 impl UpdateQueueCompressor {
+    /// Compresses updates by removing allocs with corresponding frees.
+    /// 
+    /// # Arguments 
+    /// 
+    /// * `updates`: Updates to compress.
+    /// 
+    /// returns: Compressed updates.
     pub fn compress_to_allocs(updates: &Vec<MemoryUpdateType>) -> Vec<MemoryUpdateType> {
         let mut compressed_updates = Vec::new();
         for update in updates {
@@ -29,6 +38,7 @@ impl UpdateQueueCompressor {
         compressed_updates
     }
 
+    /// I don't remember how this differs from compress_to_allocs...
     pub fn compress_ref_to_allocs(updates: &Vec<&MemoryUpdateType>) -> Vec<MemoryUpdateType> {
         let mut compressed_updates = Vec::new();
         for update in updates {
@@ -52,6 +62,13 @@ impl UpdateQueueCompressor {
         compressed_updates
     }
     
+    /// Compresses a list of Intervals by deleting allocations that have corresponding frees.
+    /// 
+    /// # Arguments 
+    /// 
+    /// * `updates`: Intervals to compress.
+    /// 
+    /// returns: Compressed intervals.
     pub fn compress_intervals(updates: Vec<&UpdateInterval>) -> Vec<MemoryUpdateType> {
         let mut compressed_updates = Vec::new();
         for update in updates {
@@ -79,7 +96,7 @@ impl UpdateQueueCompressor {
 #[cfg(test)]
 mod tests {
     use crate::damselfly::consts::{OVERLAP_FINDER_TEST_LOG, TEST_BINARY_PATH};
-    use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
+    use crate::damselfly::memory::memory_parsers::{MemoryParser, MemorySysTraceParser};
     use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
     use crate::damselfly::update_interval::overlap_finder::OverlapFinder;
     use crate::damselfly::update_interval::update_interval_factory::UpdateIntervalFactory;

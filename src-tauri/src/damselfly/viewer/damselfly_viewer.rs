@@ -1,3 +1,8 @@
+//! The main struct. Instantiate a DamselflyViewer with your log file and binary, and it will
+//! create DamselflyInstances for each memory pool.
+//!
+//! DamselflyViewer also exposes methods for querying each DamselflyInstance to generate memory maps,
+//! get graphs etc.
 use std::cmp::min;
 use crate::damselfly::memory::memory_parsers::{MemoryParser};
 use crate::damselfly::memory::memory_pool::MemoryPool;
@@ -11,7 +16,26 @@ pub struct DamselflyViewer {
 }
 
 impl DamselflyViewer {
-    pub fn new(log_path: &str, binary_path: &str, cache_size: u64, distinct_block_left_padding: usize, distinct_block_right_padding: usize, parser: impl MemoryParser) -> Self {
+    /// Constructor.
+    ///
+    /// # Arguments
+    ///
+    /// * `log_path`: Path to log file.
+    /// * `binary_path`: Path to threadxApp binary for debuginfo.
+    /// * `cache_size`: Interval between cached maps.
+    /// * `distinct_block_left_padding`: Padding to the left of each memory update (shifts the address).
+    /// * `distinct_block_right_padding`: Padding to the right of each memory update (increases the size.
+    /// * `parser`: The parser used to parse the log file. You can implement your own if you like.
+    ///
+    /// returns: DamselflyViewer
+    pub fn new(
+        log_path: &str,
+        binary_path: &str,
+        cache_size: u64,
+        distinct_block_left_padding: usize,
+        distinct_block_right_padding: usize,
+        parser: impl MemoryParser
+    ) -> Self {
         let mut damselfly_viewer = DamselflyViewer {
             damselflies: Vec::new(),
         };
@@ -46,6 +70,18 @@ impl DamselflyViewer {
         damselfly_viewer
     }
 
+    /// Spawns a DamselflyInstance. Each DamselflyInstance manages a single memory pool, encapsulating
+    /// the graph and memory map for each.
+    ///
+    /// # Arguments
+    ///
+    /// * `memory_updates`: Vec of memory updates.
+    /// * `memory_usage_stats`: Memory usage stats.
+    /// * `pool`: Pool to associate with this instance.
+    /// * `max_timestamp`: Max timestamp in this instance.
+    /// * `cache_size`: Cache size for this instance.
+    ///
+    /// returns: ()
     fn spawn_damselfly(&mut self, memory_updates: Vec<MemoryUpdateType>, memory_usage_stats: MemoryUsageStats, pool: MemoryPool, max_timestamp: u64, cache_size: u64) {
         self.damselflies.push(
             DamselflyInstance::new(

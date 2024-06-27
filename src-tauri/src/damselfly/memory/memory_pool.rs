@@ -63,6 +63,15 @@ impl MemoryPool {
         &self.name
     }
     
+    /// Checks if a range is contained within the pool.
+    /// Use this to check if a memory update falls within this pool.
+    ///
+    /// # Arguments
+    ///
+    /// * `start`: Range start.
+    /// * `end`: Range end.
+    ///
+    /// returns: True if the range is inside the pool, False if otherwise.
     pub fn contains(&self, start: usize, end: usize) -> bool {
         start >= self.start && end < (self.start + self.size)
     }

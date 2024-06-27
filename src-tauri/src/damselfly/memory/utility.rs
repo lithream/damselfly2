@@ -1,3 +1,4 @@
+//! Utility functions for the memory module.
 use std::str::FromStr;
 use num_traits::cast::FromPrimitive;
 

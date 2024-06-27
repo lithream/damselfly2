@@ -1,3 +1,4 @@
+//! Generates MemoryUsages.
 use std::cmp::{max};
 use owo_colors::OwoColorize;
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
@@ -10,21 +11,32 @@ pub struct MemoryUsageFactory {
     memory_updates: Vec<MemoryUpdateType>,
     lowest_address: usize,
     highest_address: usize,
-    distinct_block_left_padding: usize,
-    distinct_block_right_padding: usize,
+    left_padding: usize,
+    right_padding: usize,
     counter: u64,
 }
 
 impl MemoryUsageFactory {
-    pub fn new(memory_updates: Vec<MemoryUpdateType>, distinct_block_left_padding: usize, distinct_block_right_padding: usize,
-                pool_start: usize, pool_stop: usize)
-        -> MemoryUsageFactory {
+    /// Constructor.
+    /// 
+    /// # Arguments 
+    /// 
+    /// * `memory_updates`: Vec of memory updates.
+    /// * `left_padding`: Padding to the left of each update, shifting the address left.
+    /// * `right_padding`: Padding to the right of each update, increasing the size.
+    /// * `pool_start`: Start of the pool.
+    /// * `pool_stop`: End of the pool.
+    /// 
+    /// returns: MemoryUsageFactory object with methods to compute MemoryUsage stats.
+    pub fn new(memory_updates: Vec<MemoryUpdateType>, left_padding: usize, right_padding: usize,
+               pool_start: usize, pool_stop: usize)
+               -> MemoryUsageFactory {
         MemoryUsageFactory {
             memory_updates,
             lowest_address: pool_start,
             highest_address: pool_stop,
-            distinct_block_left_padding,
-            distinct_block_right_padding,
+            left_padding,
+            right_padding,
             counter: 0,
         }
     }
@@ -41,7 +53,7 @@ impl MemoryUsageFactory {
         let mut max_largest_free_block = 0;
         let mut memory_usages = Vec::new();
 
-        let mut distinct_block_counter = DistinctBlockCounter::new(vec![], self.distinct_block_left_padding, self.distinct_block_right_padding, Some((self.lowest_address, self.highest_address)));
+        let mut distinct_block_counter = DistinctBlockCounter::new(vec![], self.left_padding, self.right_padding, Some((self.lowest_address, self.highest_address)));
         let mut max_distinct_blocks: u128 = 0;
 
         for (index, update) in self.memory_updates.iter().enumerate() {
@@ -81,7 +93,7 @@ impl MemoryUsageFactory {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
-    use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
+    use crate::damselfly::memory::memory_parsers::{MemoryParser, MemorySysTraceParser};
     use crate::damselfly::consts::{TEST_BINARY_PATH, TEST_LOG};
     use crate::damselfly::memory::memory_update::{Allocation, MemoryUpdateType};
     use crate::damselfly::memory::memory_usage_factory::MemoryUsageFactory;

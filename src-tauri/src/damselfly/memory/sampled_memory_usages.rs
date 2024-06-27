@@ -1,3 +1,8 @@
+//! Contains memory usage stats, but for use with realtime graphs where each point on the x-axis 
+//! represents a real span of time such as 100ms. 
+//! 
+//! This struct uses SampledMemoryUsagesFactory to compute the average MemoryUsage for each sample,
+//! where each sample is a point on the x-axis (such as 100ms).
 use crate::damselfly::memory::memory_usage::MemoryUsage;
 use crate::damselfly::memory::memory_usage_sample::MemoryUsageSample;
 use crate::damselfly::memory::sampled_memory_usages_factory::SampledMemoryUsagesFactory;

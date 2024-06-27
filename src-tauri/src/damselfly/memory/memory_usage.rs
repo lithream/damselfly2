@@ -1,3 +1,4 @@
+//! Memory usage at a specific timestamp.
 use std::cmp::Ordering;
 
 #[derive(Debug, Default, Clone)]

@@ -1,3 +1,8 @@
+//! A MemoryUsage created by sampling a group of MemoryUsages. Used for rendering a realtime graph,
+//! where each point on the x-axis represents real time such as 100ms and thus represents the
+//! average of all MemoryUsage points contained within that span.
+//! 
+//! This is just a wrapper struct and does not do any computation to find the average of MemoryUsages.
 use crate::damselfly::memory::memory_usage::MemoryUsage;
 
 #[derive(Clone, Debug)]

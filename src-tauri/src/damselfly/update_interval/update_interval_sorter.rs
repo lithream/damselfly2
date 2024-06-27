@@ -1,3 +1,4 @@
+//! Utility method to sort update intervals.
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use super::UpdateInterval;
 

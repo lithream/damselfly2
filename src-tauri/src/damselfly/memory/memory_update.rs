@@ -1,3 +1,4 @@
+//! A memory update: Allocation or Free.
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use serde::ser::SerializeStruct;
@@ -115,9 +116,18 @@ pub struct Allocation {
     real_timestamp: String,
 }
 
-
-
 impl Allocation {
+    /// Constructor.
+    ///
+    /// # Arguments
+    ///
+    /// * `address`: Address where the allocation starts.
+    /// * `size`: Size of the allocation.
+    /// * `callstack`: Callstack of the allocation.
+    /// * `timestamp`: Absolute operation timestamp of the allocation.
+    /// * `real_timestamp`: String representing the real timestamp e.g. "0020.939 s"
+    ///
+    /// returns: Allocation
     pub fn new(address: usize, size: usize, callstack: Arc<String>, timestamp: usize, real_timestamp: String) -> Allocation {
         Allocation {
             address,
@@ -139,6 +149,17 @@ pub struct Free {
 }
 
 impl Free {
+    /// Constructor.
+    ///
+    /// # Arguments
+    ///
+    /// * `address`: Address where the free starts.
+    /// * `size`: Size of the free.
+    /// * `callstack`: Callstack of the free.
+    /// * `timestamp`: Absolute operation timestamp of the free.
+    /// * `real_timestamp`: String representing the real timestamp e.g. "0020.939 s"
+    ///
+    /// returns: Free
     pub fn new(address: usize, size: usize, callstack: Arc<String>, timestamp: usize, real_timestamp: String) -> Free {
         Free {
             address,
@@ -248,6 +269,7 @@ impl Display for Free {
     }
 }
 
+/// Serialize implementations for IPC to the frontend via Tauri
 impl Serialize for Allocation {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
         let mut state = serializer.serialize_struct("Allocation", 5)?;

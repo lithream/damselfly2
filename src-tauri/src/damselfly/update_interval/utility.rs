@@ -1,9 +1,17 @@
+//! Utility functions for update_interval.
 use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
 use crate::damselfly::update_interval::UpdateInterval;
 
 pub struct Utility {}
 
 impl Utility {
+    /// Gets the start and stop addresses of a MemoryUpdate.
+    /// 
+    /// # Arguments 
+    /// 
+    /// * `memory_update`: Memory update.
+    /// 
+    /// returns: (start, stop) 
     pub fn get_start_and_stop(memory_update: &MemoryUpdateType) -> (usize, usize) {
         let (start, stop) = match memory_update {
             MemoryUpdateType::Allocation(allocation) => {
@@ -19,6 +27,7 @@ impl Utility {
         (start, stop)
     }
     
+    /// Gets the minimum and maximum addresses spanned by a collection of UpdateIntervals.
     pub fn get_canvas_span(update_intervals: &Vec<UpdateInterval>) -> (usize, usize) {
         let mut min = usize::MAX;
         let mut max = usize::MIN;
@@ -29,6 +38,7 @@ impl Utility {
         (min, max)
     }
     
+    /// Converts UpdateIntervals to MemoryUpdateTypes without cloning - lifetimes are preserved.
     pub fn convert_intervals_to_updates<'a>(intervals: &'a Vec<&UpdateInterval>) -> Vec<&'a MemoryUpdateType> {
         let mut update_vec = Vec::new();
         for interval in intervals {
@@ -37,6 +47,7 @@ impl Utility {
         update_vec
     }
 
+    /// Converts UpdateIntervals to MemoryUpdateTypes by cloning.
     pub fn clone_intervals_to_update(intervals: &Vec<&UpdateInterval>) -> Vec<MemoryUpdateType> {
         let mut update_vec = Vec::new();
         for interval in intervals {

@@ -1,15 +1,22 @@
+//! Represents the status of a block of memory.
 use serde::{Serialize, Serializer};
 use std::fmt::{Display, Formatter};
 use std::mem;
 use std::sync::Arc;
 
+/// State of a block of memory.
+/// Parent address is the address of the memory update responsible for giving this block its 
+/// current state.
+/// Address is the address of the block itself.
 #[derive(Debug, Clone)]
 pub enum MemoryStatus {
-    // parent address, total size, address, callstack
+    /// parent address, total size, address, callstack
     Allocated(usize, usize, usize, Arc<String>),
+    /// parent address, total size, address, callstack
     PartiallyAllocated(usize, usize, usize, Arc<String>),
+    /// parent address, total size, address, callstack
     Free(usize, usize, usize, Arc<String>),
-    // address
+    /// address
     Unused(usize),
 }
 

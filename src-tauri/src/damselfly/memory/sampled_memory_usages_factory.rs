@@ -1,3 +1,6 @@
+//! Converts MemoryUsages in absolute operation time to SampledMemoryUsages.
+//! It does this by finding the average MemoryUsage for each sample (such as 100ms intervals) and
+//! generating new MemoryUsages for each sample.
 use std::cmp::{max, min};
 use std::collections::HashMap;
 
@@ -18,9 +21,9 @@ impl SampledMemoryUsagesFactory {
         }
     }
 
-    // average usages in each bucket
-    // push into vec
-    // nonexistent timestamps should just dupe the previous one
+    /// Divides MemoryUsages into buckets, where each bucket spans a specific interval (such as 100ms).
+    ///
+    /// returns: Vec of sampled MemoryUsageSamples, averaged for each sample.
     pub fn divide_usages_into_buckets(&self) -> Vec<MemoryUsageSample> {
         let mut buckets = HashMap::new();
         for usage in &self.memory_usages {
@@ -89,10 +92,6 @@ impl SampledMemoryUsagesFactory {
             }
         }
         averaged_buckets
-    }
-
-    pub fn get_sampled_memory_usages(&self) {
-
     }
 }
 

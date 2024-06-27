@@ -1,3 +1,4 @@
+//! Holds a list of MemoryPools and lets you add to the list.
 use std::collections::HashSet;
 use crate::damselfly::memory::memory_pool::MemoryPool;
 
