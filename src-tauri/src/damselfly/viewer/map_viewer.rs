@@ -9,7 +9,6 @@ use crate::damselfly::memory::memory_cache::MemoryCache;
 use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::MemoryUpdateType;
 use crate::damselfly::update_interval::UpdateInterval;
-use crate::damselfly::viewer::memory_canvas::MemoryCanvas;
 
 pub struct MapViewer {
     map_name: String,
