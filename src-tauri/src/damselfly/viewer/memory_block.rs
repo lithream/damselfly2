@@ -1,3 +1,4 @@
+//! A single block of memory, that spans one or more bytes.
 use std::cmp::{max, min};
 use std::sync::Arc;
 use crate::damselfly::memory::memory_status::MemoryStatus;
@@ -11,6 +12,14 @@ pub struct Block {
 }
 
 impl Block {
+    /// Constructor.
+    /// 
+    /// # Arguments 
+    /// 
+    /// * `block_index`: Index of the block in the memory map.
+    /// * `block_size`: Bytes stored in this block.
+    /// 
+    /// returns: Block 
     pub fn new(block_index: usize, block_size: usize) -> Block {
         Block {
             block_bounds: (block_index, block_index + block_size),
@@ -19,6 +28,16 @@ impl Block {
         }
     }
 
+    /// Takes the provided memory update and updates the status of this block accordingly.
+    /// Checks to see what effect the memory update has on the block, if any, so you can blindly
+    /// call this method on any block and any update and trust that the block will be updated
+    /// correctly.
+    /// 
+    /// # Arguments 
+    /// 
+    /// * `update_interval`: The update that might overlap with this block.
+    /// 
+    /// returns: () 
     pub fn paint_block(&mut self, update_interval: &MemoryUpdateType) {
         let constrained_bounds = (
             max(self.block_bounds.0, update_interval.get_start()),
@@ -50,6 +69,15 @@ impl Block {
         self.block_bounds.1
     }
 
+    /// Updates the block's status depending on how many bytes it has left unallocated.
+    /// 
+    /// # Arguments 
+    /// 
+    /// * `absolute_address`: The address of the memory update to associate with this block.
+    /// * `absolute_size`: The size of the memory update to associate with this block.
+    /// * `callstack`: The callstack to associate with this block.
+    /// 
+    /// returns: () 
     fn update_block_status(&mut self, absolute_address: usize, absolute_size: usize, callstack: Arc<String>) {
         if self.remaining_bytes == 0 {
             self.block_status = MemoryStatus::Allocated(absolute_address, absolute_size, self.block_status.get_address(), callstack);

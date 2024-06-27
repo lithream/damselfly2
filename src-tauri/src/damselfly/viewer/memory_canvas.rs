@@ -1,8 +1,7 @@
+//! A canvas of memory, used to draw the memory map.
 use std::iter::StepBy;
 use std::ops::Range;
-
 use rust_lapper::Lapper;
-
 use crate::damselfly::memory::memory_status::MemoryStatus;
 use crate::damselfly::memory::memory_update::MemoryUpdateType;
 use crate::damselfly::update_interval::update_interval_sorter::UpdateIntervalSorter;
@@ -29,6 +28,7 @@ impl MemoryCanvas {
         }
     }
 
+    /// Paints the canvas based on the blocks it has stored.
     pub fn paint_blocks(&mut self) {
         self.insert_blocks();
         for block in &mut self.blocks {
@@ -43,6 +43,13 @@ impl MemoryCanvas {
         }
     }
 
+    /// Paints the existing canvas with list of temporary updates.
+    /// You might want to call paint_blocks first to paint the canvas with its own blocks, then
+    /// call this to paint over it with the new updates.
+    /// 
+    /// # Arguments 
+    /// 
+    /// * `temporary_updates`: Updates to paint over the canvas.
     pub fn paint_temporary_updates(&mut self, temporary_updates: Vec<UpdateInterval>) {
         let temp_lapper = Lapper::new(temporary_updates);
         for block in &mut self.blocks {
@@ -57,6 +64,14 @@ impl MemoryCanvas {
         }
     }
     
+    /// Paints temporary updates onto the current canvas, but does not modify the canvas. Instead,
+    /// it makes a copy and returns it.
+    /// 
+    /// # Arguments 
+    /// 
+    /// * `temporary_updates`: Updates to paint over the canvas.
+    /// 
+    /// returns: Vec<Block, Global> 
     pub fn simulate_painting_temporary_updates(&self, temporary_updates: Vec<UpdateInterval>) -> Vec<Block> {
         let temp_lapper = Lapper::new(temporary_updates);
         let mut blocks = self.blocks.clone();
@@ -73,6 +88,7 @@ impl MemoryCanvas {
         blocks
     }
 
+    /// Paints the map and returns a Vec of MemoryStatus representing the map.
     pub fn render(&mut self) -> Vec<MemoryStatus> {
         self.paint_blocks();
         self.blocks
@@ -81,6 +97,8 @@ impl MemoryCanvas {
             .collect()
     }
 
+    /// Simulates painting the map with temporary updates and returns a Vec of MemoryStatus representing
+    /// the map.
     pub fn render_temporary(&self, temporary_updates: Vec<UpdateInterval>) -> Vec<MemoryStatus> {
         let blocks = self.simulate_painting_temporary_updates(temporary_updates);
         let mut block_statuses = Vec::new();
@@ -88,30 +106,6 @@ impl MemoryCanvas {
             block_statuses.push(block.block_status);
         }
         block_statuses
-    }
-
-    pub fn set_start(&mut self, new_start: usize) {
-        self.start = new_start;
-    }
-
-    pub fn add_to_start(&mut self, start_delta: usize) {
-        self.start = self.start.saturating_add(start_delta);
-    }
-
-    pub fn sub_from_start(&mut self, start_delta: usize) {
-        self.start = self.start.saturating_sub(start_delta);
-    }
-
-    pub fn set_stop(&mut self, new_stop: usize) {
-        self.stop = new_stop;
-    }
-
-    pub fn add_to_stop(&mut self, stop_delta: usize) {
-        self.stop = self.stop.saturating_add(stop_delta);
-    }
-
-    pub fn sub_from_stop(&mut self, stop_delta: usize) {
-        self.stop = self.stop.saturating_sub(stop_delta);
     }
 
     pub fn insert_blocks(&mut self) {
