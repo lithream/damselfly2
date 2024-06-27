@@ -6,7 +6,6 @@ use crate::damselfly::memory::memory_usage_sample::MemoryUsageSample;
 use crate::damselfly::memory::utility::Utility;
 
 pub struct SampledMemoryUsagesFactory {
-    current_time: u64,
     sample_interval: u64,
     memory_usages: Vec<MemoryUsage>,
 }
@@ -14,7 +13,6 @@ pub struct SampledMemoryUsagesFactory {
 impl SampledMemoryUsagesFactory {
     pub fn new(sample_interval: u64, memory_usages: Vec<MemoryUsage>) -> Self {
         Self {
-            current_time: 0,
             sample_interval,
             memory_usages,
         }

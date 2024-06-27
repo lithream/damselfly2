@@ -13,7 +13,6 @@ pub struct MemoryUsageFactory {
     highest_address: usize,
     distinct_block_left_padding: usize,
     distinct_block_right_padding: usize,
-    lapper: Lapper<usize, MemoryUpdateType>,
     counter: u64,
 }
 
@@ -27,7 +26,6 @@ impl MemoryUsageFactory {
             highest_address: pool_stop,
             distinct_block_left_padding,
             distinct_block_right_padding,
-            lapper: Lapper::new(vec![]),
             counter: 0,
         }
     }

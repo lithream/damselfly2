@@ -4,7 +4,7 @@ use std::ops::Range;
 use rust_lapper::Lapper;
 
 use crate::damselfly::memory::memory_status::MemoryStatus;
-use crate::damselfly::memory::memory_update::{MemoryUpdate, MemoryUpdateType};
+use crate::damselfly::memory::memory_update::MemoryUpdateType;
 use crate::damselfly::update_interval::update_interval_sorter::UpdateIntervalSorter;
 use crate::damselfly::update_interval::UpdateInterval;
 use crate::damselfly::viewer::memory_block::Block;
@@ -123,17 +123,9 @@ impl MemoryCanvas {
     fn get_block_iter(&self) -> StepBy<Range<usize>> {
         (self.start..self.stop).step_by(self.block_size)
     }
-
-    fn get_intervals_overlapping_window(&self) -> Vec<UpdateInterval> {
-        let window_overlaps = self.full_lapper.find(self.start, self.stop).collect::<Vec<&UpdateInterval>>();
-        let mut res = Vec::new();
-        for overlap in window_overlaps {
-            res.push(overlap.clone());
-        }
-        res
-    }
 }
 
+#[cfg(test)]
 mod tests {
     use std::sync::Arc;
 

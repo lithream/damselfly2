@@ -109,7 +109,7 @@ impl MemorySysTraceParser {
         let mut log_iter = log.split('\n').peekable();
         while let Some(line) = log_iter.peek() {
             println!("Reading line: {}", line.cyan());
-            if self.is_line_useless(line) {
+            if self.is_line_useless_and_load_pool(line) {
                 log_iter.next();
                 continue;
             }
@@ -157,6 +157,7 @@ impl MemorySysTraceParser {
     /// Allocation information
     /// Free information
     /// Stacktrace information
+    /// Pool information (calls load_poolbounds and load_poolname accordingly)
     ///
     /// # Arguments
     ///
@@ -164,7 +165,7 @@ impl MemorySysTraceParser {
     ///
     /// returns: true if useless, false if useful
     ///
-    pub fn is_line_useless(&mut self, line: &str) -> bool {
+    pub fn is_line_useless_and_load_pool(&mut self, line: &str) -> bool {
         let split_line = line.split('>').collect::<Vec<_>>();
         if let Some(latter_half) = split_line.get(1) {
             let trimmed_string = latter_half.trim();
@@ -230,7 +231,7 @@ impl MemorySysTraceParser {
         let mut set = HashSet::new();
         let log_iter = log.split('\n');
         for line in log_iter {
-            if self.is_line_useless(line) {
+            if self.is_line_useless_and_load_pool(line) {
                 continue;
             }
             if line.contains('^') {
@@ -348,7 +349,7 @@ impl MemorySysTraceParser {
     pub fn process_instruction(&mut self, log_iter: &mut Peekable<Split<char>>) -> MemoryUpdateType {
         let mut baked_instruction = None;
         for line in &mut *log_iter {
-            if self.is_line_useless(line) {
+            if self.is_line_useless_and_load_pool(line) {
                 continue;
             }
             let record = self.line_to_record(line)
@@ -569,17 +570,17 @@ mod tests {
         let log = [allocation_record, free_record, stacktrace_record, poolbounds_record, poolname_record, useless_record];
         let mut iter = log.iter().peekable();
         let mut mst_parser = MemorySysTraceParser::new();
-        assert!(!mst_parser.is_line_useless(iter.peek().unwrap()));
+        assert!(!mst_parser.is_line_useless_and_load_pool(iter.peek().unwrap()));
         iter.next();
-        assert!(!mst_parser.is_line_useless(iter.peek().unwrap()));
+        assert!(!mst_parser.is_line_useless_and_load_pool(iter.peek().unwrap()));
         iter.next();
-        assert!(!mst_parser.is_line_useless(iter.peek().unwrap()));
+        assert!(!mst_parser.is_line_useless_and_load_pool(iter.peek().unwrap()));
         iter.next();
-        assert!(!mst_parser.is_line_useless(iter.peek().unwrap()));
+        assert!(!mst_parser.is_line_useless_and_load_pool(iter.peek().unwrap()));
         iter.next();
-        assert!(!mst_parser.is_line_useless(iter.peek().unwrap()));
+        assert!(!mst_parser.is_line_useless_and_load_pool(iter.peek().unwrap()));
         iter.next();
-        assert!(mst_parser.is_line_useless(iter.peek().unwrap()));
+        assert!(mst_parser.is_line_useless_and_load_pool(iter.peek().unwrap()));
     }
 
     #[test]
