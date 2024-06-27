@@ -4,6 +4,7 @@
 use damselfly3::damselfly::memory::memory_update::MemoryUpdateType;
 use damselfly3::damselfly::viewer::damselfly_viewer::DamselflyViewer;
 use std::sync::{Arc, Mutex};
+use damselfly3::damselfly::memory::memory_parsers::MemorySysTraceParser;
 
 struct AppState {
     viewer: Arc<Mutex<Option<DamselflyViewer>>>,
@@ -49,7 +50,7 @@ fn main() {
 
 #[tauri::command(rename_all = "snake_case")]
 fn initialise_viewer(state: tauri::State<AppState>, log_path: String, binary_path: String, cache_size: u64, distinct_block_left_padding: usize, distinct_block_right_padding: usize) {
-    let viewer = DamselflyViewer::new(&log_path, &binary_path, cache_size, distinct_block_left_padding, distinct_block_right_padding);
+    let viewer = DamselflyViewer::new(&log_path, &binary_path, cache_size, distinct_block_left_padding, distinct_block_right_padding, MemorySysTraceParser::new());
     state.viewer.lock().unwrap().replace(viewer);
 }
 

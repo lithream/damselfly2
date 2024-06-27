@@ -214,7 +214,7 @@ impl DistinctBlockCounter {
 
 mod tests {
     use crate::damselfly::consts::{TEST_BINARY_PATH, TEST_LOG};
-    use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
+    use crate::damselfly::memory::memory_parsers::{MemoryParser, MemorySysTraceParser};
     use crate::damselfly::memory::memory_update::MemoryUpdateType;
     use crate::damselfly::update_interval::distinct_block_counter::DistinctBlockCounter;
 

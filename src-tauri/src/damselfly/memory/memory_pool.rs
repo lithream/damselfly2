@@ -1,3 +1,4 @@
+//! A pool of memory.
 use std::cmp::Ordering;
 
 #[derive(Default, Clone, Hash)]

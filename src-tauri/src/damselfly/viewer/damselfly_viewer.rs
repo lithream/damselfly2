@@ -1,5 +1,5 @@
 use std::cmp::min;
-use crate::damselfly::memory::memory_parsers::MemorySysTraceParser;
+use crate::damselfly::memory::memory_parsers::{MemoryParser};
 use crate::damselfly::memory::memory_pool::MemoryPool;
 use crate::damselfly::memory::memory_update::MemoryUpdateType;
 use crate::damselfly::memory::memory_usage_factory::MemoryUsageFactory;
@@ -11,12 +11,11 @@ pub struct DamselflyViewer {
 }
 
 impl DamselflyViewer {
-    pub fn new(log_path: &str, binary_path: &str, cache_size: u64, distinct_block_left_padding: usize, distinct_block_right_padding: usize) -> Self {
+    pub fn new(log_path: &str, binary_path: &str, cache_size: u64, distinct_block_left_padding: usize, distinct_block_right_padding: usize, parser: impl MemoryParser) -> Self {
         let mut damselfly_viewer = DamselflyViewer {
             damselflies: Vec::new(),
         };
-        let mem_sys_trace_parser = MemorySysTraceParser::new();
-        let pool_restricted_parse_results = mem_sys_trace_parser.parse_log_contents_split_by_pools(log_path, binary_path, distinct_block_left_padding, distinct_block_right_padding);
+        let pool_restricted_parse_results = parser.parse_log_contents_split_by_pools(log_path, binary_path, distinct_block_left_padding, distinct_block_right_padding);
         for parse_results in &pool_restricted_parse_results {
             let (memory_updates, max_timestamp) = (parse_results.memory_updates.clone(), parse_results.max_timestamp);
             let (pool_start, pool_stop) = (parse_results.pool.get_start(), parse_results.pool.get_start() + parse_results.pool.get_size());
